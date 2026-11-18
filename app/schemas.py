@@ -10,10 +10,12 @@ from pydantic import BaseModel, Field
 
 
 class PotonganDetail(BaseModel):
+    id: str | None = None
     pos_nama: str
     nominal: Decimal
     keterangan: str | None = None
     cicilan_info: str | None = None
+    kategori: str | None = None
 
 
 class SlipGajiResponse(BaseModel):
@@ -26,6 +28,8 @@ class SlipGajiResponse(BaseModel):
     potongan_internal: Decimal
     total_potongan: Decimal
     take_home_pay: Decimal
+    rincian_penghasilan: dict[str, Decimal] = Field(default_factory=dict)
+    rincian_potongan_simgaji: dict[str, Decimal] = Field(default_factory=dict)
     rincian_potongan_internal: list[PotonganDetail]
 
 
@@ -154,3 +158,23 @@ class ManualPotonganImportResponse(BaseModel):
     inserted: int
     updated: int
     warnings: list[str] = Field(default_factory=list)
+
+
+class AuthMeResponse(BaseModel):
+    email: str
+    display_name: str | None = None
+    role: str
+    is_super_admin: bool = False
+    opd_id: int | None = None
+    opd_name: str | None = None
+    needs_opd: bool = False
+    auth_method: str = "firebase"
+
+
+class OpdOptionResponse(BaseModel):
+    id: int
+    nmskpd: str
+
+
+class SetOpdRequest(BaseModel):
+    opd_id: int

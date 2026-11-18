@@ -129,10 +129,14 @@
 
       <div class="window-body app-body">
         <aside class="app-sidebar" aria-label="Sidebar">
-          <div class="profile-card">
-            <div class="profile-avatar" aria-hidden="true">BS</div>
+          <div class="profile-card" id="profile-card" role="button" tabindex="0"
+               title="Buka profil pengguna" aria-label="Buka profil pengguna">
+            <div class="profile-avatar" id="profile-avatar" aria-hidden="true">BS</div>
             <div class="profile-copy">
-              <strong>Bendahara OPD</strong>
+              <div class="profile-name-row">
+                <strong id="profile-name">Bendahara OPD</strong>
+                <span class="profile-role" id="profile-role">Bendahara</span>
+              </div>
               <span id="profile-opd">Badan Kepegawaian dan Pengembangan SDM</span>
             </div>
           </div>
@@ -678,6 +682,11 @@
         <p class="status-bar-field" id="status-opd">OPD: —</p>
         <p class="status-bar-field" id="status-period">Periode: —</p>
         <p class="status-bar-field" id="status-data-mode">Demo</p>
+        <p class="status-bar-field status-account-field">
+          <button type="button" id="status-profile-btn" title="Buka profil pengguna">Profil</button>
+          <button type="button" id="status-change-opd-btn" title="Ganti OPD aktif" hidden>Ganti OPD</button>
+          <button type="button" id="status-logout-btn" title="Keluar dari sesi API" hidden>Logout</button>
+        </p>
       </div>
     </main>
 
@@ -982,6 +991,46 @@
         <div class="dialog-actions">
           <button type="button" class="default" id="btn-run-manual-import">Import</button>
           <button type="button" data-close-modal>Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="window glass active modal-window modal-profile" role="dialog" aria-modal="true"
+         aria-labelledby="profile-title" data-modal="profile" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="profile-title">Profil Pengguna</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="profile-dialog-head">
+          <div class="profile-dialog-avatar" id="profile-dialog-avatar">BS</div>
+          <div class="profile-dialog-copy">
+            <h2 id="profile-dialog-name">Bendahara OPD</h2>
+            <p id="profile-dialog-email">mode-demo@local</p>
+            <span class="role-badge" id="profile-dialog-role">Bendahara</span>
+          </div>
+        </div>
+        <div class="profile-detail-grid">
+          <div><span>OPD aktif</span><strong id="profile-dialog-opd">—</strong></div>
+          <div><span>Metode akses</span><strong id="profile-dialog-method">Mode Demo</strong></div>
+          <div><span>Status akun</span><strong id="profile-dialog-status">Aktif</strong></div>
+          <div><span>Isolasi data</span><strong>Multi-tenant OPD</strong></div>
+        </div>
+        <div class="profile-opd-box" id="profile-opd-box" hidden>
+          <label class="field">
+            <span>Pilih OPD</span>
+            <select id="profile-opd-select"></select>
+          </label>
+          <p class="hint">Nama OPD harus sama dengan kolom <code>nmskpd</code> pada file SIMGAJI.</p>
+          <button type="button" class="default" id="btn-save-profile-opd">Simpan OPD</button>
+        </div>
+        <p class="form-error" id="profile-error" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" id="btn-profile-change-opd" hidden>Ganti OPD</button>
+          <button type="button" id="btn-profile-logout" hidden>Logout</button>
+          <button type="button" data-close-modal>Tutup</button>
         </div>
       </div>
     </div>

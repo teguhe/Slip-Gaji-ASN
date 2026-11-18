@@ -1,195 +1,68 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Cetak Slip Gaji ASN - Ukuran F4</title>
-  <style>
-    /* Ukuran Kertas F4 / Folio: 215mm x 330mm */
-    @page {
-      size: 215mm 330mm;
-      margin: 8mm 10mm;
-    }
-    
-    * {
-      box-sizing: border-box;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 8pt;
-      color: #111;
-      margin: 0;
-      padding: 0;
-      background: #f5f5f5;
-    }
-
-    .page {
-      width: 215mm;
-      height: 330mm;
-      margin: auto;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      page-break-after: always;
-    }
-
-    /* Container untuk 4-5 slip per lembar */
-    .slip-container {
-      height: 60mm; /* Pas untuk 5 slip per halaman (5 x 60mm = 300mm + margin) */
-      border: 1px dashed #777;
-      margin-bottom: 2mm;
-      padding: 4mm 6mm;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      overflow: hidden;
-    }
-
-    .slip-header {
-      border-bottom: 1px solid #333;
-      padding-bottom: 2px;
-      margin-bottom: 3px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-    }
-
-    .slip-header .instansi {
-      font-weight: bold;
-      font-size: 9pt;
-      text-transform: uppercase;
-    }
-
-    .slip-header .periode {
-      font-size: 8pt;
-      font-weight: bold;
-      color: #333;
-    }
-
-    .slip-bio {
-      display: grid;
-      grid-template-columns: 2.5fr 1.5fr 1fr;
-      margin-bottom: 3px;
-      font-size: 7.5pt;
-    }
-
-    .slip-grid {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr 1fr;
-      gap: 6mm;
-      font-size: 7.5pt;
-      border-bottom: 1px solid #aaa;
-      padding-bottom: 2px;
-    }
-
-    .col-title {
-      font-weight: bold;
-      border-bottom: 0.5px solid #ccc;
-      margin-bottom: 2px;
-      padding-bottom: 1px;
-    }
-
-    .item-row {
-      display: flex;
-      justify-content: space-between;
-      line-height: 1.25;
-    }
-
-    .item-label {
-      color: #333;
-    }
-
-    .item-val {
-      font-family: 'Courier New', Courier, monospace;
-      font-weight: 600;
-    }
-
-    .slip-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 2px;
-      font-size: 8pt;
-      font-weight: bold;
-      background: #fafafa;
-      padding: 2px 4px;
-      border: 0.5px solid #ddd;
-    }
-
-    .net-salary {
-      font-size: 9pt;
-      color: #0b6623;
-    }
-
-    @media print {
-      body {
-        background: none;
-      }
-      .page {
-        margin: 0;
-        box-shadow: none;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: 215mm 330mm; margin: 8mm 10mm; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 10px; margin: 0; }
+        .slip-container {
+            height: 60mm; width: 195mm; border: 1px dashed #777;
+            padding: 2mm; box-sizing: border-box; page-break-inside: avoid;
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm;
+        }
+        .header { grid-column: span 3; font-weight: bold; text-align: center; border-bottom: 1px solid #000; }
+        .info { grid-column: span 3; display: flex; justify-content: space-between; }
+        .col { border: 1px solid #ccc; padding: 1mm; }
+        .row { display: flex; justify-content: space-between; }
+        .footer { grid-column: span 3; font-weight: bold; border-top: 1px solid #000; display: flex; justify-content: space-between; }
+        .numeric { text-align: right; font-family: 'Courier New', monospace; }
+        .page-break { page-break-after: always; }
+    </style>
 </head>
 <body>
+    <div id="slip-root"></div>
+    <script>
+        function formatRupiah(num) {
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+        function renderSlips(dataList, period) {
+            const root = document.getElementById('slip-root');
+            dataList.forEach((data, index) => {
+                if (index > 0 && index % 5 === 0) root.innerHTML += '<div class="page-break"></div>';
+                
+                let internalHtml = data.rincian_potongan_internal.map(i => `
+                    <div class="row"><span>${i.pos_nama} ${i.cicilan_info ? '('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>
+                `).join('');
 
-  <div class="page">
-    <!-- Slip 1 (Contoh) -->
-    <div class="slip-container">
-      <div class="slip-header">
-        <span class="instansi">BADAN KEPEGAWAIAN DAN PENGEMBANGAN SUMBER DAYA MANUSIA</span>
-        <span class="periode">SLIP GAJI INDUK - OKTOBER 2026</span>
-      </div>
-
-      <div class="slip-bio">
-        <div><strong>NIP/Nama:</strong> 196812211991011001 / CELSO EDGAR NASCIMENTO</div>
-        <div><strong>Pangkat/Gol:</strong> 4A</div>
-        <div><strong>No. Rekening:</strong> 3033034147</div>
-      </div>
-
-      <div class="slip-grid">
-        <!-- Kolom Penerimaan Pokok & Tunjangan -->
-        <div>
-          <div class="col-title">PENGHASILAN</div>
-          <div class="item-row"><span class="item-label">Gaji Pokok</span><span class="item-val">5.235.000</span></div>
-          <div class="item-row"><span class="item-label">Tj. Istri / Suami</span><span class="item-val">523.500</span></div>
-          <div class="item-row"><span class="item-label">Tj. Anak</span><span class="item-val">104.700</span></div>
-          <div class="item-row"><span class="item-label">Tj. Beras</span><span class="item-val">217.260</span></div>
-          <div class="item-row"><span class="item-label">Tj. Askes / Lainnya</span><span class="item-val">284.812</span></div>
-          <div class="item-row" style="border-top:0.5px dashed #ccc; font-weight:bold;"><span class="item-label">KOTOR</span><span class="item-val">6.365.272</span></div>
-        </div>
-
-        <!-- Kolom Potongan Resmi SIMGAJI -->
-        <div>
-          <div class="col-title">POTONGAN RESMI</div>
-          <div class="item-row"><span class="item-label">IWP Beban Pegawai</span><span class="item-val">58.632</span></div>
-          <div class="item-row"><span class="item-label">IWP Beban Pemda</span><span class="item-val">234.528</span></div>
-          <div class="item-row"><span class="item-label">IWP Taspen</span><span class="item-val">469.056</span></div>
-          <div class="item-row"><span class="item-label">JKK & JKM</span><span class="item-val">50.256</span></div>
-          <div class="item-row" style="border-top:0.5px dashed #ccc; font-weight:bold;"><span class="item-label">Subtotal SIMGAJI</span><span class="item-val">812.472</span></div>
-        </div>
-
-        <!-- Kolom Potongan Tambahan Internal Bendahara -->
-        <div>
-          <div class="col-title">POTONGAN LAINNYA</div>
-          <div class="item-row"><span class="item-label">Iuran KORPRI</span><span class="item-val">20.000</span></div>
-          <div class="item-row"><span class="item-label">Koperasi Dimas</span><span class="item-val">250.000</span></div>
-          <div class="item-row"><span class="item-label">Bank Jateng (14/36)</span><span class="item-val">1.200.000</span></div>
-          <div class="item-row"><span class="item-label">Zakat / Infaq</span><span class="item-val">50.000</span></div>
-          <div class="item-row" style="border-top:0.5px dashed #ccc; font-weight:bold;"><span class="item-label">Subtotal Potongan</span><span class="item-val">1.520.000</span></div>
-        </div>
-      </div>
-
-      <div class="slip-footer">
-        <div>Total Potongan: Rp 2.332.472</div>
-        <div class="net-salary">DITERIMA BERSIH (TAKE HOME PAY): Rp 4.032.800</div>
-      </div>
-    </div>
-  </div>
-
+                root.innerHTML += `
+                    <div class="slip-container">
+                        <div class="header">SLIP GAJI ASN - ${data.opd.toUpperCase()} - ${period.toUpperCase()}</div>
+                        <div class="info">
+                            <span>NIP: ${data.nip}</span><span>NAMA: ${data.nama}</span><span>REK: ${data.norek || '-'}</span>
+                        </div>
+                        <div class="col">
+                            <strong>Penghasilan</strong>
+                            <div class="row"><span>Gaji Pokok</span><span class="numeric">${formatRupiah(data.rincian_penghasilan.gapok || 0)}</span></div>
+                            <div class="row"><span>Total Penghasilan</span><span class="numeric">${formatRupiah(data.penghasilan_kotor)}</span></div>
+                        </div>
+                        <div class="col">
+                            <strong>Potongan Resmi</strong>
+                            <div class="row"><span>IWP Pegawai</span><span class="numeric">${formatRupiah(data.rincian_potongan_simgaji.iwp_beban_pegawai || 0)}</span></div>
+                            <div class="row"><span>Total Resmi</span><span class="numeric">${formatRupiah(data.potongan_simgaji)}</span></div>
+                        </div>
+                        <div class="col">
+                            <strong>Potongan Internal</strong>
+                            ${internalHtml}
+                            <div class="row"><span>Total Internal</span><span class="numeric">${formatRupiah(data.potongan_internal)}</span></div>
+                        </div>
+                        <div class="footer">
+                            <span>TOTAL POTONGAN: ${formatRupiah(data.total_potongan)}</span>
+                            <span>DITERIMA BERSIH (THP): ${formatRupiah(data.take_home_pay)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    </script>
 </body>
 </html>

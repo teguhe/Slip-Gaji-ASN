@@ -1,9 +1,8 @@
-"""Endpoint payroll: import SIMGAJI dan pembacaan slip per NIP."""
+"""Endpoint payroll: import SIMGAJI, slip individual, dan rekap OPD."""
 
 from __future__ import annotations
 
 import logging
-from datetime import date
 from decimal import Decimal
 from pathlib import Path as FilePath
 
@@ -13,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import AuthContext, UserProfile, get_auth_context, get_current_user
 from app.config import get_settings
+from app.constants import DEDUCTION_COLUMNS, INCOME_COLUMNS
 from app.db import get_db
 from app.models import (
     PayrollMonthly,
@@ -20,12 +20,19 @@ from app.models import (
     PotonganBerjangka,
     RefPosPotongan,
 )
-from app.schemas import ImportExcelResponse, PotonganDetail, SlipGajiResponse
-from app.services.simgaji_import import (
-    SimgajiImportError,
-    import_simgaji_excel,
-    normalize_opd_name,
+from app.schemas import (
+    DashboardEmployee,
+    DashboardSummaryResponse,
+    DashboardTotals,
+    ImportExcelResponse,
+    PotonganDetail,
+    SlipGajiResponse,
 )
+from app.services.audit import write_audit
+from app.services.payroll_summary import load_payroll_summary
+from app.services.periods import PeriodError, add_months, parse_period, period_str
+from app.services.simgaji_import import SimgajiImportError, import_simgaji_excel
+from app.services.tenancy import assert_opd_access, resolve_opd_filter
 
 logger = logging.getLogger(__name__)
 
@@ -111,11 +118,90 @@ def import_excel(
 
 
 @router.get(
+    "/opd/summary",
+    response_model=DashboardSummaryResponse,
+    summary="Rekap payroll seluruh ASN OPD per periode",
+)
+def get_opd_payroll_summary(
+    request: Request,
+    period: str = Query(
+        ...,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Format YYYY-MM, contoh: 2026-10",
+    ),
+    opd: str | None = Query(
+        None,
+        max_length=255,
+        description="Khusus super admin / service token; bendahara selalu memakai OPD akun.",
+    ),
+    db: Session = Depends(get_db),
+    auth_ctx: AuthContext = Depends(get_auth_context),
+) -> DashboardSummaryResponse:
+    try:
+        start_period = parse_period(period)
+    except PeriodError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Periode tidak valid: {exc}",
+        ) from exc
+
+    user = auth_ctx.user if auth_ctx.kind == "user" else None
+    ip_address = request.client.host if request.client else None
+
+    try:
+        filter_opd = resolve_opd_filter(user, opd)
+    except HTTPException as exc:
+        write_audit(
+            db,
+            actor_email=auth_ctx.actor_email,
+            action="READ_PAYROLL_OPD_SUMMARY_DENIED",
+            table_name="payroll_monthly",
+            details={
+                "period": period,
+                "requested_opd": opd,
+                "auth_method": auth_ctx.auth_method,
+                "reason": "tenant_guard",
+            },
+            ip_address=ip_address,
+        )
+        raise exc
+
+    employee_rows, total_rows = load_payroll_summary(
+        db,
+        start_period,
+        add_months(start_period, 1),
+        filter_opd,
+    )
+    response = DashboardSummaryResponse(
+        period=period_str(start_period),
+        opd=filter_opd or "Semua OPD",
+        employees=[DashboardEmployee(**row) for row in employee_rows],
+        totals=DashboardTotals(**total_rows),
+    )
+
+    write_audit(
+        db,
+        actor_email=auth_ctx.actor_email,
+        action="READ_PAYROLL_OPD_SUMMARY",
+        table_name="payroll_monthly",
+        details={
+            "period": response.period,
+            "opd": response.opd,
+            "count": len(employee_rows),
+            "auth_method": auth_ctx.auth_method,
+        },
+        ip_address=ip_address,
+    )
+    return response
+
+
+@router.get(
     "/{nip}",
     response_model=SlipGajiResponse,
     summary="Ambil data gaji & potongan ASN per periode",
 )
 def get_asn_payroll_by_period(
+    request: Request,
     nip: str = Path(..., pattern=r"^\d{1,30}$", description="NIP ASN"),
     period: str = Query(
         ...,
@@ -125,25 +211,22 @@ def get_asn_payroll_by_period(
     db: Session = Depends(get_db),
     auth_ctx: AuthContext = Depends(get_auth_context),
 ) -> SlipGajiResponse:
-    """Gabungkan payroll SIMGAJI dengan potongan internal bulanan/berjangka.
+    """Gabungkan payroll SIMGAJI dengan seluruh potongan internal periode.
 
-    Bendahara OPD hanya dapat membaca NIP milik OPD-nya. Untuk mencegah
-    enumerasi data lintas OPD, NIP di luar OPD dikembalikan sebagai 404.
+    Bendahara OPD hanya boleh membaca NIP OPD-nya sendiri. Pelanggaran
+    lintas OPD mengembalikan HTTP 403 dan dicatat ke audit log.
     """
 
     try:
-        year, month = (int(part) for part in period.split("-"))
-        start_period = date(year, month, 1)
-    except ValueError as exc:
+        start_period = parse_period(period)
+    except PeriodError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Periode tidak valid. Gunakan format YYYY-MM.",
+            detail=f"Periode tidak valid: {exc}",
         ) from exc
 
-    if month == 12:
-        end_period = date(year + 1, 1, 1)
-    else:
-        end_period = date(year, month + 1, 1)
+    end_period = add_months(start_period, 1)
+    ip_address = request.client.host if request.client else None
 
     payroll = db.scalar(
         select(PayrollMonthly)
@@ -155,26 +238,32 @@ def get_asn_payroll_by_period(
         .order_by(PayrollMonthly.tglgaji.desc())
         .limit(1)
     )
-
-    not_found = HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Data gaji tidak ditemukan untuk NIP dan periode tersebut.",
-    )
     if payroll is None:
-        raise not_found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Data gaji tidak ditemukan untuk NIP dan periode tersebut.",
+        )
 
-    if auth_ctx.kind == "user":
-        user = auth_ctx.user
-        if user is None:
-            raise not_found
-        if user.role != "super_admin":
-            if (
-                not user.opd_name
-                or normalize_opd_name(user.opd_name)
-                != normalize_opd_name(payroll.nmskpd)
-            ):
-                # 404 (bukan 403) agar keberadaan NIP lintas OPD tidak bocor.
-                raise not_found
+    user = auth_ctx.user if auth_ctx.kind == "user" else None
+    try:
+        assert_opd_access(user, payroll.nmskpd)
+    except HTTPException as exc:
+        write_audit(
+            db,
+            actor_email=auth_ctx.actor_email,
+            action="READ_PAYROLL_DENIED",
+            table_name="payroll_monthly",
+            record_id=str(payroll.id),
+            details={
+                "nip": nip,
+                "period": period,
+                "opd": payroll.nmskpd.strip(),
+                "auth_method": auth_ctx.auth_method,
+                "reason": "cross_tenant",
+            },
+            ip_address=ip_address,
+        )
+        raise exc
 
     item_rows = db.execute(
         select(PayrollPotonganItem, RefPosPotongan)
@@ -201,10 +290,12 @@ def get_asn_payroll_by_period(
                     )
         rincian.append(
             PotonganDetail(
+                id=str(item.id),
                 pos_nama=pos.nama_pos,
                 nominal=item.nominal or ZERO,
                 keterangan=keterangan,
                 cicilan_info=cicilan_info,
+                kategori="berjangka" if item.berjangka_id else "bulanan",
             )
         )
 
@@ -213,15 +304,38 @@ def get_asn_payroll_by_period(
     potongan_internal = sum((detail.nominal for detail in rincian), ZERO)
     total_potongan = potongan_simgaji + potongan_internal
 
-    return SlipGajiResponse(
+    response = SlipGajiResponse(
         nip=payroll.nip,
         nama=payroll.nama,
         opd=payroll.nmskpd.strip(),
-        periode=period,
+        periode=period_str(start_period),
         penghasilan_kotor=penghasilan_kotor,
         potongan_simgaji=potongan_simgaji,
         potongan_internal=potongan_internal,
         total_potongan=total_potongan,
         take_home_pay=penghasilan_kotor - total_potongan,
+        rincian_penghasilan={
+            column: (getattr(payroll, column) or ZERO) for column in INCOME_COLUMNS
+        },
+        rincian_potongan_simgaji={
+            column: (getattr(payroll, column) or ZERO) for column in DEDUCTION_COLUMNS
+        },
         rincian_potongan_internal=rincian,
     )
+
+    write_audit(
+        db,
+        actor_email=auth_ctx.actor_email,
+        action="READ_PAYROLL",
+        table_name="payroll_monthly",
+        record_id=str(payroll.id),
+        details={
+            "nip": nip,
+            "period": response.periode,
+            "opd": response.opd,
+            "internal_item_count": len(rincian),
+            "auth_method": auth_ctx.auth_method,
+        },
+        ip_address=ip_address,
+    )
+    return response

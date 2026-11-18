@@ -19,9 +19,11 @@
 - [x] Implementasikan agregasi pemotongan bulanan untuk menghitung *Take Home Pay* (endpoint payroll & ringkasan dashboard).
 
 ## Phase 4: API & Security Integration
-- [x] Buat API REST (`main_api.py`) untuk data gaji + potongan per NIP dan periode (`GET /api/v1/payroll/{nip}`).
-- [x] Implementasikan dependency verifikasi Firebase ID Token untuk autentikasi user dashboard (`app/auth.py`).
-- [x] Terapkan role checking (`teguhe@gmail.com` sebagai Super Admin) melalui Super Admin Lock.
+- [x] Autentikasi Firebase ID Token & API Key (`app/auth.py` + middleware).
+- [x] Multi-tenancy OPD: isolasi query & akses data (`app/services/tenancy.py`).
+- [x] API Payroll: `GET /api/v1/payroll/{nip}`, `GET /api/v1/payroll/opd/summary` (batch), audit logs (`app/api/payroll.py`).
+- [x] Auth API: `/api/v1/auth/me` (profil), `/api/v1/auth/opd-options`, `/api/v1/auth/me/opd` (onboarding).
+- [x] UI Aero: Dialog profil, aksi logout/ganti OPD di status bar, UI onboarding OPD (7.css).
 
 ## Phase 5: Cetak Slip Gaji (F4)
 - [x] Desain template cetak HTML/CSS berukuran kertas F4 ($215\,\text{mm} \times 330\,\text{mm}$) dengan kapasitas 4-5 slip per lembar (`template_slip_f4.html`).

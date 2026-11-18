@@ -167,6 +167,9 @@
     loans: [],
     loanSaving: false,
     manualImportRunning: false,
+    profile: null,
+    opdOptions: [],
+    profileChangeMode: false,
     printUseSelected: true,
     pendingConnection: false,
   };
@@ -615,6 +618,7 @@
     renderPotongan();
     renderPosTable();
     renderPrintPreview();
+    updateProfileUI();
   }
 
   function renderChrome() {
@@ -1108,10 +1112,11 @@
     };
   }
 
-  async function apiRequest(path, options = {}) {
-    if (!state.token) throw new Error('Token API belum diatur.');
+  async function apiRequest(path, options = {}, tokenOverride = null) {
+    const token = tokenOverride || state.token;
+    if (!token) throw new Error('Token API belum diatur.');
     const headers = new Headers(options.headers || {});
-    headers.set('Authorization', `Bearer ${state.token}`);
+    headers.set('Authorization', `Bearer ${token}`);
     const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -1131,6 +1136,223 @@
     }
     if (detail && detail.message) return detail.message;
     return fallback;
+  }
+
+  function initialsFrom(name, email) {
+    const parts = String(name || email || '?').trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return String(name || email || '?').slice(0, 2).toUpperCase();
+  }
+
+  function populateProfileOpdSelect() {
+    const select = $('#profile-opd-select');
+    if (!select) return;
+    const currentValue = select.value;
+    if (!state.opdOptions.length) {
+      select.innerHTML = '<option value="">Belum ada OPD terdaftar</option>';
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    select.innerHTML = state.opdOptions.map((opd) => (
+      `<option value="${escapeHtml(opd.id)}">${escapeHtml(opd.nmskpd)}</option>`
+    )).join('');
+    const preferred = currentValue || (state.profile && state.profile.opd_id ? String(state.profile.opd_id) : '');
+    if (state.opdOptions.some((opd) => String(opd.id) === preferred)) {
+      select.value = preferred;
+    } else {
+      select.value = String(state.opdOptions[0].id);
+    }
+  }
+
+  function updateProfileUI() {
+    const isApi = state.mode === 'api';
+    const profile = state.profile;
+    const superAdmin = Boolean(profile && profile.is_super_admin);
+    const name = isApi
+      ? (profile ? (profile.display_name || profile.email || 'Pengguna API') : 'Memuat profil…')
+      : 'Bendahara OPD';
+    const roleLabel = isApi
+      ? (superAdmin ? 'Super Admin' : 'Bendahara')
+      : 'Bendahara';
+    const opdLabel = isApi
+      ? (profile && profile.opd_name
+        ? profile.opd_name
+        : (superAdmin ? 'Semua OPD' : 'Belum ditetapkan'))
+      : state.opd;
+    const email = isApi ? (profile ? profile.email : '—') : 'mode-demo@local';
+    const method = isApi
+      ? (profile ? (profile.auth_method === 'api_key' ? 'API Key' : 'Firebase Auth') : 'API')
+      : 'Mode Demo';
+    const avatar = initialsFrom(name, email);
+
+    const setText = (selector, value) => {
+      const node = $(selector);
+      if (node) node.textContent = value;
+    };
+
+    setText('#profile-name', isApi ? (profile ? (profile.display_name || profile.email) : 'Memuat…') : 'Bendahara OPD');
+    setText('#profile-role', roleLabel);
+    setText('#profile-opd', opdLabel);
+    const sidebarAvatar = $('#profile-avatar');
+    if (sidebarAvatar) sidebarAvatar.textContent = avatar;
+
+    setText('#profile-dialog-name', name);
+    setText('#profile-dialog-email', email);
+    setText('#profile-dialog-role', roleLabel);
+    setText('#profile-dialog-opd', opdLabel);
+    setText('#profile-dialog-method', method);
+    setText('#profile-dialog-status', isApi ? (profile && profile.needs_opd ? 'Perlu OPD' : 'Aktif') : 'Demo');
+    const dialogAvatar = $('#profile-dialog-avatar');
+    if (dialogAvatar) dialogAvatar.textContent = avatar;
+
+    const roleBadge = $('#profile-dialog-role');
+    if (roleBadge) roleBadge.classList.toggle('super', superAdmin);
+
+    const changeButton = $('#btn-profile-change-opd');
+    if (changeButton) changeButton.hidden = !(isApi && superAdmin);
+    const logoutButton = $('#btn-profile-logout');
+    if (logoutButton) logoutButton.hidden = !isApi;
+    const statusChange = $('#status-change-opd-btn');
+    if (statusChange) statusChange.hidden = !(isApi && superAdmin);
+    const statusLogout = $('#status-logout-btn');
+    if (statusLogout) statusLogout.hidden = !isApi;
+
+    const showOpdBox = isApi && Boolean((profile && profile.needs_opd) || state.profileChangeMode);
+    const opdBox = $('#profile-opd-box');
+    if (opdBox) opdBox.hidden = !showOpdBox;
+    if (showOpdBox) populateProfileOpdSelect();
+  }
+
+  async function loadAuthProfile(token = state.token) {
+    const data = await apiRequest('/api/v1/auth/me', {}, token);
+    state.profile = data;
+    updateProfileUI();
+    return data;
+  }
+
+  async function loadOpdOptions() {
+    if (state.mode !== 'api' || !state.token) return [];
+    const data = await apiRequest('/api/v1/auth/opd-options');
+    state.opdOptions = Array.isArray(data) ? data : [];
+    populateProfileOpdSelect();
+    return state.opdOptions;
+  }
+
+  async function openProfileDialog(changeOpd = false) {
+    if (state.mode === 'api' && state.token) {
+      try {
+        if (!state.profile) await loadAuthProfile();
+        if (changeOpd && !(state.profile && state.profile.is_super_admin)) {
+          changeOpd = false;
+        }
+        if ((state.profile && state.profile.needs_opd) || changeOpd) {
+          if (!state.opdOptions.length) await loadOpdOptions();
+        }
+      } catch (error) {
+        toast('Gagal memuat profil', error.message, 'error');
+      }
+    } else {
+      changeOpd = false;
+    }
+
+    state.profileChangeMode = Boolean(
+      changeOpd || (state.mode === 'api' && state.profile && state.profile.needs_opd),
+    );
+    const error = $('#profile-error');
+    if (error) error.hidden = true;
+    updateProfileUI();
+    openModal('profile');
+  }
+
+  async function saveProfileOpd() {
+    if (state.mode !== 'api' || !state.token) return;
+    const select = $('#profile-opd-select');
+    const opdId = Number(select ? select.value : 0);
+    const error = $('#profile-error');
+    if (error) error.hidden = true;
+    if (!Number.isInteger(opdId) || opdId <= 0) {
+      if (error) {
+        error.textContent = 'Pilih OPD terlebih dahulu.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    const button = $('#btn-save-profile-opd');
+    if (button) button.disabled = true;
+    try {
+      const profile = await apiRequest('/api/v1/auth/me/opd', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opd_id: opdId }),
+      });
+      state.profile = profile;
+      state.opd = profile.opd_name || state.opd;
+      state.opdRaw = profile.opd_name || '';
+      state.profileChangeMode = false;
+      updateProfileUI();
+      toast('OPD diperbarui', profile.opd_name || 'OPD aktif tersimpan.', 'success');
+      closeModal();
+      const dashboard = await loadApiData(state.token);
+      applyApiData(dashboard, state.token);
+      await loadAuthProfile(state.token);
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal menyimpan OPD.';
+        error.hidden = false;
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  function logout() {
+    const wasApi = state.mode === 'api';
+    state.mode = 'demo';
+    state.token = '';
+    state.profile = null;
+    state.opdOptions = [];
+    state.profileChangeMode = false;
+    storageSet('simgaji.mode', 'demo', localStorage);
+    storageRemove('simgaji.token', sessionStorage);
+    loadDemoData();
+    closeModal();
+    renderAll();
+    updateProfileUI();
+    toast(
+      'Logout',
+      wasApi ? 'Sesi API diakhiri; aplikasi kembali ke mode demo.' : 'Mode demo tetap aktif.',
+      'info',
+    );
+  }
+
+  async function connectApiSession(token) {
+    const profile = await apiRequest('/api/v1/auth/me', {}, token);
+    state.mode = 'api';
+    state.token = token;
+    state.profile = profile;
+    state.opd = profile.opd_name || (profile.is_super_admin ? 'Semua OPD' : 'Belum ditetapkan');
+    state.opdRaw = profile.opd_name || '';
+    state.employees = [];
+    state.posList = [];
+    state.loans = [];
+    state.selected = new Set();
+    state.potonganNip = '';
+    storageSet('simgaji.mode', 'api', localStorage);
+    storageSet('simgaji.token', token, sessionStorage);
+    renderAll();
+    updateProfileUI();
+
+    if (profile.needs_opd) {
+      toast('Tentukan OPD', 'Akun baru harus memilih OPD sebelum mengakses data gaji.', 'info');
+      await openProfileDialog();
+      return profile;
+    }
+
+    const data = await loadApiData(token);
+    applyApiData(data, token);
+    return profile;
   }
 
   async function loadPotonganReferenceData() {
@@ -2220,10 +2442,14 @@
   function fallbackToDemo(message) {
     state.mode = 'demo';
     state.token = '';
+    state.profile = null;
+    state.opdOptions = [];
+    state.profileChangeMode = false;
     storageSet('simgaji.mode', 'demo', localStorage);
     storageRemove('simgaji.token', sessionStorage);
     loadDemoData();
     renderAll();
+    updateProfileUI();
     if (message) toast('Beralih ke mode demo', message, 'error');
   }
 
@@ -2251,10 +2477,14 @@
     if (mode === 'demo') {
       state.mode = 'demo';
       state.token = '';
+      state.profile = null;
+      state.opdOptions = [];
+      state.profileChangeMode = false;
       storageSet('simgaji.mode', 'demo', localStorage);
       storageRemove('simgaji.token', sessionStorage);
       loadDemoData();
       renderAll();
+      updateProfileUI();
       closeModal();
       toast('Mode demo aktif', 'Dashboard memakai contoh data lokal.', 'info');
       return;
@@ -2273,10 +2503,11 @@
     const button = $('#btn-apply-connection');
     if (button) button.disabled = true;
     try {
-      const data = await loadApiData(token);
-      applyApiData(data, token, true);
-      closeModal();
-      toast('Terhubung ke API', `${data.employees ? data.employees.length : 0} pegawai dimuat.`, 'success');
+      const profile = await connectApiSession(token);
+      if (!profile.needs_opd) {
+        closeModal();
+        toast('Terhubung ke API', `${state.employees.length} pegawai dimuat.`, 'success');
+      }
     } catch (caught) {
       if (error) {
         error.textContent = caught.message || 'Gagal terhubung ke API.';
@@ -2289,6 +2520,10 @@
 
   async function refreshData() {
     if (state.mode === 'api' && state.token) {
+      if (state.profile && state.profile.needs_opd) {
+        await openProfileDialog();
+        return;
+      }
       setStatus('Memuat ulang data…');
       try {
         const data = await loadApiData(state.token);
@@ -2302,6 +2537,27 @@
     loadDemoData();
     renderAll();
     toast('Mode demo', 'Contoh data berhasil dimuat ulang.', 'info');
+  }
+
+
+  async function fetchSlipData(nip, period) {
+    return await apiRequest(`/api/v1/payroll/${nip}?period=${period}`);
+  }
+
+  async function fetchOpdSlipData(period) {
+    const data = await apiRequest(`/api/v1/payroll/opd/summary?period=${period}`);
+    return data.employees;
+  }
+
+  async function doPrint(dataList, period) {
+    const win = window.open('', '_blank', 'width=800,height=600');
+    const template = await (await fetch('/template_slip_f4.html')).text();
+    win.document.write(template);
+    win.document.close();
+    win.onload = () => {
+        win.renderSlips(dataList, period);
+        win.print();
+    };
   }
 
   /* ============================== VIEW / WINDOW ============================== */
@@ -2448,6 +2704,7 @@
   function closeModal() {
     const layer = $('#modal-layer');
     if (layer) layer.hidden = true;
+    state.profileChangeMode = false;
   }
 
   function toast(title, message, type = 'info') {
@@ -2872,6 +3129,50 @@
     const startAbout = $('#start-about');
     if (startAbout) startAbout.addEventListener('click', () => openModal('about'));
 
+    // Profil pengguna & session
+    const profileCard = $('#profile-card');
+    if (profileCard) {
+      profileCard.addEventListener('click', () => openProfileDialog());
+      profileCard.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openProfileDialog();
+        }
+      });
+    }
+    const statusProfile = $('#status-profile-btn');
+    if (statusProfile) statusProfile.addEventListener('click', () => openProfileDialog());
+    const statusChangeOpd = $('#status-change-opd-btn');
+    if (statusChangeOpd) statusChangeOpd.addEventListener('click', () => openProfileDialog(true));
+    const statusLogout = $('#status-logout-btn');
+    if (statusLogout) statusLogout.addEventListener('click', logout);
+    const profileChangeButton = $('#btn-profile-change-opd');
+    if (profileChangeButton) profileChangeButton.addEventListener('click', () => openProfileDialog(true));
+    const saveProfileButton = $('#btn-save-profile-opd');
+    if (saveProfileButton) saveProfileButton.addEventListener('click', saveProfileOpd);
+    const profileLogout = $('#btn-profile-logout');
+    if (profileLogout) profileLogout.addEventListener('click', logout);
+
+    const btnPrintSelected = $('#btn-print-selected');
+    if (btnPrintSelected) btnPrintSelected.addEventListener('click', async () => {
+        const period = $('#print-period').value;
+        const search = $('#print-search').value.toLowerCase();
+        const selected = state.employees.filter(e => 
+            (e.nip.includes(search) || e.nama.toLowerCase().includes(search))
+        );
+        if (selected.length === 0) { toast('Error', 'ASN tidak ditemukan', 'error'); return; }
+        const details = await Promise.all(selected.map(e => fetchSlipData(e.nip, period)));
+        await doPrint(details, period);
+    });
+
+    const btnPrintOpd = $('#btn-print-opd');
+    if (btnPrintOpd) btnPrintOpd.addEventListener('click', async () => {
+        const period = $('#print-period').value;
+        const list = await fetchOpdSlipData(period);
+        const details = await Promise.all(list.map(e => fetchSlipData(e.nip, period)));
+        await doPrint(details, period);
+    });
+
     // Taskbar dan window controls
     const taskbarApp = $('#taskbar-app');
     if (taskbarApp) {
@@ -2959,15 +3260,16 @@
       if (!state.token) {
         state.mode = 'demo';
         storageSet('simgaji.mode', 'demo', localStorage);
-        renderChrome();
+        updateProfileUI();
         return;
       }
       setStatus('Menghubungkan ke API…');
-      loadApiData(state.token)
-        .then((data) => {
-          applyApiData(data, state.token, true);
+      connectApiSession(state.token)
+        .then((profile) => {
           setStatus('Data API siap.');
-          toast('Terhubung ke API', `${data.employees ? data.employees.length : 0} pegawai dimuat.`, 'success');
+          if (!profile.needs_opd) {
+            toast('Terhubung ke API', `${state.employees.length} pegawai dimuat.`, 'success');
+          }
         })
         .catch((caught) => fallbackToDemo(caught.message || 'Token atau koneksi tidak valid.'));
     }

@@ -2596,3 +2596,176 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ============================== PHASE 4: PROFIL & SESSION ============================== */
+
+.profile-card[role="button"] {
+  min-width: 0;
+  min-height: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-card[role="button"]:hover,
+.profile-card[role="button"]:focus-visible {
+  border-color: #86b4d4;
+  background: linear-gradient(140deg, #ffffff, #e8f6ff 70%, #d9effc);
+  box-shadow: inset 0 1px 0 #fff, 0 0 8px rgba(70, 160, 230, 0.28);
+  outline: none;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.profile-name-row strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.profile-role {
+  flex: none;
+  padding: 0 4px;
+  color: #2a6285;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: #e9f5fd;
+  border: 1px solid #b9d8eb;
+  border-radius: 7px;
+}
+
+.status-account-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-grow: 0 !important;
+  padding: 1px 4px !important;
+  border-right: 0 !important;
+}
+
+.status-account-field button {
+  min-width: 0;
+  height: 18px;
+  padding: 0 5px;
+  color: #2d526c;
+  font-size: 9px;
+  background: linear-gradient(#fff, #eaf5fc);
+  border: 1px solid #a9c3d6;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.status-account-field button:hover {
+  color: #0b5f96;
+  border-color: #5e9ec9;
+  box-shadow: 0 0 5px rgba(70, 160, 230, 0.4);
+}
+
+.window.glass.modal-window.modal-profile {
+  width: min(520px, calc(100vw - 40px));
+}
+
+.profile-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 11px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #cfe0eb;
+}
+
+.profile-dialog-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 25%, rgba(255, 255, 255, 0.85), transparent 28%),
+    linear-gradient(150deg, #8bd5ff, #2b7fb7 56%, #0d4d7b);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 3px 8px rgba(0, 35, 65, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.profile-dialog-copy { min-width: 0; }
+.profile-dialog-copy h2 { margin: 0; color: #173b57; font-size: 16px; }
+.profile-dialog-copy p { margin: 1px 0 4px; overflow: hidden; color: #688195; font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+.role-badge {
+  display: inline-flex;
+  padding: 1px 7px;
+  color: #2b6486;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: #e8f5fd;
+  border: 1px solid #b9d8eb;
+  border-radius: 8px;
+}
+
+.role-badge.super {
+  color: #7b4c00;
+  background: #fff6dc;
+  border-color: #e8cf91;
+}
+
+.profile-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 9px;
+  background: #f8fbfd;
+  border: 1px solid #cbdde9;
+  border-radius: 2px;
+}
+
+.profile-detail-grid > div { padding: 2px 0; }
+.profile-detail-grid span { display: block; color: #8a9ead; font-size: 8.5px; }
+.profile-detail-grid strong { display: block; overflow: hidden; color: #365b73; font-size: 9.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+.profile-opd-box {
+  margin-top: 10px;
+  padding: 9px;
+  background: #f2f9fd;
+  border: 1px solid #c5deed;
+  border-radius: 2px;
+}
+
+.profile-opd-box .field { margin-bottom: 4px; }
+.profile-opd-box .hint { margin-bottom: 7px; }
+
+@media (max-width: 760px) {
+  .status-account-field { display: none; }
+  .profile-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================== PHASE 5: PRINT F4 ============================== */
+
+.print-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr auto auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #f0f6fa;
+  border: 1px solid #c5deed;
+}
+
+.print-preview-area {
+  min-height: 300px;
+  border: 2px inset #ccc;
+  background: #555;
+  padding: 20px;
+  text-align: center;
+}

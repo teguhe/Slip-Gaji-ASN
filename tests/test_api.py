@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from app.auth import AuthContext, get_auth_context, get_current_user
 from app.models import (
+    AuditLog,
     PayrollMonthly,
     PayrollPotonganItem,
     PotonganBerjangka,
@@ -191,6 +192,10 @@ def test_get_payroll_calculates_thp_and_cicilan(
     assert Decimal(body["potongan_internal"]) == Decimal("1220000.00")
     assert Decimal(body["total_potongan"]) == Decimal("2032472.37")
     assert Decimal(body["take_home_pay"]) == Decimal("4332800.55")
+    assert Decimal(body["rincian_penghasilan"]["gapok"]) == Decimal("5235000.55")
+    assert Decimal(body["rincian_penghasilan"]["tjistri"]) == Decimal("523500.00")
+    assert Decimal(body["rincian_potongan_simgaji"]["iwp_beban_pegawai"]) == Decimal("58632.37")
+    assert Decimal(body["rincian_potongan_simgaji"]["iwp_taspen"]) == Decimal("469056.00")
 
     rincian = {item["pos_nama"]: item for item in body["rincian_potongan_internal"]}
     assert rincian["Pinjaman Bank Jateng"]["cicilan_info"] == "Cicilan 14 dari 36"
@@ -215,7 +220,16 @@ def test_get_payroll_hides_other_opd(
         response = client.get(
             f"/api/v1/payroll/{SECOND_NIP}", params={"period": "2026-10"}
         )
-    assert response.status_code == 404
+    assert response.status_code == 403
+    assert "tidak berhak" in response.json()["detail"].lower()
+
+    audit = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.action == "READ_PAYROLL_DENIED",
+            AuditLog.record_id != None,  # noqa: E711
+        )
+    )
+    assert audit is not None
 
 
 def test_get_payroll_super_admin_can_read_other_opd(
@@ -302,6 +316,96 @@ def test_dashboard_summary_isolates_opd(
     assert all_response.status_code == 200
     assert all_response.json()["opd"] == "Semua OPD"
     assert all_response.json()["totals"]["pegawai"] == 2
+
+
+def test_opd_summary_batch_isolated_and_audited(
+    api_app,
+    db_session,
+    seeded,
+    bendahara_profile,
+    super_admin_profile,
+):
+    import_simgaji_excel(
+        content=make_excel([make_row()]),
+        filename="simgaji.xlsx",
+        user=bendahara_profile,
+        db=db_session,
+    )
+    import_simgaji_excel(
+        content=make_excel([make_row(nmskpd=OTHER_OPD_NAME, nip=SECOND_NIP)]),
+        filename="simgaji-lain.xlsx",
+        user=super_admin_profile,
+        db=db_session,
+    )
+
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user", user=bendahara_profile
+    )
+    with TestClient(api_app) as client:
+        response = client.get(
+            "/api/v1/payroll/opd/summary",
+            params={"period": "2026-10"},
+        )
+        forbidden = client.get(
+            "/api/v1/payroll/opd/summary",
+            params={"period": "2026-10", "opd": OTHER_OPD_NAME},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["opd"] == seeded.opd_name
+    assert body["totals"]["pegawai"] == 1
+    assert len(body["employees"]) == 1
+    assert body["employees"][0]["nip"] == NIP
+    assert forbidden.status_code == 403
+
+    audit = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.action == "READ_PAYROLL_OPD_SUMMARY",
+            AuditLog.user_email == seeded.user_email,
+        )
+    )
+    assert audit is not None
+    assert audit.details["count"] == 1
+
+
+def test_external_api_key_header_and_audit(
+    api_app,
+    db_session,
+    seeded,
+    bendahara_profile,
+):
+    import_simgaji_excel(
+        content=make_excel([make_row()]),
+        filename="simgaji.xlsx",
+        user=bendahara_profile,
+        db=db_session,
+    )
+
+    with TestClient(api_app) as client:
+        response = client.get(
+            f"/api/v1/payroll/{NIP}",
+            params={"period": "2026-10"},
+            headers={"X-API-Key": "test-internal-key"},
+        )
+        invalid = client.get(
+            f"/api/v1/payroll/{NIP}",
+            params={"period": "2026-10"},
+            headers={"X-API-Key": "wrong-key"},
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["nip"] == NIP
+    assert invalid.status_code == 401
+
+    audit = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.action == "READ_PAYROLL",
+            AuditLog.user_email == "system:api-key",
+        )
+    )
+    assert audit is not None
+    assert audit.details["auth_method"] == "api_key"
 
 
 def test_ui_root_and_static_assets_are_served(api_app):

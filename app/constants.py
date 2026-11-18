@@ -80,3 +80,46 @@ PAYROLL_UPSERT_COLUMNS: tuple[str, ...] = tuple(
 
 # Batas NUMERIC(15,2): 13 digit di depan koma, 2 digit di belakang.
 MAX_ABS_MONEY = "9999999999999.99"
+
+
+# Komponen rincian gaji untuk response API (di luar agregat kotor/potongan/bersih).
+INCOME_COLUMNS: tuple[str, ...] = (
+    "gapok",
+    "tjistri",
+    "tjanak",
+    "tjtpp",
+    "tjeselon",
+    "tjfungsi",
+    "tjstruk",
+    "tjguru",
+    "tjlangka",
+    "tjtkd",
+    "tjterpencil",
+    "tjkhusus",
+    "tjberas",
+    "tjpajak",
+    "tjaskes",
+    "tjumum",
+    "tjkk",
+    "tjkm",
+    "ttaperap",
+    "tbulat",
+)
+
+DEDUCTION_COLUMNS: tuple[str, ...] = (
+    "iwp_beban_pegawai",
+    "iwp_beban_pembkerja",
+    "iwp_taspen",
+    "ppajak",
+    "pbulog",
+    "ptaperum",
+    "psewa",
+    "phutang",
+    "pkorpri",
+    "pirdhata",
+    "pkoperasi",
+    "pjkk",
+    "pjkm",
+    "ptaperap",
+    "ptaperai",
+)

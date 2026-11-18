@@ -17,7 +17,7 @@ from typing import Optional
 
 import firebase_admin
 from fastapi import Depends, HTTPException, Security, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth as firebase_auth
 from firebase_admin import credentials
 from sqlalchemy import func, select
@@ -26,10 +26,12 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import AppUser, RefOpd
+from app.services.audit import write_audit
 
 logger = logging.getLogger(__name__)
 
 _bearer_scheme = HTTPBearer(auto_error=False, scheme_name="Bearer")
+_api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 _firebase_lock = threading.Lock()
 
 
@@ -39,12 +41,18 @@ class UserProfile:
     role: str
     opd_id: Optional[int] = None
     opd_name: Optional[str] = None
+    display_name: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class AuthContext:
     kind: str  # "user" | "service"
     user: Optional[UserProfile] = None
+    auth_method: str = "firebase"
+
+    @property
+    def actor_email(self) -> str:
+        return self.user.email if self.user else "system:api-key"
 
 
 def _unauthorized(detail: str) -> HTTPException:
@@ -146,7 +154,15 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
                 is_active=True,
             )
             db.add(user)
-            db.commit()
+            db.flush()
+            write_audit(
+                db,
+                actor_email=email_norm,
+                action="SUPER_ADMIN_REGISTERED",
+                table_name="app_users",
+                record_id=str(user.id),
+                details={"email": email_norm, "source": "firebase_first_login"},
+            )
             db.refresh(user)
         else:
             if not user.is_active:
@@ -156,8 +172,16 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
                 )
             # Super Admin Lock: role selalu dipaksa super_admin.
             if user.role != "super_admin":
+                previous_role = user.role
                 user.role = "super_admin"
-                db.commit()
+                write_audit(
+                    db,
+                    actor_email=email_norm,
+                    action="SUPER_ADMIN_ROLE_LOCKED",
+                    table_name="app_users",
+                    record_id=str(user.id),
+                    details={"email": email_norm, "previous_role": previous_role},
+                )
 
         opd = db.get(RefOpd, user.opd_id) if user.opd_id else None
         return UserProfile(
@@ -165,16 +189,31 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
             role="super_admin",
             opd_id=user.opd_id,
             opd_name=opd.nmskpd if opd else None,
+            display_name=user.display_name or display_name,
         )
 
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Akun belum terdaftar pada aplikasi. Hubungi Super Admin untuk "
-                "pendaftaran dan penetapan OPD."
-            ),
+        # Login pertama: daftarkan akun tanpa OPD. Akses data tetap ditolak
+        # oleh tenant guard sampai pengguna memilih OPD.
+        user = AppUser(
+            email=email_norm,
+            display_name=display_name,
+            role="bendahara_opd",
+            opd_id=None,
+            is_active=True,
         )
+        db.add(user)
+        db.flush()
+        write_audit(
+            db,
+            actor_email=email_norm,
+            action="USER_REGISTERED",
+            table_name="app_users",
+            record_id=str(user.id),
+            details={"email": email_norm, "source": "firebase_first_login"},
+        )
+        db.refresh(user)
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -187,29 +226,41 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
         role=user.role or "bendahara_opd",
         opd_id=user.opd_id,
         opd_name=opd.nmskpd if opd else None,
+        display_name=user.display_name or display_name,
     )
 
 
 def get_auth_context(
+    api_key: str | None = Security(_api_key_scheme),
     credentials_: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
     db: Session = Depends(get_db),
 ) -> AuthContext:
-    """Validasi Bearer token: internal API key atau Firebase ID Token."""
+    """Validasi kredensial: X-API-Key, Bearer API key, atau Firebase ID Token."""
 
-    if credentials_ is None or not credentials_.credentials:
-        raise _unauthorized("Header Authorization Bearer wajib disertakan.")
-
-    token = credentials_.credentials.strip()
     settings = get_settings()
 
+    if api_key:
+        if settings.internal_api_key and hmac.compare_digest(
+            api_key.strip().encode("utf-8"),
+            settings.internal_api_key.encode("utf-8"),
+        ):
+            return AuthContext(kind="service", auth_method="api_key")
+        raise _unauthorized("Header X-API-Key tidak valid.")
+
+    if credentials_ is None or not credentials_.credentials:
+        raise _unauthorized(
+            "Sertakan header Authorization Bearer atau X-API-Key."
+        )
+
+    token = credentials_.credentials.strip()
     if settings.internal_api_key and hmac.compare_digest(
         token.encode("utf-8"), settings.internal_api_key.encode("utf-8")
     ):
-        return AuthContext(kind="service")
+        return AuthContext(kind="service", auth_method="bearer")
 
     email, display_name = _verify_firebase_token(token, settings)
     user = _resolve_user(db, email, display_name)
-    return AuthContext(kind="user", user=user)
+    return AuthContext(kind="user", user=user, auth_method="firebase")
 
 
 def get_current_user(
