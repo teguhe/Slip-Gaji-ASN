@@ -9,6 +9,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -47,6 +48,9 @@ from app.schemas import (
     PosPotonganCreate,
     PosPotonganResponse,
     PosPotonganUpdate,
+    PotonganItemCreate,
+    PotonganItemDeleteResponse,
+    PotonganItemResponse,
 )
 from app.services.berjangka import (
     calculate_end_period,
@@ -909,4 +913,182 @@ def import_potongan_excel(
         inserted=inserted,
         updated=updated,
         warnings=[],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Item potongan manual perorangan (CRUD item)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/item",
+    response_model=PotonganItemResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Tambah atau perbarui potongan bulanan manual perorangan",
+)
+def create_or_update_potongan_item(
+    request: Request,
+    payload: PotonganItemCreate,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> PotonganItemResponse:
+    opd = _resolve_opd(db, current_user, payload.opd_id)
+    period_date = _validate_period(payload.period)
+    pos = _pos_or_404(db, payload.pos_id, opd)
+    if not pos.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Pos potongan tidak aktif.",
+        )
+    if pos.kategori != "bulanan":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Input potongan perorangan langsung hanya untuk pos kategori bulanan.",
+        )
+
+    next_month = add_months(period_date, 1)
+    payroll = db.scalar(
+        select(PayrollMonthly).where(
+            PayrollMonthly.nip == payload.nip,
+            PayrollMonthly.tglgaji >= period_date,
+            PayrollMonthly.tglgaji < next_month,
+            _opd_clause(opd),
+        ).limit(1)
+    )
+    if payroll is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Pegawai dengan NIP {payload.nip} tidak ditemukan pada payroll OPD {opd.nmskpd} periode {payload.period}.",
+        )
+
+    existing = db.scalar(
+        select(PayrollPotonganItem).where(
+            PayrollPotonganItem.nip == payload.nip,
+            PayrollPotonganItem.period == period_date,
+            PayrollPotonganItem.pos_id == pos.id,
+            PayrollPotonganItem.berjangka_id.is_(None),
+        )
+    )
+
+    action = "UPDATE_POTONGAN_MANUAL_ITEM" if existing else "CREATE_POTONGAN_MANUAL_ITEM"
+    if existing:
+        existing.payroll_id = payroll.id
+        existing.nominal = payload.nominal
+        existing.created_by = current_user.email
+        item = existing
+    else:
+        item = PayrollPotonganItem(
+            payroll_id=payroll.id,
+            nip=payload.nip,
+            period=period_date,
+            pos_id=pos.id,
+            berjangka_id=None,
+            cicilan_ke=None,
+            nominal=payload.nominal,
+            created_by=current_user.email,
+        )
+        db.add(item)
+    db.flush()
+
+    _audit(
+        db,
+        current_user,
+        action=action,
+        table_name="payroll_potongan_item",
+        record_id=str(item.id),
+        details={
+            "item_id": str(item.id),
+            "nip": payload.nip,
+            "period": payload.period,
+            "pos_id": pos.id,
+            "pos_nama": pos.nama_pos,
+            "nominal": str(payload.nominal),
+            "opd": opd.nmskpd.strip(),
+        },
+        request=request,
+    )
+    db.commit()
+
+    return PotonganItemResponse(
+        id=str(item.id),
+        nip=item.nip,
+        period=period_str(item.period),
+        pos_id=pos.id,
+        pos_nama=pos.nama_pos,
+        nominal=item.nominal,
+        created_by=item.created_by,
+    )
+
+
+@router.delete(
+    "/item/{item_id}",
+    response_model=PotonganItemDeleteResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Hapus item potongan bulanan manual",
+)
+def delete_potongan_item(
+    item_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> PotonganItemDeleteResponse:
+    try:
+        uid = uuid.UUID(item_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Format ID potongan tidak valid (harus UUID).",
+        )
+
+    item = db.get(PayrollPotonganItem, uid)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item potongan tidak ditemukan.",
+        )
+
+    if item.berjangka_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Potongan cicilan berjangka tidak dapat dihapus per item. Kelola pinjaman melalui menu pinjaman berjangka.",
+        )
+
+    pos = db.get(RefPosPotongan, item.pos_id)
+    if pos is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pos potongan tidak ditemukan.",
+        )
+
+    if current_user.role != "super_admin":
+        if pos.opd_id != current_user.opd_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Anda tidak memiliki hak akses untuk menghapus potongan OPD lain.",
+            )
+
+    _audit(
+        db,
+        current_user,
+        action="DELETE_POTONGAN_MANUAL_ITEM",
+        table_name="payroll_potongan_item",
+        record_id=str(item.id),
+        details={
+            "item_id": str(item.id),
+            "nip": item.nip,
+            "period": period_str(item.period),
+            "pos_id": pos.id,
+            "pos_nama": pos.nama_pos,
+            "nominal": str(item.nominal),
+        },
+        request=request,
+    )
+
+    db.delete(item)
+    db.commit()
+
+    return PotonganItemDeleteResponse(
+        status="success",
+        message="Item potongan manual berhasil dihapus.",
+        deleted_id=str(uid),
     )

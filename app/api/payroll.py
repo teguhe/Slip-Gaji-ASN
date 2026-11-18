@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from decimal import Decimal
 from pathlib import Path as FilePath
 
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Request, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import AuthContext, UserProfile, get_auth_context, get_current_user
@@ -16,8 +17,10 @@ from app.constants import DEDUCTION_COLUMNS, INCOME_COLUMNS
 from app.db import get_db
 from app.models import (
     PayrollMonthly,
+    PayrollPenyesuaian,
     PayrollPotonganItem,
     PotonganBerjangka,
+    RefOpd,
     RefPosPotongan,
 )
 from app.schemas import (
@@ -25,6 +28,10 @@ from app.schemas import (
     DashboardSummaryResponse,
     DashboardTotals,
     ImportExcelResponse,
+    MasterGajiPayrollRow,
+    MasterGajiStatsResponse,
+    PenyesuaianGajiCreate,
+    PenyesuaianGajiItem,
     PotonganDetail,
     SlipGajiResponse,
 )
@@ -193,6 +200,405 @@ def get_opd_payroll_summary(
         ip_address=ip_address,
     )
     return response
+
+
+@router.get(
+    "/stats",
+    response_model=MasterGajiStatsResponse,
+    summary="Statistik komprehensif data gaji per periode",
+)
+def get_payroll_stats(
+    request: Request,
+    period: str = Query(
+        ...,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Format YYYY-MM, contoh: 2026-10",
+    ),
+    opd: str | None = Query(None, max_length=255),
+    db: Session = Depends(get_db),
+    auth_ctx: AuthContext = Depends(get_auth_context),
+) -> MasterGajiStatsResponse:
+    try:
+        start_period = parse_period(period)
+    except PeriodError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Periode tidak valid: {exc}",
+        ) from exc
+
+    end_period = add_months(start_period, 1)
+    user = auth_ctx.user if auth_ctx.kind == "user" else None
+    filter_opd = resolve_opd_filter(user, opd)
+
+    stmt = select(PayrollMonthly).where(
+        PayrollMonthly.tglgaji >= start_period,
+        PayrollMonthly.tglgaji < end_period,
+    )
+    if filter_opd:
+        stmt = stmt.where(
+            func.lower(func.trim(PayrollMonthly.nmskpd)) == filter_opd.strip().lower()
+        )
+    payroll_rows = db.scalars(stmt).all()
+
+    total_pegawai = len(payroll_rows)
+    total_gapok = ZERO
+    total_kotor = ZERO
+    total_potongan_simgaji = ZERO
+
+    breakdown_tunjangan: dict[str, Decimal] = {col: ZERO for col in INCOME_COLUMNS}
+    breakdown_potongan_resmi: dict[str, Decimal] = {col: ZERO for col in DEDUCTION_COLUMNS}
+
+    for row in payroll_rows:
+        total_gapok += row.gapok or ZERO
+        total_kotor += row.kotor or ZERO
+        total_potongan_simgaji += row.potongan or ZERO
+        for col in INCOME_COLUMNS:
+            breakdown_tunjangan[col] += getattr(row, col) or ZERO
+        for col in DEDUCTION_COLUMNS:
+            breakdown_potongan_resmi[col] += getattr(row, col) or ZERO
+
+    total_tunjangan = total_kotor - total_gapok
+
+    # Potongan internal
+    total_potongan_internal = ZERO
+    if payroll_rows:
+        nips = [r.nip for r in payroll_rows]
+        pot_stmt = select(func.coalesce(func.sum(PayrollPotonganItem.nominal), 0)).where(
+            PayrollPotonganItem.period >= start_period,
+            PayrollPotonganItem.period < end_period,
+            PayrollPotonganItem.nip.in_(nips),
+        )
+        total_potongan_internal = Decimal(str(db.scalar(pot_stmt) or 0))
+
+    # Penyesuaian gaji
+    peny_stmt = select(func.coalesce(func.sum(PayrollPenyesuaian.nominal), 0)).where(
+        PayrollPenyesuaian.period >= start_period,
+        PayrollPenyesuaian.period < end_period,
+    )
+    if user and user.role != "super_admin" and user.opd_id:
+        peny_stmt = peny_stmt.where(PayrollPenyesuaian.opd_id == user.opd_id)
+    elif filter_opd:
+        opd_obj = db.scalar(
+            select(RefOpd).where(func.lower(func.trim(RefOpd.nmskpd)) == filter_opd.strip().lower())
+        )
+        if opd_obj:
+            peny_stmt = peny_stmt.where(PayrollPenyesuaian.opd_id == opd_obj.id)
+
+    total_penyesuaian = Decimal(str(db.scalar(peny_stmt) or 0))
+    total_thp = total_kotor - total_potongan_simgaji - total_potongan_internal - total_penyesuaian
+
+    return MasterGajiStatsResponse(
+        period=period_str(start_period),
+        opd=filter_opd or "Semua OPD",
+        total_pegawai=total_pegawai,
+        total_gapok=total_gapok,
+        total_tunjangan=total_tunjangan,
+        total_kotor=total_kotor,
+        total_potongan_simgaji=total_potongan_simgaji,
+        total_potongan_internal=total_potongan_internal,
+        total_penyesuaian=total_penyesuaian,
+        total_thp=total_thp,
+        breakdown_tunjangan=breakdown_tunjangan,
+        breakdown_potongan_resmi=breakdown_potongan_resmi,
+    )
+
+
+@router.get(
+    "/monthly-list",
+    response_model=list[MasterGajiPayrollRow],
+    summary="Daftar gaji bulanan hasil import Excel dengan rincian potongan & penyesuaian",
+)
+def get_payroll_monthly_list(
+    request: Request,
+    period: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
+    opd: str | None = Query(None, max_length=255),
+    db: Session = Depends(get_db),
+    auth_ctx: AuthContext = Depends(get_auth_context),
+) -> list[MasterGajiPayrollRow]:
+    try:
+        start_period = parse_period(period)
+    except PeriodError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Periode tidak valid: {exc}",
+        ) from exc
+
+    end_period = add_months(start_period, 1)
+    user = auth_ctx.user if auth_ctx.kind == "user" else None
+    filter_opd = resolve_opd_filter(user, opd)
+
+    stmt = select(PayrollMonthly).where(
+        PayrollMonthly.tglgaji >= start_period,
+        PayrollMonthly.tglgaji < end_period,
+    )
+    if filter_opd:
+        stmt = stmt.where(
+            func.lower(func.trim(PayrollMonthly.nmskpd)) == filter_opd.strip().lower()
+        )
+    stmt = stmt.order_by(PayrollMonthly.nama)
+    payroll_rows = db.scalars(stmt).all()
+
+    if not payroll_rows:
+        return []
+
+    nips = [r.nip for r in payroll_rows]
+
+    # Map potongan internal per NIP
+    pot_rows = db.execute(
+        select(
+            PayrollPotonganItem.nip,
+            func.coalesce(func.sum(PayrollPotonganItem.nominal), 0),
+        )
+        .where(
+            PayrollPotonganItem.period >= start_period,
+            PayrollPotonganItem.period < end_period,
+            PayrollPotonganItem.nip.in_(nips),
+        )
+        .group_by(PayrollPotonganItem.nip)
+    ).all()
+    pot_map = {nip: Decimal(str(tot or 0)) for nip, tot in pot_rows}
+
+    # Map penyesuaian per NIP
+    peny_rows = db.execute(
+        select(
+            PayrollPenyesuaian.nip,
+            func.coalesce(func.sum(PayrollPenyesuaian.nominal), 0),
+        )
+        .where(
+            PayrollPenyesuaian.period >= start_period,
+            PayrollPenyesuaian.period < end_period,
+            PayrollPenyesuaian.nip.in_(nips),
+        )
+        .group_by(PayrollPenyesuaian.nip)
+    ).all()
+    peny_map = {nip: Decimal(str(tot or 0)) for nip, tot in peny_rows}
+
+    result = []
+    for row in payroll_rows:
+        kotor = row.kotor or ZERO
+        gapok = row.gapok or ZERO
+        pot_simgaji = row.potongan or ZERO
+        pot_internal = pot_map.get(row.nip, ZERO)
+        penyesuaian = peny_map.get(row.nip, ZERO)
+        thp = kotor - pot_simgaji - pot_internal - penyesuaian
+        total_tunjangan = kotor - gapok
+
+        result.append(
+            MasterGajiPayrollRow(
+                id=str(row.id),
+                nip=row.nip,
+                nama=row.nama,
+                kdpangkat=row.kdpangkat,
+                norek=row.norek,
+                nmskpd=row.nmskpd.strip(),
+                gapok=gapok,
+                total_tunjangan=total_tunjangan,
+                kotor=kotor,
+                potongan_simgaji=pot_simgaji,
+                potongan_internal=pot_internal,
+                penyesuaian=penyesuaian,
+                take_home_pay=thp,
+            )
+        )
+    return result
+
+
+@router.get(
+    "/penyesuaian",
+    response_model=list[PenyesuaianGajiItem],
+    summary="Daftar penyesuaian gaji OPD per periode",
+)
+def get_penyesuaian_list(
+    request: Request,
+    period: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> list[PenyesuaianGajiItem]:
+    try:
+        start_period = parse_period(period)
+    except PeriodError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Periode tidak valid: {exc}",
+        ) from exc
+
+    end_period = add_months(start_period, 1)
+
+    stmt = select(PayrollPenyesuaian).where(
+        PayrollPenyesuaian.period >= start_period,
+        PayrollPenyesuaian.period < end_period,
+    )
+    if current_user.role != "super_admin":
+        if not current_user.opd_id:
+            return []
+        stmt = stmt.where(PayrollPenyesuaian.opd_id == current_user.opd_id)
+
+    stmt = stmt.order_by(PayrollPenyesuaian.created_at.desc())
+    items = db.scalars(stmt).all()
+    return [
+        PenyesuaianGajiItem(
+            id=str(item.id),
+            nip=item.nip,
+            nama=item.nama,
+            period=period_str(item.period),
+            opd_id=item.opd_id,
+            jenis_penyesuaian=item.jenis_penyesuaian,
+            nominal=item.nominal,
+            keterangan=item.keterangan,
+            status=item.status,
+            created_by=item.created_by,
+            created_at=item.created_at,
+        )
+        for item in items
+    ]
+
+
+@router.post(
+    "/penyesuaian",
+    response_model=PenyesuaianGajiItem,
+    status_code=status.HTTP_201_CREATED,
+    summary="Input penyesuaian gaji (tunda bayar / retur rekening)",
+)
+def create_penyesuaian(
+    request: Request,
+    payload: PenyesuaianGajiCreate,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> PenyesuaianGajiItem:
+    if current_user.role != "super_admin" and not current_user.opd_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Profil OPD akun Anda belum diatur.",
+        )
+
+    try:
+        start_period = parse_period(payload.period)
+    except PeriodError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Periode tidak valid: {exc}",
+        ) from exc
+
+    end_period = add_months(start_period, 1)
+
+    # Lookup nama pegawai dari payroll jika ada
+    payroll_rec = db.scalar(
+        select(PayrollMonthly).where(
+            PayrollMonthly.nip == payload.nip.strip(),
+            PayrollMonthly.tglgaji >= start_period,
+            PayrollMonthly.tglgaji < end_period,
+        ).limit(1)
+    )
+
+    nama_pegawai = None
+    if payroll_rec:
+        assert_opd_access(current_user, payroll_rec.nmskpd)
+        nama_pegawai = payroll_rec.nama
+
+    # Resolve target OPD ID
+    target_opd_id = current_user.opd_id
+    if current_user.role == "super_admin" and not target_opd_id and payroll_rec:
+        opd_obj = db.scalar(
+            select(RefOpd).where(
+                func.lower(func.trim(RefOpd.nmskpd)) == payroll_rec.nmskpd.strip().lower()
+            )
+        )
+        if opd_obj:
+            target_opd_id = opd_obj.id
+
+    penyesuaian = PayrollPenyesuaian(
+        nip=payload.nip.strip(),
+        nama=nama_pegawai,
+        period=start_period,
+        opd_id=target_opd_id,
+        jenis_penyesuaian=payload.jenis_penyesuaian.strip(),
+        nominal=payload.nominal,
+        keterangan=payload.keterangan.strip() if payload.keterangan else None,
+        status=payload.status.strip(),
+        created_by=current_user.email,
+    )
+    db.add(penyesuaian)
+    db.commit()
+    db.refresh(penyesuaian)
+
+    ip_address = request.client.host if request.client else None
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="CREATE_PENYESUAIAN_GAJI",
+        table_name="payroll_penyesuaian",
+        record_id=str(penyesuaian.id),
+        details={
+            "nip": penyesuaian.nip,
+            "nama": penyesuaian.nama,
+            "period": payload.period,
+            "nominal": str(penyesuaian.nominal),
+            "jenis": penyesuaian.jenis_penyesuaian,
+        },
+        ip_address=ip_address,
+    )
+
+    return PenyesuaianGajiItem(
+        id=str(penyesuaian.id),
+        nip=penyesuaian.nip,
+        nama=penyesuaian.nama,
+        period=period_str(penyesuaian.period),
+        opd_id=penyesuaian.opd_id,
+        jenis_penyesuaian=penyesuaian.jenis_penyesuaian,
+        nominal=penyesuaian.nominal,
+        keterangan=penyesuaian.keterangan,
+        status=penyesuaian.status,
+        created_by=penyesuaian.created_by,
+        created_at=penyesuaian.created_at,
+    )
+
+
+@router.delete(
+    "/penyesuaian/{penyesuaian_id}",
+    summary="Hapus data penyesuaian gaji",
+)
+def delete_penyesuaian(
+    request: Request,
+    penyesuaian_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> dict[str, str]:
+    try:
+        peny_uuid = uuid.UUID(penyesuaian_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ID penyesuaian tidak valid.",
+        )
+
+    penyesuaian = db.get(PayrollPenyesuaian, peny_uuid)
+    if not penyesuaian:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Data penyesuaian tidak ditemukan.",
+        )
+
+    if current_user.role != "super_admin" and penyesuaian.opd_id != current_user.opd_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak berhak menghapus penyesuaian OPD lain.",
+        )
+
+    db.delete(penyesuaian)
+    db.commit()
+
+    ip_address = request.client.host if request.client else None
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="DELETE_PENYESUAIAN_GAJI",
+        table_name="payroll_penyesuaian",
+        record_id=str(peny_uuid),
+        details={"nip": penyesuaian.nip, "nominal": str(penyesuaian.nominal)},
+        ip_address=ip_address,
+    )
+
+    return {"status": "success", "message": "Penyesuaian gaji berhasil dihapus."}
 
 
 @router.get(

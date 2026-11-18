@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+import uuid
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -434,3 +435,73 @@ def test_berjangka_list_filters_by_opd(
         response = client.get("/api/v1/potongan/berjangka")
         assert response.status_code == 200
         assert response.json() == []
+
+
+def test_potongan_item_crud_and_isolation(
+    api_app,
+    db_session,
+    seeded,
+    bendahara_profile,
+    super_admin_profile,
+):
+    _import_payroll(db_session, bendahara_profile, period=date(2026, 10, 1))
+
+    pos = RefPosPotongan(
+        opd_id=seeded.opd_id,
+        nama_pos="Iuran Koperasi Bulanan",
+        kategori="bulanan",
+        is_active=True,
+    )
+    db_session.add(pos)
+    db_session.commit()
+
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    with TestClient(api_app) as client:
+        # 1. Create item
+        res = client.post(
+            "/api/v1/potongan/item",
+            json={
+                "nip": NIP,
+                "pos_id": pos.id,
+                "period": "2026-10",
+                "nominal": 75000.0,
+            },
+        )
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data["nip"] == NIP
+        assert data["pos_nama"] == "Iuran Koperasi Bulanan"
+        assert Decimal(str(data["nominal"])) == Decimal("75000")
+        item_id = data["id"]
+
+        # 2. Update item
+        res_update = client.post(
+            "/api/v1/potongan/item",
+            json={
+                "nip": NIP,
+                "pos_id": pos.id,
+                "period": "2026-10",
+                "nominal": 85000.0,
+            },
+        )
+        assert res_update.status_code == 200
+        assert Decimal(str(res_update.json()["nominal"])) == Decimal("85000")
+        assert res_update.json()["id"] == item_id
+
+        # 3. Delete item
+        res_del = client.delete(f"/api/v1/potongan/item/{item_id}")
+        assert res_del.status_code == 200
+        assert res_del.json()["status"] == "success"
+
+        # 4. Verifikasi di DB sudah terhapus
+        item_db = db_session.get(PayrollPotonganItem, uuid.UUID(item_id))
+        assert item_db is None
+
+    # Verifikasi audit log tercatat
+    audits = db_session.scalars(
+        select(AuditLog)
+        .where(AuditLog.action.in_(["CREATE_POTONGAN_MANUAL_ITEM", "UPDATE_POTONGAN_MANUAL_ITEM", "DELETE_POTONGAN_MANUAL_ITEM"]))
+        .order_by(AuditLog.id)
+    ).all()
+    assert len(audits) == 3
+

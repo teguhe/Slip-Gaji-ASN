@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import UserProfile, get_current_user
 from app.db import get_db
 from app.models import AppUser, RefOpd
-from app.schemas import AuthMeResponse, OpdOptionResponse, SetOpdRequest
+from app.schemas import AuthMeResponse, CreateOpdRequest, OpdOptionResponse, SetOpdRequest
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -59,6 +59,49 @@ def list_opd_options(
     return [OpdOptionResponse(id=opd.id, nmskpd=opd.nmskpd) for opd in rows]
 
 
+@router.post("/opd", response_model=OpdOptionResponse, status_code=status.HTTP_201_CREATED)
+def create_opd(
+    payload: CreateOpdRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> OpdOptionResponse:
+    """Daftarkan OPD baru (hanya Super Admin)."""
+
+    if current_user.role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Hanya Super Admin yang diizinkan mendaftarkan OPD baru.",
+        )
+    name = payload.nmskpd.strip()
+    norm = " ".join(name.replace("\xa0", " ").split()).casefold()
+    existing = [
+        opd
+        for opd in db.scalars(select(RefOpd)).all()
+        if " ".join(opd.nmskpd.replace("\xa0", " ").split()).casefold() == norm
+    ]
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"OPD '{existing[0].nmskpd}' sudah terdaftar.",
+        )
+    new_opd = RefOpd(nmskpd=name)
+    db.add(new_opd)
+    db.flush()
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="CREATE_OPD",
+        table_name="ref_opd",
+        record_id=str(new_opd.id),
+        details={"nmskpd": new_opd.nmskpd},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+    db.refresh(new_opd)
+    return OpdOptionResponse(id=new_opd.id, nmskpd=new_opd.nmskpd)
+
+
 @router.patch("/me/opd", response_model=AuthMeResponse)
 def set_my_opd(
     payload: SetOpdRequest,
@@ -79,14 +122,13 @@ def set_my_opd(
     current_opd = db.get(RefOpd, app_user.opd_id) if app_user.opd_id else None
 
     if current_user.role != "super_admin":
-        if current_opd is not None and current_opd.id != target_opd.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "OPD akun Anda sudah ditetapkan. Perubahan OPD hanya dapat "
-                    "dilakukan oleh Super Admin."
-                ),
-            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Penetapan OPD hanya dapat dilakukan oleh Super Admin "
+                "melalui menu Master Pengguna. Silakan hubungi Super Admin."
+            ),
+        )
 
     changed = app_user.opd_id != target_opd.id
     if changed:

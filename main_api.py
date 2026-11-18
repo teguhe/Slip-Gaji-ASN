@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import router as auth_router
 from app.api.dashboard import router as dashboard_router
+from app.api.master import router as master_router
+from app.api.monitoring import router as monitoring_router
 from app.api.payroll import router as payroll_router
 from app.api.potongan import router as potongan_router
 from app.db import get_db
@@ -35,6 +37,8 @@ app.include_router(payroll_router)
 app.include_router(dashboard_router)
 app.include_router(potongan_router)
 app.include_router(auth_router)
+app.include_router(master_router)
+app.include_router(monitoring_router)
 
 if WEB_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")

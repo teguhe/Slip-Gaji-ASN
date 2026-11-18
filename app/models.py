@@ -212,3 +212,33 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class PayrollPenyesuaian(Base):
+    __tablename__ = "payroll_penyesuaian"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
+    )
+    nip: Mapped[str] = mapped_column(String(30), nullable=False)
+    nama: Mapped[str | None] = mapped_column(String(255))
+    period: Mapped[date] = mapped_column(Date, nullable=False)
+    opd_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("ref_opd.id", ondelete="CASCADE")
+    )
+    jenis_penyesuaian: Mapped[str] = mapped_column(
+        String(100), nullable=False, server_default=text("'Tunda Bayar'")
+    )
+    nominal: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    keterangan: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default=text("'ditunda'")
+    )
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+

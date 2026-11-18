@@ -160,6 +160,30 @@ class ManualPotonganImportResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class PotonganItemCreate(BaseModel):
+    nip: str = Field(..., pattern=r"^\d{8,30}$")
+    pos_id: int
+    period: str = Field(..., pattern=r"^\d{4}-\d{2}$")
+    nominal: Decimal = Field(..., gt=0, le=Decimal("9999999999999.99"))
+    opd_id: int | None = None
+
+
+class PotonganItemResponse(BaseModel):
+    id: str
+    nip: str
+    period: str
+    pos_id: int
+    pos_nama: str
+    nominal: Decimal
+    created_by: str
+
+
+class PotonganItemDeleteResponse(BaseModel):
+    status: Literal["success"] = "success"
+    message: str
+    deleted_id: str
+
+
 class AuthMeResponse(BaseModel):
     email: str
     display_name: str | None = None
@@ -171,6 +195,10 @@ class AuthMeResponse(BaseModel):
     auth_method: str = "firebase"
 
 
+class CreateOpdRequest(BaseModel):
+    nmskpd: str = Field(..., min_length=3, max_length=255)
+
+
 class OpdOptionResponse(BaseModel):
     id: int
     nmskpd: str
@@ -178,3 +206,117 @@ class OpdOptionResponse(BaseModel):
 
 class SetOpdRequest(BaseModel):
     opd_id: int
+
+
+# ---------------------------------------------------------------------------
+# Master Data OPD & User (Super Admin only)
+# ---------------------------------------------------------------------------
+
+class MasterOpdItem(BaseModel):
+    id: int
+    nmskpd: str
+    created_at: datetime | None = None
+    user_count: int = 0
+    payroll_count: int = 0
+
+
+class MasterOpdCreate(BaseModel):
+    nmskpd: str = Field(..., min_length=3, max_length=255)
+
+
+class MasterOpdUpdate(BaseModel):
+    nmskpd: str = Field(..., min_length=3, max_length=255)
+
+
+class MasterUserItem(BaseModel):
+    id: str
+    email: str
+    display_name: str | None = None
+    role: str
+    opd_id: int | None = None
+    opd_name: str | None = None
+    is_active: bool = True
+    is_default_super_admin: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class MasterUserCreate(BaseModel):
+    email: str = Field(..., min_length=5, max_length=255)
+    opd_id: int
+    display_name: str | None = None
+
+
+class MasterUserUpdate(BaseModel):
+    role: Literal["super_admin", "bendahara_opd"] | None = None
+    opd_id: int | None = None
+    clear_opd: bool = False
+    is_active: bool | None = None
+
+
+# --- PENYESUAIAN GAJI & MONITORING SCHEMAS ---
+
+class PenyesuaianGajiCreate(BaseModel):
+    nip: str = Field(..., min_length=1, max_length=30)
+    period: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="Format YYYY-MM")
+    jenis_penyesuaian: str = Field("Tunda Bayar", max_length=100)
+    nominal: Decimal = Field(..., gt=Decimal("0.00"))
+    keterangan: str | None = None
+    status: str = Field("ditunda", max_length=50)
+
+
+class PenyesuaianGajiItem(BaseModel):
+    id: str
+    nip: str
+    nama: str | None = None
+    period: str
+    opd_id: int | None = None
+    jenis_penyesuaian: str
+    nominal: Decimal
+    keterangan: str | None = None
+    status: str
+    created_by: str
+    created_at: datetime
+
+
+class AuditLogItem(BaseModel):
+    id: int
+    user_email: str
+    action: str
+    table_name: str | None = None
+    record_id: str | None = None
+    details: dict[str, Any] | None = None
+    ip_address: str | None = None
+    created_at: datetime
+
+
+class MasterGajiPayrollRow(BaseModel):
+    id: str
+    nip: str
+    nama: str
+    kdpangkat: str | None = None
+    norek: str | None = None
+    nmskpd: str
+    gapok: Decimal
+    total_tunjangan: Decimal
+    kotor: Decimal
+    potongan_simgaji: Decimal
+    potongan_internal: Decimal
+    penyesuaian: Decimal
+    take_home_pay: Decimal
+
+
+class MasterGajiStatsResponse(BaseModel):
+    period: str
+    opd: str
+    total_pegawai: int
+    total_gapok: Decimal
+    total_tunjangan: Decimal
+    total_kotor: Decimal
+    total_potongan_simgaji: Decimal
+    total_potongan_internal: Decimal
+    total_penyesuaian: Decimal
+    total_thp: Decimal
+    breakdown_tunjangan: dict[str, Decimal]
+    breakdown_potongan_resmi: dict[str, Decimal]
+

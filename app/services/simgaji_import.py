@@ -38,6 +38,7 @@ from app.constants import (
     REQUIRED_COLUMNS,
 )
 from app.models import AuditLog, PayrollMonthly, RefOpd
+from app.services.audit import write_audit
 from app.services.berjangka import generate_for_periods
 
 logger = logging.getLogger(__name__)
@@ -214,13 +215,31 @@ def _check_opd_permission(user: UserProfile, excel_opd_norm: str, excel_opd_raw:
         )
 
 
-def _resolve_ref_opd(db: Session, excel_opd_norm: str, excel_opd_raw: str) -> RefOpd:
+def _resolve_ref_opd(
+    db: Session,
+    excel_opd_norm: str,
+    excel_opd_raw: str,
+    user: UserProfile | None = None,
+) -> RefOpd:
     matches = [
         opd
         for opd in db.scalars(select(RefOpd)).all()
         if normalize_opd_name(opd.nmskpd) == excel_opd_norm
     ]
     if not matches:
+        if user and user.role == "super_admin":
+            new_opd = RefOpd(nmskpd=excel_opd_raw.strip())
+            db.add(new_opd)
+            db.flush()
+            write_audit(
+                db,
+                actor_email=user.email,
+                action="AUTO_CREATE_OPD_ON_IMPORT",
+                table_name="ref_opd",
+                record_id=str(new_opd.id),
+                details={"nmskpd": new_opd.nmskpd, "source": "simgaji_excel"},
+            )
+            return new_opd
         raise SimgajiImportError(
             f"OPD '{excel_opd_raw}' belum terdaftar pada ref_opd. "
             "Daftarkan OPD terlebih dahulu sebelum import."
@@ -687,7 +706,7 @@ def import_simgaji_excel(
 
     # Otorisasi OPD dilakukan sebelum query ref_opd dan sebelum parsing nominal.
     _check_opd_permission(user, excel_opd_norm, excel_opd_raw)
-    ref_opd = _resolve_ref_opd(db, excel_opd_norm, excel_opd_raw)
+    ref_opd = _resolve_ref_opd(db, excel_opd_norm, excel_opd_raw, user=user)
 
     imported_at = datetime.now(timezone.utc)
     records, warnings = _parse_rows(

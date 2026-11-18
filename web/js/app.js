@@ -1,5 +1,5 @@
 /* ============================================================
-   SIMGAJI ASN — Aero Glass dashboard controller
+   SLIP GAJI ASN — Aero Glass dashboard controller
    Vanilla JS. Mode demo berjalan tanpa backend; mode API memakai
    Firebase ID Token dan endpoint FastAPI.
    ============================================================ */
@@ -12,6 +12,15 @@
   const DEMO_PERIOD = '2026-10';
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const API_BASE = '';
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyCTALsRFzfV-Xf72bi_wVmd6g69YQ_4jYY',
+    authDomain: 'slip-gaji-asn.firebaseapp.com',
+    projectId: 'slip-gaji-asn',
+    storageBucket: 'slip-gaji-asn.firebasestorage.app',
+    messagingSenderId: '146666463438',
+    appId: '1:146666463438:web:807395d2fa089605a2b09f',
+    measurementId: 'G-H5FGMDF88N',
+  };
   const MONTH_NAMES = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
@@ -150,10 +159,10 @@
   const state = {
     view: 'dashboard',
     period: DEMO_PERIOD,
-    mode: storageGet('simgaji.mode', localStorage) === 'api' ? 'api' : 'demo',
+    mode: 'api',
     token: storageGet('simgaji.token', sessionStorage) || '',
-    opd: DEMO_OPD_TITLE,
-    opdRaw: DEMO_OPD,
+    opd: '',
+    opdRaw: '',
     employees: [],
     demoEmployees: [],
     imports: [],
@@ -172,6 +181,21 @@
     profileChangeMode: false,
     printUseSelected: true,
     pendingConnection: false,
+    masterOpdList: [],
+    masterOpdFilter: '',
+    editingOpdId: null,
+    masterUserList: [],
+    masterUserFilter: '',
+    masterUserRoleFilter: 'all',
+    editingUserId: null,
+    masterGajiTab: 'gaji-stats',
+    masterGajiStats: null,
+    masterGajiList: [],
+    masterGajiFilter: '',
+    penyesuaianList: [],
+    monitoringLogs: [],
+    monitoringFilterAction: '',
+    monitoringSearch: '',
   };
 
   let searchQuery = '';
@@ -1165,20 +1189,26 @@
     }
   }
 
+  function isUserLocked() {
+    return state.mode === 'api' && state.profile && !state.profile.is_super_admin && Boolean(state.profile.needs_opd);
+  }
+
   function updateProfileUI() {
     const isApi = state.mode === 'api';
     const profile = state.profile;
     const superAdmin = Boolean(profile && profile.is_super_admin);
+    const isLocked = isApi && !superAdmin && Boolean(profile && profile.needs_opd);
+
     const name = isApi
       ? (profile ? (profile.display_name || profile.email || 'Pengguna API') : 'Memuat profil…')
       : 'Bendahara OPD';
     const roleLabel = isApi
-      ? (superAdmin ? 'Super Admin' : 'Bendahara')
+      ? (superAdmin ? 'Super Admin' : 'Bendahara OPD')
       : 'Bendahara';
     const opdLabel = isApi
       ? (profile && profile.opd_name
         ? profile.opd_name
-        : (superAdmin ? 'Semua OPD' : 'Belum ditetapkan'))
+        : (superAdmin ? 'Semua OPD (Akses Global)' : 'Belum ditetapkan (Terkunci)'))
       : state.opd;
     const email = isApi ? (profile ? profile.email : '—') : 'mode-demo@local';
     const method = isApi
@@ -1202,7 +1232,7 @@
     setText('#profile-dialog-role', roleLabel);
     setText('#profile-dialog-opd', opdLabel);
     setText('#profile-dialog-method', method);
-    setText('#profile-dialog-status', isApi ? (profile && profile.needs_opd ? 'Perlu OPD' : 'Aktif') : 'Demo');
+    setText('#profile-dialog-status', isApi ? (isLocked ? 'Belum Ada OPD (Terkunci)' : 'Aktif') : 'Demo');
     const dialogAvatar = $('#profile-dialog-avatar');
     if (dialogAvatar) dialogAvatar.textContent = avatar;
 
@@ -1218,9 +1248,22 @@
     const statusLogout = $('#status-logout-btn');
     if (statusLogout) statusLogout.hidden = !isApi;
 
-    const showOpdBox = isApi && Boolean((profile && profile.needs_opd) || state.profileChangeMode);
+    // Admin-only Master navigation in sidebar & start menu
+    const navAdmin = $('#nav-admin-group');
+    if (navAdmin) navAdmin.hidden = !(isApi && superAdmin);
+    const startAdmin = $('#start-admin-group');
+    if (startAdmin) startAdmin.hidden = !(isApi && superAdmin);
+
+    // Multi-tenant lock banner for users without assigned OPD
+    const lockBanner = $('#tenant-locked-banner');
+    if (lockBanner) lockBanner.hidden = !isLocked;
+
+    // OPD selection box: only super admin can manually switch active OPD here
+    const showOpdBox = isApi && superAdmin && state.profileChangeMode;
     const opdBox = $('#profile-opd-box');
     if (opdBox) opdBox.hidden = !showOpdBox;
+    const addOpdBox = $('#super-admin-add-opd');
+    if (addOpdBox) addOpdBox.hidden = !(isApi && superAdmin);
     if (showOpdBox) populateProfileOpdSelect();
   }
 
@@ -1307,24 +1350,937 @@
     }
   }
 
+  async function addOpd() {
+    if (state.mode !== 'api' || !state.token) return;
+    const input = $('#new-opd-name');
+    const name = input ? input.value.trim() : '';
+    const error = $('#profile-error');
+    if (error) error.hidden = true;
+    if (!name || name.length < 3) {
+      if (error) {
+        error.textContent = 'Nama OPD minimal 3 karakter.';
+        error.hidden = false;
+      }
+      return;
+    }
+    const button = $('#btn-add-opd');
+    if (button) button.disabled = true;
+    try {
+      const created = await apiRequest('/api/v1/auth/opd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nmskpd: name }),
+      });
+      if (input) input.value = '';
+      await loadOpdOptions();
+      const select = $('#profile-opd-select');
+      if (select) select.value = String(created.id);
+      toast('OPD Terdaftar', `OPD "${created.nmskpd}" berhasil ditambahkan.`, 'success');
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal menambahkan OPD.';
+        error.hidden = false;
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  /* ============================== MASTER DATA CONTROLLER ============================== */
+
+  async function loadMasterOpd() {
+    if (state.mode !== 'api' || !state.token) {
+      state.masterOpdList = [];
+      renderMasterOpdTable();
+      return;
+    }
+    try {
+      setStatus('Memuat data master OPD…');
+      const list = await apiRequest('/api/v1/master/opd');
+      state.masterOpdList = Array.isArray(list) ? list : [];
+      renderMasterOpdTable();
+      setStatus(`Master OPD siap (${state.masterOpdList.length} OPD).`);
+    } catch (error) {
+      toast('Gagal memuat Master OPD', error.message, 'error');
+      setStatus('Gagal memuat Master OPD.');
+    }
+  }
+
+  function renderMasterOpdTable() {
+    const tbody = $('#master-opd-tbody');
+    const empty = $('#master-opd-empty');
+    const countNode = $('#master-opd-count');
+    if (!tbody) return;
+
+    const query = (state.masterOpdFilter || '').trim().toLowerCase();
+    const filtered = state.masterOpdList.filter((opd) => {
+      if (!query) return true;
+      return (opd.nmskpd || '').toLowerCase().includes(query) || String(opd.id).includes(query);
+    });
+
+    filtered.sort((a, b) => {
+      const nameA = (a.nmskpd || '').trim().toLowerCase();
+      const nameB = (b.nmskpd || '').trim().toLowerCase();
+      return nameA.localeCompare(nameB, 'id');
+    });
+
+    if (countNode) countNode.textContent = `${filtered.length} dari ${state.masterOpdList.length} OPD`;
+
+    if (!filtered.length) {
+      tbody.innerHTML = '';
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (empty) empty.hidden = true;
+
+    tbody.innerHTML = filtered.map((opd, index) => {
+      const createdStr = opd.created_at ? new Date(opd.created_at).toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }) : '—';
+      return `
+        <tr data-opd-id="${escapeHtml(opd.id)}">
+          <td style="text-align: center;">${index + 1}</td>
+          <td><strong>${escapeHtml(opd.nmskpd)}</strong></td>
+          <td style="text-align: center;"><span class="pill-soft">${opd.user_count || 0} akun</span></td>
+          <td style="text-align: center;"><span class="pill-soft">${(opd.payroll_count || 0).toLocaleString('id-ID')} baris</span></td>
+          <td>${createdStr}</td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-table-icon" data-action="edit-opd" data-id="${opd.id}" title="Ubah Nama OPD" aria-label="Ubah Nama OPD">
+              <svg class="icon"><use href="#icon-edit"></use></svg>
+            </button>
+            <button type="button" class="btn-table-icon" data-action="delete-opd" data-id="${opd.id}" data-name="${escapeHtml(opd.nmskpd)}" title="Hapus OPD" aria-label="Hapus OPD">
+              <svg class="icon"><use href="#icon-trash"></use></svg>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function openMasterOpdModal(opd = null) {
+    state.editingOpdId = opd ? opd.id : null;
+    const title = $('#modal-master-opd-title');
+    if (title) title.textContent = opd ? `Ubah Nama OPD #${opd.id}` : 'Tambah OPD Baru';
+    const input = $('#master-opd-name');
+    if (input) input.value = opd ? opd.nmskpd : '';
+    const error = $('#master-opd-error');
+    if (error) error.hidden = true;
+    openModal('master-opd');
+  }
+
+  async function saveMasterOpd() {
+    if (state.mode !== 'api' || !state.token) return;
+    const input = $('#master-opd-name');
+    const name = input ? input.value.trim() : '';
+    const error = $('#master-opd-error');
+    if (error) error.hidden = true;
+
+    if (!name || name.length < 3) {
+      if (error) {
+        error.textContent = 'Nama OPD minimal 3 karakter.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    const button = $('#btn-save-master-opd');
+    if (button) button.disabled = true;
+
+    try {
+      if (state.editingOpdId) {
+        await apiRequest(`/api/v1/master/opd/${state.editingOpdId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nmskpd: name }),
+        });
+        toast('OPD Diperbarui', `Nama OPD berhasil diubah menjadi "${name}".`, 'success');
+      } else {
+        await apiRequest('/api/v1/master/opd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nmskpd: name }),
+        });
+        toast('OPD Terdaftar', `OPD "${name}" berhasil ditambahkan.`, 'success');
+      }
+      closeModal();
+      await loadMasterOpd();
+      await loadOpdOptions();
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal menyimpan OPD.';
+        error.hidden = false;
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function deleteMasterOpd(opdId, opdName) {
+    if (!window.confirm(`Yakin ingin menghapus OPD "${opdName}"?\n\nPerhatian: OPD yang memiliki data pegawai atau riwayat payroll tidak dapat dihapus.`)) {
+      return;
+    }
+    try {
+      setStatus(`Menghapus OPD "${opdName}"…`);
+      const res = await apiRequest(`/api/v1/master/opd/${opdId}`, {
+        method: 'DELETE',
+      });
+      toast('OPD Dihapus', res.message || `OPD "${opdName}" berhasil dihapus.`, 'success');
+      await loadMasterOpd();
+      await loadOpdOptions();
+    } catch (error) {
+      toast('Gagal Menghapus OPD', error.message, 'error');
+    }
+  }
+
+  async function loadMasterUsers() {
+    if (state.mode !== 'api' || !state.token) {
+      state.masterUserList = [];
+      renderMasterUsersTable();
+      return;
+    }
+    try {
+      setStatus('Memuat data master pengguna…');
+      if (!state.opdOptions.length) await loadOpdOptions();
+      const list = await apiRequest('/api/v1/master/users');
+      state.masterUserList = Array.isArray(list) ? list : [];
+      renderMasterUsersTable();
+      setStatus(`Master Pengguna siap (${state.masterUserList.length} pengguna).`);
+    } catch (error) {
+      toast('Gagal memuat Master Pengguna', error.message, 'error');
+      setStatus('Gagal memuat Master Pengguna.');
+    }
+  }
+
+  function renderMasterUsersTable() {
+    const tbody = $('#master-user-tbody');
+    const empty = $('#master-user-empty');
+    const countNode = $('#master-user-count');
+    if (!tbody) return;
+
+    const query = (state.masterUserFilter || '').trim().toLowerCase();
+    const roleFilter = state.masterUserRoleFilter || 'all';
+
+    const filtered = state.masterUserList.filter((u) => {
+      if (roleFilter === 'super_admin' && u.role !== 'super_admin') return false;
+      if (roleFilter === 'bendahara_opd' && u.role !== 'bendahara_opd') return false;
+      if (roleFilter === 'unassigned' && (u.opd_id || u.role === 'super_admin')) return false;
+
+      if (!query) return true;
+      return (
+        (u.email || '').toLowerCase().includes(query) ||
+        (u.display_name || '').toLowerCase().includes(query) ||
+        (u.opd_name || '').toLowerCase().includes(query)
+      );
+    });
+
+    if (countNode) countNode.textContent = `${filtered.length} dari ${state.masterUserList.length} pengguna`;
+
+    if (!filtered.length) {
+      tbody.innerHTML = '';
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (empty) empty.hidden = true;
+
+    tbody.innerHTML = filtered.map((u) => {
+      const isSuper = u.role === 'super_admin';
+      const isDefault = Boolean(u.is_default_super_admin);
+      const roleBadge = isSuper
+        ? `<span class="badge-role super">Super Admin</span>`
+        : `<span class="badge-role bendahara">Bendahara OPD</span>`;
+
+      let opdDisplay = '';
+      if (u.opd_name) {
+        opdDisplay = `<strong>${escapeHtml(u.opd_name)}</strong>`;
+      } else if (isSuper) {
+        opdDisplay = `<span class="pill-soft">Semua OPD (Akses Global)</span>`;
+      } else {
+        opdDisplay = `<span class="badge-opd-unassigned"><svg class="icon"><use href="#icon-lock"></use></svg> Belum Ada OPD (Terkunci)</span>`;
+      }
+
+      const statusBadge = u.is_active
+        ? `<span class="badge-status active">Aktif</span>`
+        : `<span class="badge-status inactive">Nonaktif</span>`;
+
+      const defaultTag = isDefault
+        ? `<span class="badge-default-super" title="Super Admin Bawaan (Locked)">Bawaan</span>`
+        : '';
+
+      const createdStr = u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }) : '—';
+
+      return `
+        <tr data-user-id="${escapeHtml(u.id)}">
+          <td>
+            <strong>${escapeHtml(u.email)}</strong>${defaultTag}
+          </td>
+          <td>${escapeHtml(u.display_name || '—')}</td>
+          <td>${roleBadge}</td>
+          <td>${opdDisplay}</td>
+          <td style="text-align: center;">${statusBadge}</td>
+          <td>${createdStr}</td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-table-action default" data-action="manage-user" data-id="${u.id}" title="Kelola Penugasan OPD & Role">Kelola</button>
+            ${!isDefault ? `
+              <button type="button" class="btn-table-action default btn-icon-only" data-action="toggle-role-user" data-id="${u.id}" data-current-role="${u.role}" title="${isSuper ? 'Turunkan jadi Bendahara OPD' : 'Promosikan jadi Super Admin'}" aria-label="${isSuper ? 'Turunkan jadi Bendahara OPD' : 'Promosikan jadi Super Admin'}">
+                <svg class="icon"><use href="${isSuper ? '#icon-user' : '#icon-shield'}"></use></svg>
+              </button>
+              <button type="button" class="btn-table-action btn-table-danger" data-action="delete-user" data-id="${u.id}" data-email="${escapeHtml(u.email)}" title="Hapus Pengguna">Hapus</button>
+            ` : `
+              <span class="pill-soft" style="font-size: 10px;">Dilindungi</span>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function openMasterUserModal(user) {
+    state.editingUserId = user.id;
+    const isDefault = Boolean(user.is_default_super_admin);
+
+    const emailNode = $('#master-user-modal-email');
+    if (emailNode) emailNode.textContent = user.email;
+    const nameNode = $('#master-user-modal-name');
+    if (nameNode) nameNode.textContent = user.display_name || '—';
+    const joinedNode = $('#master-user-modal-joined');
+    if (joinedNode) joinedNode.textContent = user.created_at ? new Date(user.created_at).toLocaleString('id-ID') : '—';
+    const typeNode = $('#master-user-modal-type');
+    if (typeNode) typeNode.textContent = isDefault ? 'Super User Bawaan (Locked)' : 'Pengguna Terdaftar';
+
+    const roleSelect = $('#master-user-modal-role');
+    if (roleSelect) {
+      roleSelect.value = user.role;
+      roleSelect.disabled = isDefault;
+    }
+
+    const opdSelect = $('#master-user-modal-opd');
+    if (opdSelect) {
+      let optionsHtml = '<option value="">-- Belum Ditugaskan (Akses Dikunci) --</option>';
+      state.opdOptions.forEach((opd) => {
+        optionsHtml += `<option value="${escapeHtml(opd.id)}">${escapeHtml(opd.nmskpd)}</option>`;
+      });
+      opdSelect.innerHTML = optionsHtml;
+      opdSelect.value = user.opd_id ? String(user.opd_id) : '';
+    }
+
+    const activeCheck = $('#master-user-modal-active');
+    if (activeCheck) {
+      activeCheck.checked = Boolean(user.is_active);
+      activeCheck.disabled = isDefault;
+    }
+
+    const lockNote = $('#master-user-modal-lock-note');
+    if (lockNote) lockNote.hidden = !isDefault;
+
+    const error = $('#master-user-error');
+    if (error) error.hidden = true;
+
+    openModal('master-user');
+  }
+
+  async function saveMasterUser() {
+    if (state.mode !== 'api' || !state.token || !state.editingUserId) return;
+    const roleSelect = $('#master-user-modal-role');
+    const opdSelect = $('#master-user-modal-opd');
+    const activeCheck = $('#master-user-modal-active');
+    const error = $('#master-user-error');
+    if (error) error.hidden = true;
+
+    const role = roleSelect ? roleSelect.value : null;
+    const opdVal = opdSelect ? opdSelect.value : '';
+    const isActive = activeCheck ? activeCheck.checked : true;
+
+    const payload = {};
+    if (roleSelect && !roleSelect.disabled) payload.role = role;
+    if (activeCheck && !activeCheck.disabled) payload.is_active = isActive;
+
+    if (opdVal) {
+      payload.opd_id = Number(opdVal);
+      payload.clear_opd = false;
+    } else {
+      payload.clear_opd = true;
+    }
+
+    const button = $('#btn-save-master-user');
+    if (button) button.disabled = true;
+
+    try {
+      await apiRequest(`/api/v1/master/users/${state.editingUserId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      toast('Pengguna Diperbarui', 'Pengaturan peran dan OPD pengguna berhasil disimpan.', 'success');
+      closeModal();
+      await loadMasterUsers();
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal menyimpan data pengguna.';
+        error.hidden = false;
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function toggleMasterUserRole(userId, currentRole) {
+    const newRole = currentRole === 'super_admin' ? 'bendahara_opd' : 'super_admin';
+    const actionLabel = newRole === 'super_admin' ? 'Promosikan menjadi Super Admin' : 'Turunkan menjadi Bendahara OPD';
+
+    if (!window.confirm(`Konfirmasi: ${actionLabel}?`)) return;
+
+    try {
+      setStatus(`Mengubah role pengguna…`);
+      await apiRequest(`/api/v1/master/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      toast('Role Diperbarui', `Role pengguna berhasil diubah menjadi ${newRole === 'super_admin' ? 'Super Admin' : 'Bendahara OPD'}.`, 'success');
+      await loadMasterUsers();
+    } catch (error) {
+      toast('Gagal Mengubah Role', error.message, 'error');
+    }
+  }
+
+  async function deleteMasterUser(userId, email) {
+    if (!window.confirm(`Hapus pengguna "${email}"?\n\nPengguna ini tidak akan bisa login lagi ke sistem.`)) {
+      return;
+    }
+    try {
+      setStatus(`Menghapus pengguna "${email}"…`);
+      const res = await apiRequest(`/api/v1/master/users/${userId}`, {
+        method: 'DELETE',
+      });
+      toast('Pengguna Dihapus', res.message || `Pengguna "${email}" berhasil dihapus.`, 'success');
+      await loadMasterUsers();
+    } catch (error) {
+      toast('Gagal Menghapus Pengguna', error.message, 'error');
+    }
+  }
+
+  async function openMasterUserAddModal() {
+    if (state.mode !== 'api' || !state.token) return;
+    if (!state.opdOptions.length) await loadOpdOptions();
+
+    const emailInput = $('#master-user-add-email');
+    if (emailInput) emailInput.value = '';
+    const nameInput = $('#master-user-add-name');
+    if (nameInput) nameInput.value = '';
+
+    const opdSelect = $('#master-user-add-opd');
+    if (opdSelect) {
+      let optionsHtml = '<option value="">-- Pilih OPD Penugasan --</option>';
+      state.opdOptions.forEach((opd) => {
+        optionsHtml += `<option value="${escapeHtml(opd.id)}">${escapeHtml(opd.nmskpd)}</option>`;
+      });
+      opdSelect.innerHTML = optionsHtml;
+      opdSelect.value = '';
+    }
+
+    const error = $('#master-user-add-error');
+    if (error) error.hidden = true;
+
+    openModal('master-user-add');
+  }
+
+  async function saveMasterUserAdd() {
+    if (state.mode !== 'api' || !state.token) return;
+
+    const emailInput = $('#master-user-add-email');
+    const nameInput = $('#master-user-add-name');
+    const opdSelect = $('#master-user-add-opd');
+    const error = $('#master-user-add-error');
+    if (error) error.hidden = true;
+
+    const email = emailInput ? emailInput.value.trim() : '';
+    const name = nameInput ? nameInput.value.trim() : '';
+    const opdId = opdSelect ? Number(opdSelect.value) : 0;
+
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      if (error) {
+        error.textContent = 'Masukkan alamat email yang valid.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    if (!opdId || opdId <= 0) {
+      if (error) {
+        error.textContent = 'Pilih OPD penugasan bendahara.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    const button = $('#btn-save-new-user');
+    if (button) button.disabled = true;
+
+    try {
+      const created = await apiRequest('/api/v1/master/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          opd_id: opdId,
+          display_name: name || null,
+        }),
+      });
+
+      toast('Pengguna Ditambahkan', `Bendahara "${created.email}" berhasil didaftarkan untuk OPD "${created.opd_name}".`, 'success');
+      closeModal();
+      await loadMasterUsers();
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal menambahkan pengguna.';
+        error.hidden = false;
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   function logout() {
-    const wasApi = state.mode === 'api';
-    state.mode = 'demo';
+    state.mode = 'api';
     state.token = '';
     state.profile = null;
+    state.employees = [];
     state.opdOptions = [];
     state.profileChangeMode = false;
-    storageSet('simgaji.mode', 'demo', localStorage);
     storageRemove('simgaji.token', sessionStorage);
-    loadDemoData();
+    if (typeof window.firebase !== 'undefined' && firebase.auth) {
+      try {
+        firebase.auth().signOut();
+      } catch (_) {}
+    }
     closeModal();
     renderAll();
     updateProfileUI();
-    toast(
-      'Logout',
-      wasApi ? 'Sesi API diakhiri; aplikasi kembali ke mode demo.' : 'Mode demo tetap aktif.',
-      'info',
-    );
+    toast('Logout', 'Anda telah keluar dari akun Google.', 'info');
+    openModal('connection');
+  }
+
+  /* ============================== MASTER GAJI ============================== */
+
+  const INCOME_LABELS = {
+    gapok: 'Gaji Pokok',
+    tjistri: 'Tunjangan Suami / Istri',
+    tjanak: 'Tunjangan Anak',
+    tjtpp: 'Tambahan Penghasilan Pegawai (TPP)',
+    tjeselon: 'Tunjangan Eselon / Struktural',
+    tjfungsi: 'Tunjangan Fungsional Tertentu',
+    tjstruk: 'Tunjangan Tugas Struktural',
+    tjguru: 'Tunjangan Tenaga Kependidikan / Guru',
+    tjlangka: 'Tunjangan Kelangkaan Profesi',
+    tjtkd: 'Tunjangan Kinerja Daerah (TKD)',
+    tjterpencil: 'Tunjangan Daerah Terpencil',
+    tjkhusus: 'Tunjangan Khusus ASN',
+    tjberas: 'Tunjangan Beras (Natura / Pangan)',
+    tjpajak: 'Tunjangan Pajak Penghasilan (PPh 21)',
+    tjaskes: 'Tunjangan Jaminan Kesehatan (BPJS Kes)',
+    tjumum: 'Tunjangan Umum Golongan',
+    tjkk: 'Tunjangan Kecelakaan Kerja (JKK)',
+    tjkm: 'Tunjangan Kematian (JKM)',
+    ttaperap: 'Tunjangan Tapera Pegawai',
+    tbulat: 'Pembulatan Gaji',
+  };
+
+  const DEDUCTION_LABELS = {
+    iwp_beban_pegawai: 'IWP Beban Pegawai (1%)',
+    iwp_beban_pembkerja: 'IWP Beban Pemda / Pemberi Kerja',
+    iwp_taspen: 'IWP Taspen Pegawai (8%)',
+    ppajak: 'Pajak Penghasilan (PPh Pasal 21)',
+    pbulog: 'Potongan Beras Bulog',
+    ptaperum: 'Iuran Tabungan Perumahan (Taperum)',
+    psewa: 'Sewa Rumah Dinas / Mess Pemda',
+    phutang: 'Potongan Hutang / Lebih Bayar Daerah',
+    pkorpri: 'Iuran Wajib KORPRI',
+    pirdhata: 'Iuran Pirdhata',
+    pkoperasi: 'Potongan Koperasi Pegawai (SIMGAJI)',
+    pjkk: 'Iuran Jaminan Kecelakaan Kerja (JKK)',
+    pjkm: 'Iuran Jaminan Kematian (JKM)',
+    ptaperap: 'Potongan Tapera Pegawai',
+    ptaperai: 'Potongan Tapera Instansi',
+  };
+
+  async function loadMasterGaji() {
+    if (!state.token) {
+      promptLogin('Silakan login untuk mengakses Master Gaji.');
+      return;
+    }
+
+    const opdLabel = $('#master-gaji-opd-label');
+    if (opdLabel) {
+      opdLabel.textContent = `OPD: ${state.opd || 'Semua OPD'} • Periode: ${periodLabel(state.period)}`;
+    }
+
+    const periodSelect = $('#master-gaji-period-select');
+    if (periodSelect) {
+      if (!periodSelect.options.length) {
+        periodSelect.innerHTML = PERIODS.map((p) => `<option value="${p}">${periodLabel(p)}</option>`).join('');
+      }
+      periodSelect.value = state.period;
+    }
+
+    const activeTab = state.masterGajiTab || 'gaji-stats';
+    if (activeTab === 'gaji-stats') {
+      await loadMasterGajiStats();
+    } else if (activeTab === 'gaji-excel') {
+      await loadMasterGajiList();
+    } else if (activeTab === 'gaji-penyesuaian') {
+      await loadPenyesuaianList();
+    }
+  }
+
+  async function loadMasterGajiStats() {
+    if (!state.token) return;
+    try {
+      setStatus('Memuat statistik data gaji…');
+      const stats = await apiRequest(`/api/v1/payroll/stats?period=${encodeURIComponent(state.period)}`);
+      state.masterGajiStats = stats;
+
+      setText('#stats-total-pegawai', String(stats.total_pegawai || 0));
+      setText('#stats-total-kotor', formatRupiah(stats.total_kotor || 0));
+      setText('#stats-sub-gapok', `Gapok: ${formatRupiah(stats.total_gapok || 0)}`);
+
+      const totalPotongan = (Number(stats.total_potongan_simgaji || 0) + Number(stats.total_potongan_internal || 0));
+      setText('#stats-total-potongan', formatRupiah(totalPotongan));
+      setText(
+        '#stats-sub-potongan',
+        `Resmi: ${formatRupiah(stats.total_potongan_simgaji || 0)} • Internal: ${formatRupiah(stats.total_potongan_internal || 0)}`
+      );
+
+      setText('#stats-total-thp', formatRupiah(stats.total_thp || 0));
+      setText('#stats-sub-penyesuaian', `Penyesuaian: ${formatRupiah(stats.total_penyesuaian || 0)}`);
+
+      // Render breakdown tunjangan
+      const tbodyTj = $('#tbody-breakdown-tunjangan');
+      if (tbodyTj) {
+        const rows = Object.entries(stats.breakdown_tunjangan || {});
+        if (!rows.length) {
+          tbodyTj.innerHTML = '<tr><td colspan="2" class="table-empty">Belum ada data penghasilan</td></tr>';
+        } else {
+          tbodyTj.innerHTML = rows
+            .map(([col, val]) => `
+              <tr>
+                <td><strong>${escapeHtml(INCOME_LABELS[col] || col)}</strong></td>
+                <td class="num-col">${formatRupiah(val)}</td>
+              </tr>
+            `)
+            .join('');
+        }
+      }
+
+      // Render breakdown potongan resmi
+      const tbodyPot = $('#tbody-breakdown-potongan');
+      if (tbodyPot) {
+        const rows = Object.entries(stats.breakdown_potongan_resmi || {});
+        if (!rows.length) {
+          tbodyPot.innerHTML = '<tr><td colspan="2" class="table-empty">Belum ada data potongan</td></tr>';
+        } else {
+          tbodyPot.innerHTML = rows
+            .map(([col, val]) => `
+              <tr>
+                <td><strong>${escapeHtml(DEDUCTION_LABELS[col] || col)}</strong></td>
+                <td class="num-col">${formatRupiah(val)}</td>
+              </tr>
+            `)
+            .join('');
+        }
+      }
+
+      setStatus(`Statistik data gaji ${periodLabel(state.period)} siap.`);
+    } catch (error) {
+      toast('Gagal memuat statistik gaji', error.message, 'error');
+    }
+  }
+
+  async function loadMasterGajiList() {
+    if (!state.token) return;
+    try {
+      setStatus('Memuat daftar gaji bulanan import…');
+      const list = await apiRequest(`/api/v1/payroll/monthly-list?period=${encodeURIComponent(state.period)}`);
+      state.masterGajiList = Array.isArray(list) ? list : [];
+      renderMasterGajiList();
+      setStatus(`Data import gaji siap (${state.masterGajiList.length} ASN).`);
+    } catch (error) {
+      toast('Gagal memuat daftar gaji', error.message, 'error');
+    }
+  }
+
+  function renderMasterGajiList() {
+    const tbody = $('#tbody-excel-gaji');
+    const subtitle = $('#excel-data-subtitle');
+    if (!tbody) return;
+
+    const query = (state.masterGajiFilter || '').trim().toLowerCase();
+    const filtered = state.masterGajiList.filter((row) => {
+      if (!query) return true;
+      return (
+        (row.nip || '').toLowerCase().includes(query) ||
+        (row.nama || '').toLowerCase().includes(query) ||
+        (row.norek || '').toLowerCase().includes(query)
+      );
+    });
+
+    if (subtitle) {
+      subtitle.textContent = `Menampilkan ${filtered.length} dari ${state.masterGajiList.length} ASN periode ${periodLabel(state.period)}`;
+    }
+
+    if (!filtered.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="12" class="table-empty">
+            ${query ? 'Tidak ada pegawai yang cocok dengan kata kunci pencarian.' : 'Tidak ada data gaji untuk periode ini. Silakan import file SIMGAJI PNS.'}
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filtered
+      .map((row, idx) => `
+        <tr>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td><code class="mono">${escapeHtml(row.nip)}</code></td>
+          <td><strong>${escapeHtml(row.nama)}</strong></td>
+          <td style="text-align: center;">${escapeHtml(row.kdpangkat || '—')}</td>
+          <td>${escapeHtml(row.norek || '—')}</td>
+          <td class="num-col">${formatRupiah(row.gapok)}</td>
+          <td class="num-col">${formatRupiah(row.total_tunjangan)}</td>
+          <td class="num-col">${formatRupiah(row.kotor)}</td>
+          <td class="num-col">${formatRupiah(row.potongan_simgaji)}</td>
+          <td class="num-col">${formatRupiah(row.potongan_internal)}</td>
+          <td class="num-col ${Number(row.penyesuaian) > 0 ? 'text-amber' : ''}">${formatRupiah(row.penyesuaian)}</td>
+          <td class="num-col"><strong>${formatRupiah(row.take_home_pay)}</strong></td>
+        </tr>
+      `)
+      .join('');
+  }
+
+  async function loadPenyesuaianList() {
+    if (!state.token) return;
+    try {
+      setStatus('Memuat data penyesuaian gaji…');
+      const periodInput = $('#penyesuaian-period');
+      if (periodInput) periodInput.value = state.period;
+
+      const list = await apiRequest(`/api/v1/payroll/penyesuaian?period=${encodeURIComponent(state.period)}`);
+      state.penyesuaianList = Array.isArray(list) ? list : [];
+      renderPenyesuaianTable();
+      setStatus(`Penyesuaian gaji siap (${state.penyesuaianList.length} data).`);
+    } catch (error) {
+      toast('Gagal memuat penyesuaian', error.message, 'error');
+    }
+  }
+
+  function renderPenyesuaianTable() {
+    const tbody = $('#tbody-penyesuaian');
+    const sub = $('#penyesuaian-table-sub');
+    if (!tbody) return;
+
+    if (sub) {
+      sub.textContent = `${state.penyesuaianList.length} penyesuaian tercatat untuk periode ${periodLabel(state.period)}`;
+    }
+
+    if (!state.penyesuaianList.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Belum ada data penyesuaian gaji pada periode ini.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = state.penyesuaianList
+      .map((item, idx) => `
+        <tr>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td><code class="mono">${escapeHtml(item.nip)}</code></td>
+          <td><strong>${escapeHtml(item.nama || '—')}</strong></td>
+          <td>${escapeHtml(item.jenis_penyesuaian)}</td>
+          <td class="num-col"><strong>${formatRupiah(item.nominal)}</strong></td>
+          <td>${escapeHtml(item.keterangan || '—')}</td>
+          <td style="text-align: center;">
+            <span class="badge-status ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
+          </td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-table-icon danger" data-delete-penyesuaian="${escapeHtml(item.id)}" title="Hapus penyesuaian">
+              <svg class="icon"><use href="#icon-trash"></use></svg>
+            </button>
+          </td>
+        </tr>
+      `)
+      .join('');
+
+    tbody.querySelectorAll('[data-delete-penyesuaian]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-delete-penyesuaian');
+        if (id) deletePenyesuaianGaji(id);
+      });
+    });
+  }
+
+  async function savePenyesuaianGaji(event) {
+    if (event) event.preventDefault();
+    if (!state.token) return;
+
+    const nipInput = $('#penyesuaian-nip');
+    const jenisInput = $('#penyesuaian-jenis');
+    const nominalInput = $('#penyesuaian-nominal');
+    const statusInput = $('#penyesuaian-status');
+    const ketInput = $('#penyesuaian-keterangan');
+    const saveBtn = $('#btn-save-penyesuaian');
+
+    const nip = nipInput ? nipInput.value.trim() : '';
+    const jenis = jenisInput ? jenisInput.value : 'Tunda Bayar';
+    const nominal = nominalInput ? Number(nominalInput.value) : 0;
+    const penStatus = statusInput ? statusInput.value : 'ditunda';
+    const ket = ketInput ? ketInput.value.trim() : '';
+
+    if (!nip) {
+      toast('Validasi Gagal', 'NIP pegawai wajib diisi.', 'error');
+      if (nipInput) nipInput.focus();
+      return;
+    }
+    if (!nominal || nominal <= 0) {
+      toast('Validasi Gagal', 'Nominal penyesuaian harus lebih besar dari 0.', 'error');
+      if (nominalInput) nominalInput.focus();
+      return;
+    }
+
+    try {
+      if (saveBtn) saveBtn.disabled = true;
+      setStatus('Menyimpan data penyesuaian gaji…');
+
+      await apiRequest('/api/v1/payroll/penyesuaian', {
+        method: 'POST',
+        body: JSON.stringify({
+          nip,
+          period: state.period,
+          jenis_penyesuaian: jenis,
+          nominal,
+          status: penStatus,
+          keterangan: ket || null,
+        }),
+      });
+
+      toast('Penyesuaian Disimpan', `Penyesuaian gaji untuk NIP ${nip} sebesar ${formatRupiah(nominal)} berhasil dicatat.`, 'success');
+
+      // Clear form inputs
+      if (nipInput) nipInput.value = '';
+      const namaInput = $('#penyesuaian-nama');
+      if (namaInput) namaInput.value = '';
+      if (nominalInput) nominalInput.value = '';
+      if (ketInput) ketInput.value = '';
+
+      await loadPenyesuaianList();
+      void loadMasterGajiStats();
+      void loadApiData(state.token);
+    } catch (error) {
+      toast('Gagal Menyimpan Penyesuaian', error.message, 'error');
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  async function deletePenyesuaianGaji(id) {
+    if (!state.token || !id) return;
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data penyesuaian gaji ini?')) return;
+
+    try {
+      setStatus('Menghapus data penyesuaian gaji…');
+      const res = await apiRequest(`/api/v1/payroll/penyesuaian/${id}`, {
+        method: 'DELETE',
+      });
+      toast('Penyesuaian Dihapus', res.message || 'Penyesuaian gaji berhasil dihapus.', 'success');
+      await loadPenyesuaianList();
+      void loadMasterGajiStats();
+      void loadApiData(state.token);
+    } catch (error) {
+      toast('Gagal Menghapus Penyesuaian', error.message, 'error');
+    }
+  }
+
+  /* ============================== MONITORING AKTIVITAS ============================== */
+
+  async function loadMonitoringAudit() {
+    if (!state.token) {
+      promptLogin('Silakan login untuk mengakses Monitoring Aktivitas.');
+      return;
+    }
+
+    try {
+      setStatus('Memuat log aktivitas…');
+      let url = '/api/v1/monitoring/audit?limit=100';
+      if (state.monitoringFilterAction) {
+        url += `&action=${encodeURIComponent(state.monitoringFilterAction)}`;
+      }
+
+      const list = await apiRequest(url);
+      state.monitoringLogs = Array.isArray(list) ? list : [];
+      renderMonitoringTable();
+      setStatus(`Monitoring Aktivitas siap (${state.monitoringLogs.length} entri).`);
+    } catch (error) {
+      toast('Gagal memuat log aktivitas', error.message, 'error');
+    }
+  }
+
+  function renderMonitoringTable() {
+    const tbody = $('#monitoring-tbody');
+    const subtitle = $('#monitoring-subtitle');
+    if (!tbody) return;
+
+    const query = (state.monitoringSearch || '').trim().toLowerCase();
+    const filtered = state.monitoringLogs.filter((log) => {
+      if (!query) return true;
+      const detailsStr = log.details ? JSON.stringify(log.details).toLowerCase() : '';
+      return (
+        (log.user_email || '').toLowerCase().includes(query) ||
+        (log.action || '').toLowerCase().includes(query) ||
+        detailsStr.includes(query)
+      );
+    });
+
+    if (subtitle) {
+      subtitle.textContent = `Menampilkan ${filtered.length} dari ${state.monitoringLogs.length} aktivitas sistem terbaru`;
+    }
+
+    if (!filtered.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-empty">
+            ${query ? 'Tidak ada aktivitas yang cocok dengan kata kunci pencarian.' : 'Belum ada log aktivitas yang tercatat.'}
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filtered
+      .map((log, idx) => {
+        const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('id-ID', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }) : '—';
+
+        let detailText = '—';
+        if (log.details && typeof log.details === 'object') {
+          detailText = Object.entries(log.details)
+            .map(([k, v]) => `${escapeHtml(k)}: <strong>${escapeHtml(String(v))}</strong>`)
+            .join(' • ');
+        }
+
+        return `
+          <tr>
+            <td style="text-align: center;">${idx + 1}</td>
+            <td><span class="mono">${escapeHtml(dateStr)}</span></td>
+            <td><strong>${escapeHtml(log.user_email)}</strong></td>
+            <td><span class="badge-action">${escapeHtml(log.action)}</span></td>
+            <td><div style="font-size: 11px;">${detailText}</div></td>
+            <td><code class="mono">${escapeHtml(log.ip_address || '—')}</code></td>
+          </tr>
+        `;
+      })
+      .join('');
   }
 
   async function connectApiSession(token) {
@@ -1345,9 +2301,10 @@
     updateProfileUI();
 
     if (profile.needs_opd) {
-      toast('Tentukan OPD', 'Akun baru harus memilih OPD sebelum mengakses data gaji.', 'info');
-      await openProfileDialog();
-      return profile;
+      if (!profile.is_super_admin) {
+        toast('Akun Belum Ada OPD', 'Akun Anda baru dan belum ditugaskan ke OPD oleh Super Admin. Seluruh aksi terkunci.', 'warning');
+        return profile;
+      }
     }
 
     const data = await loadApiData(token);
@@ -1394,13 +2351,13 @@
       const totalInternal = Number(data.potongan_internal) || 0;
       if (details.length || totalInternal === 0) {
         employee.internalPotongan = details.map((detail, index) => ({
-          id: `api-${nip}-${index}`,
+          id: detail.id || `api-${nip}-${index}`,
           pos: detail.pos_nama,
           nominal: Number(detail.nominal) || 0,
           info: detail.cicilan_info || detail.keterangan || `Bulanan • ${periodLabel(period)}`,
           kategori: detail.cicilan_info ? 'berjangka' : 'bulanan',
           keterangan: detail.keterangan || '',
-          readOnly: true,
+          readOnly: Boolean(detail.cicilan_info || detail.kategori === 'berjangka'),
         }));
         employee.basePotonganInternal = 0;
         recomputeEmployee(employee);
@@ -1429,6 +2386,10 @@
   }
 
   function openLoanDialog() {
+    if (isUserLocked()) {
+      toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
+      return;
+    }
     if (!state.employees.length) {
       toast('Belum ada pegawai', 'Import data SIMGAJI terlebih dahulu.', 'error');
       return;
@@ -1570,6 +2531,10 @@
   }
 
   function openPosDialog() {
+    if (isUserLocked()) {
+      toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
+      return;
+    }
     renderPosTable();
     const form = $('#form-pos');
     if (form) form.reset();
@@ -1661,6 +2626,10 @@
   }
 
   function openManualImport() {
+    if (isUserLocked()) {
+      toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
+      return;
+    }
     populatePosSelects();
     const file = $('#manual-file');
     if (file) file.value = '';
@@ -2188,6 +3157,10 @@
   }
 
   async function runImport() {
+    if (isUserLocked()) {
+      toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin. Import SIMGAJI tidak dapat dilakukan.', 'error');
+      return;
+    }
     if (!state.currentFile || state.importRunning) return;
 
     state.importRunning = true;
@@ -2304,6 +3277,10 @@
 
   function submitBulanan(event) {
     event.preventDefault();
+    if (isUserLocked()) {
+      toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
+      return;
+    }
     hideFormError('bulanan');
 
     const employee = currentPotonganEmployee();
@@ -2338,12 +3315,49 @@
     const item = {
       id: uid('pot'),
       pos,
+      pos_id: posId,
       nominal,
       info: infoParts.join(' • '),
       kategori: 'bulanan',
       period,
       keterangan,
+      readOnly: false,
     };
+
+    if (state.mode === 'api' && state.token) {
+      apiRequest('/api/v1/potongan/item', {
+        method: 'POST',
+        body: JSON.stringify({
+          nip: employee.nip,
+          pos_id: Number(posId),
+          period,
+          nominal,
+        }),
+      })
+      .then((created) => {
+        item.id = created.id;
+        employee.internalPotongan = employee.internalPotongan || [];
+        const existIdx = employee.internalPotongan.findIndex(
+          (x) => String(x.pos_id) === String(posId) && !x.readOnly
+        );
+        if (existIdx >= 0) {
+          employee.internalPotongan[existIdx] = item;
+        } else {
+          employee.internalPotongan.push(item);
+        }
+        recomputeEmployee(employee);
+        addActivity('potongan', 'Potongan bulanan disimpan ke database', `${employee.nama} • ${pos}`, 'amber');
+        renderAll();
+        resetBulananForm();
+        toast('Potongan disimpan', `${pos} ${formatRupiah(nominal, 0)} tersimpan ke server.`, 'success');
+      })
+      .catch((error) => {
+        showFormError('bulanan', error.message || 'Gagal menyimpan ke server');
+        toast('Gagal Menyimpan', error.message || 'Terjadi kesalahan saat menyimpan.', 'error');
+      });
+      return;
+    }
+
     employee.internalPotongan = employee.internalPotongan || [];
     employee.internalPotongan.push(item);
     recomputeEmployee(employee);
@@ -2360,9 +3374,27 @@
     const index = items.findIndex((item) => item.id === id);
     if (index < 0) return;
     if (items[index].readOnly) {
-      toast('Tidak dapat dihapus', 'Potongan ini berasal dari data API.', 'error');
+      toast('Tidak dapat dihapus', 'Potongan ini berasal dari cicilan pinjaman berjangka.', 'error');
       return;
     }
+
+    if (state.mode === 'api' && state.token && id && !id.startsWith('pot_')) {
+      apiRequest(`/api/v1/potongan/item/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      .then(() => {
+        const [removed] = items.splice(index, 1);
+        recomputeEmployee(employee);
+        addActivity('potongan', 'Potongan dihapus dari database', `${employee.nama} • ${removed.pos}`, 'amber');
+        renderAll();
+        toast('Potongan dihapus', `${removed.pos} berhasil dihapus dari database.`, 'info');
+      })
+      .catch((error) => {
+        toast('Gagal Menghapus', error.message || 'Terjadi kesalahan saat menghapus.', 'error');
+      });
+      return;
+    }
+
     const [removed] = items.splice(index, 1);
     recomputeEmployee(employee);
     addActivity('potongan', 'Potongan dihapus', `${employee.nama} • ${removed.pos}`, 'amber');
@@ -2439,62 +3471,59 @@
     void loadPotonganReferenceData();
   }
 
-  function fallbackToDemo(message) {
-    state.mode = 'demo';
+  function promptLogin(message) {
+    state.mode = 'api';
     state.token = '';
     state.profile = null;
+    state.employees = [];
     state.opdOptions = [];
     state.profileChangeMode = false;
-    storageSet('simgaji.mode', 'demo', localStorage);
     storageRemove('simgaji.token', sessionStorage);
-    loadDemoData();
+    if (typeof window.firebase !== 'undefined' && firebase.auth) {
+      try {
+        firebase.auth().signOut();
+      } catch (_) {}
+    }
     renderAll();
     updateProfileUI();
-    if (message) toast('Beralih ke mode demo', message, 'error');
+    if (message) toast('Autentikasi Diperlukan', message, 'warning');
+    openConnectionModal();
+  }
+
+  function fallbackToDemo(message) {
+    promptLogin(message);
   }
 
   function openConnectionModal() {
-    const mode = state.mode;
-    const demoRadio = $('#mode-demo');
-    const apiRadio = $('#mode-api');
-    if (demoRadio) demoRadio.checked = mode !== 'api';
-    if (apiRadio) apiRadio.checked = mode === 'api';
-    const tokenWrap = $('#connection-token-wrap');
-    if (tokenWrap) tokenWrap.hidden = mode !== 'api';
     const tokenInput = $('#api-token');
     if (tokenInput) tokenInput.value = state.token || '';
     const error = $('#connection-error');
     if (error) error.hidden = true;
+
+    const authInfo = $('#user-signed-in-info');
+    if (state.profile && state.token) {
+      if (authInfo) authInfo.hidden = false;
+      const emailEl = $('#auth-info-email');
+      if (emailEl) emailEl.textContent = state.profile.email;
+      const roleEl = $('#auth-info-role');
+      if (roleEl) {
+        roleEl.textContent = `${state.profile.role === 'super_admin' ? 'Super Admin' : 'Bendahara OPD'} • ${state.profile.opd_name || 'Semua OPD'}`;
+      }
+    } else {
+      if (authInfo) authInfo.hidden = true;
+    }
     openModal('connection');
   }
 
   async function applyConnection() {
-    const modeNode = document.querySelector('input[name="data-mode"]:checked');
-    const mode = modeNode ? modeNode.value : 'demo';
     const error = $('#connection-error');
     if (error) error.hidden = true;
-
-    if (mode === 'demo') {
-      state.mode = 'demo';
-      state.token = '';
-      state.profile = null;
-      state.opdOptions = [];
-      state.profileChangeMode = false;
-      storageSet('simgaji.mode', 'demo', localStorage);
-      storageRemove('simgaji.token', sessionStorage);
-      loadDemoData();
-      renderAll();
-      updateProfileUI();
-      closeModal();
-      toast('Mode demo aktif', 'Dashboard memakai contoh data lokal.', 'info');
-      return;
-    }
 
     const tokenInput = $('#api-token');
     const token = tokenInput ? tokenInput.value.trim() : '';
     if (!token) {
       if (error) {
-        error.textContent = 'Firebase ID Token wajib diisi untuk mode API.';
+        error.textContent = 'Silakan klik "Masuk dengan Google" atau tempel Firebase ID Token.';
         error.hidden = false;
       }
       return;
@@ -2506,7 +3535,7 @@
       const profile = await connectApiSession(token);
       if (!profile.needs_opd) {
         closeModal();
-        toast('Terhubung ke API', `${state.employees.length} pegawai dimuat.`, 'success');
+        toast('Terhubung ke API', `Login berhasil sebagai ${profile.email}.`, 'success');
       }
     } catch (caught) {
       if (error) {
@@ -2518,10 +3547,86 @@
     }
   }
 
+  function initFirebase() {
+    if (typeof window.firebase === 'undefined' || !firebase.initializeApp) {
+      return;
+    }
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+      firebase.auth().onAuthStateChanged(async (user) => {
+        if (user) {
+          try {
+            const token = await user.getIdToken();
+            state.token = token;
+            storageSet('simgaji.token', token, sessionStorage);
+            if (!state.profile) {
+              await connectApiSession(token);
+              closeModal();
+            }
+          } catch (_) {}
+        }
+      });
+      firebase.auth().onIdTokenChanged(async (user) => {
+        if (user) {
+          try {
+            const token = await user.getIdToken();
+            state.token = token;
+            storageSet('simgaji.token', token, sessionStorage);
+          } catch (_) {}
+        }
+      });
+    } catch (err) {
+      console.warn('Firebase init warning:', err);
+    }
+  }
+
+  async function loginWithGoogle() {
+    const error = $('#connection-error');
+    if (error) error.hidden = true;
+    const btn = $('#btn-google-login');
+    if (btn) btn.disabled = true;
+
+    try {
+      if (typeof window.firebase === 'undefined' || !firebase.auth) {
+        throw new Error('Firebase SDK belum termuat. Pastikan ada koneksi internet.');
+      }
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const cred = await firebase.auth().signInWithPopup(provider);
+      const token = await cred.user.getIdToken(true);
+
+      const tokenInput = $('#api-token');
+      if (tokenInput) tokenInput.value = token;
+
+      const profile = await connectApiSession(token);
+      if (!profile.needs_opd) {
+        closeModal();
+        toast('Login Berhasil', `Masuk sebagai ${cred.user.email}.`, 'success');
+      }
+    } catch (caught) {
+      if (error) {
+        if (window.location.protocol === 'file:') {
+          error.innerHTML = 'Aplikasi dibuka langsung dari file (<code>file://</code>). Google OAuth membutuhkan web server.<br>Silakan buka melalui server lokal (misalnya <code>http://localhost:8000</code>).';
+        } else if (caught.code === 'auth/unauthorized-domain') {
+          const currentHost = window.location.hostname || window.location.host;
+          error.innerHTML = 'Domain <b>' + currentHost + '</b> belum diizinkan di Firebase.<br>Silakan buka <b>Firebase Console &rarr; Authentication &rarr; Settings &rarr; Authorized domains</b> lalu tambahkan: <code>' + currentHost + '</code>';
+        } else {
+          error.textContent = caught.message || 'Gagal login dengan Google.';
+        }
+        error.hidden = false;
+      }
+      toast('Login Gagal', caught.message || 'Gagal login dengan Google.', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function refreshData() {
     if (state.mode === 'api' && state.token) {
-      if (state.profile && state.profile.needs_opd) {
-        await openProfileDialog();
+      if (isUserLocked()) {
+        toast('Akun Belum Ada OPD', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'warning');
         return;
       }
       setStatus('Memuat ulang data…');
@@ -2564,9 +3669,13 @@
 
   const VIEW_TITLES = {
     dashboard: 'Dashboard',
+    'master-gaji': 'Master Gaji',
     import: 'Import SIMGAJI',
     potongan: 'Potongan',
     print: 'Cetak Slip',
+    monitoring: 'Monitoring Aktivitas',
+    'master-opd': 'Master OPD',
+    'master-user': 'Master Pengguna',
   };
 
   function setView(view, silent = false) {
@@ -2601,6 +3710,10 @@
     if (next === 'print') renderPrintPreview();
     if (next === 'potongan') renderPotongan();
     if (next === 'dashboard') renderDashboard(computeTotals());
+    if (next === 'master-gaji') loadMasterGaji();
+    if (next === 'monitoring') loadMonitoringAudit();
+    if (next === 'master-opd') loadMasterOpd();
+    if (next === 'master-user') loadMasterUsers();
     setStatus(`Halaman ${VIEW_TITLES[next]} siap.`);
     if (!silent) {
       // no-op; hook for page transitions
@@ -2625,7 +3738,7 @@
     if (appButton) appButton.classList.remove('active');
     const shortcut = $('#closed-shortcut');
     if (shortcut) shortcut.hidden = true;
-    toast('Jendela diminimize', 'Klik tombol SIMGAJI ASN pada taskbar untuk membuka.', 'info');
+    toast('Jendela diminimize', 'Klik tombol SLIP GAJI ASN pada taskbar untuk membuka.', 'info');
   }
 
   function restoreWindow() {
@@ -2648,7 +3761,7 @@
     const shortcut = $('#closed-shortcut');
     if (shortcut) shortcut.hidden = false;
     closeModal();
-    toast('Aplikasi ditutup', 'Klik ikon SIMGAJI ASN di desktop untuk membuka kembali.', 'info');
+    toast('Aplikasi ditutup', 'Klik ikon SLIP GAJI ASN di desktop untuk membuka kembali.', 'info');
   }
 
   function toggleMaximize() {
@@ -3150,6 +4263,17 @@
     if (profileChangeButton) profileChangeButton.addEventListener('click', () => openProfileDialog(true));
     const saveProfileButton = $('#btn-save-profile-opd');
     if (saveProfileButton) saveProfileButton.addEventListener('click', saveProfileOpd);
+    const addOpdButton = $('#btn-add-opd');
+    if (addOpdButton) addOpdButton.addEventListener('click', addOpd);
+    const newOpdInput = $('#new-opd-name');
+    if (newOpdInput) {
+      newOpdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addOpd();
+        }
+      });
+    }
     const profileLogout = $('#btn-profile-logout');
     if (profileLogout) profileLogout.addEventListener('click', logout);
 
@@ -3172,6 +4296,92 @@
         const details = await Promise.all(list.map(e => fetchSlipData(e.nip, period)));
         await doPrint(details, period);
     });
+
+    // Master OPD
+    const openAddOpdBtn = $('#btn-open-add-opd');
+    if (openAddOpdBtn) openAddOpdBtn.addEventListener('click', () => openMasterOpdModal());
+    const refreshMasterOpdBtn = $('#btn-refresh-master-opd');
+    if (refreshMasterOpdBtn) refreshMasterOpdBtn.addEventListener('click', loadMasterOpd);
+    const searchMasterOpdInput = $('#master-opd-search');
+    if (searchMasterOpdInput) {
+      searchMasterOpdInput.addEventListener('input', (e) => {
+        state.masterOpdFilter = e.target.value;
+        renderMasterOpdTable();
+      });
+    }
+    const saveMasterOpdBtn = $('#btn-save-master-opd');
+    if (saveMasterOpdBtn) saveMasterOpdBtn.addEventListener('click', saveMasterOpd);
+
+    const masterOpdTbody = $('#master-opd-tbody');
+    if (masterOpdTbody) {
+      masterOpdTbody.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('[data-action="edit-opd"]');
+        if (editBtn) {
+          const id = Number(editBtn.dataset.id);
+          const opd = state.masterOpdList.find((item) => item.id === id);
+          if (opd) openMasterOpdModal(opd);
+          return;
+        }
+        const delBtn = e.target.closest('[data-action="delete-opd"]');
+        if (delBtn) {
+          const id = Number(delBtn.dataset.id);
+          const name = delBtn.dataset.name || '';
+          deleteMasterOpd(id, name);
+          return;
+        }
+      });
+    }
+
+    // Master User
+    const openAddUserBtn = $('#btn-open-add-user');
+    if (openAddUserBtn) openAddUserBtn.addEventListener('click', openMasterUserAddModal);
+    const saveNewUserBtn = $('#btn-save-new-user');
+    if (saveNewUserBtn) saveNewUserBtn.addEventListener('click', saveMasterUserAdd);
+    const refreshMasterUserBtn = $('#btn-refresh-master-user');
+    if (refreshMasterUserBtn) refreshMasterUserBtn.addEventListener('click', loadMasterUsers);
+    const searchMasterUserInput = $('#master-user-search');
+    if (searchMasterUserInput) {
+      searchMasterUserInput.addEventListener('input', (e) => {
+        state.masterUserFilter = e.target.value;
+        renderMasterUsersTable();
+      });
+    }
+    const roleFilterMasterUser = $('#master-user-role-filter');
+    if (roleFilterMasterUser) {
+      roleFilterMasterUser.addEventListener('change', (e) => {
+        state.masterUserRoleFilter = e.target.value;
+        renderMasterUsersTable();
+      });
+    }
+    const saveMasterUserBtn = $('#btn-save-master-user');
+    if (saveMasterUserBtn) saveMasterUserBtn.addEventListener('click', saveMasterUser);
+
+    const masterUserTbody = $('#master-user-tbody');
+    if (masterUserTbody) {
+      masterUserTbody.addEventListener('click', (e) => {
+        const manageBtn = e.target.closest('[data-action="manage-user"]');
+        if (manageBtn) {
+          const id = manageBtn.dataset.id;
+          const user = state.masterUserList.find((u) => u.id === id);
+          if (user) openMasterUserModal(user);
+          return;
+        }
+        const toggleRoleBtn = e.target.closest('[data-action="toggle-role-user"]');
+        if (toggleRoleBtn) {
+          const id = toggleRoleBtn.dataset.id;
+          const currentRole = toggleRoleBtn.dataset.currentRole;
+          toggleMasterUserRole(id, currentRole);
+          return;
+        }
+        const delBtn = e.target.closest('[data-action="delete-user"]');
+        if (delBtn) {
+          const id = delBtn.dataset.id;
+          const email = delBtn.dataset.email || '';
+          deleteMasterUser(id, email);
+          return;
+        }
+      });
+    }
 
     // Taskbar dan window controls
     const taskbarApp = $('#taskbar-app');
@@ -3218,14 +4428,114 @@
     }
     const applyButton = $('#btn-apply-connection');
     if (applyButton) applyButton.addEventListener('click', applyConnection);
-    $$('input[name="data-mode"]').forEach((radio) => {
-      radio.addEventListener('change', () => {
-        const wrap = $('#connection-token-wrap');
-        if (wrap) wrap.hidden = radio.value !== 'api' || !radio.checked;
-      });
-    });
+    const googleLoginBtn = $('#btn-google-login');
+    if (googleLoginBtn) googleLoginBtn.addEventListener('click', loginWithGoogle);
+    const dialogLogoutBtn = $('#btn-dialog-logout');
+    if (dialogLogoutBtn) dialogLogoutBtn.addEventListener('click', logout);
+    const statusLogoutBtn = $('#status-logout-btn');
+    if (statusLogoutBtn) statusLogoutBtn.addEventListener('click', logout);
     const confirmClose = $('#btn-confirm-close');
     if (confirmClose) confirmClose.addEventListener('click', closeWindow);
+
+    // Master Gaji Events
+    const refreshMasterGajiBtn = $('#btn-refresh-master-gaji');
+    if (refreshMasterGajiBtn) refreshMasterGajiBtn.addEventListener('click', loadMasterGaji);
+
+    const masterGajiPeriodSelect = $('#master-gaji-period-select');
+    if (masterGajiPeriodSelect) {
+      masterGajiPeriodSelect.addEventListener('change', (e) => {
+        setPeriod(e.target.value);
+        void loadMasterGaji();
+      });
+    }
+
+    const masterGajiTabs = $('#master-gaji-tabs');
+    if (masterGajiTabs) {
+      masterGajiTabs.addEventListener('click', (e) => {
+        const tabBtn = e.target.closest('button[role="tab"]');
+        if (!tabBtn) return;
+        const targetTab = tabBtn.dataset.tab;
+        if (!targetTab) return;
+
+        masterGajiTabs.querySelectorAll('button[role="tab"]').forEach((b) => {
+          const isTarget = b === tabBtn;
+          b.setAttribute('aria-selected', String(isTarget));
+          b.tabIndex = isTarget ? 0 : -1;
+        });
+
+        masterGajiTabs.querySelectorAll('[role="tabpanel"]').forEach((panel) => {
+          panel.hidden = panel.id !== `tab-panel-${targetTab}`;
+        });
+
+        state.masterGajiTab = targetTab;
+        void loadMasterGaji();
+      });
+    }
+
+    const excelGajiSearch = $('#excel-gaji-search');
+    if (excelGajiSearch) {
+      excelGajiSearch.addEventListener('input', (e) => {
+        state.masterGajiFilter = e.target.value;
+        renderMasterGajiList();
+      });
+    }
+
+    const formPenyesuaian = $('#form-penyesuaian');
+    if (formPenyesuaian) {
+      formPenyesuaian.addEventListener('submit', savePenyesuaianGaji);
+    }
+
+    const penyesuaianNip = $('#penyesuaian-nip');
+    if (penyesuaianNip) {
+      const lookupName = () => {
+        const nip = penyesuaianNip.value.trim();
+        const namaInput = $('#penyesuaian-nama');
+        if (!namaInput) return;
+        if (!nip) {
+          namaInput.value = '';
+          return;
+        }
+        const emp = (state.employees || []).find((e) => e.nip === nip) ||
+                    (state.masterGajiList || []).find((e) => e.nip === nip);
+        if (emp) {
+          namaInput.value = emp.nama;
+        }
+      };
+      penyesuaianNip.addEventListener('input', lookupName);
+      penyesuaianNip.addEventListener('change', lookupName);
+    }
+
+    const btnResetPenyesuaian = $('#btn-reset-penyesuaian');
+    if (btnResetPenyesuaian) {
+      btnResetPenyesuaian.addEventListener('click', () => {
+        setTimeout(() => {
+          const periodInput = $('#penyesuaian-period');
+          if (periodInput) periodInput.value = state.period;
+          const namaInput = $('#penyesuaian-nama');
+          if (namaInput) namaInput.value = '';
+        }, 10);
+      });
+    }
+
+    // Monitoring Aktivitas Events
+    const refreshMonitoringBtn = $('#btn-refresh-monitoring');
+    if (refreshMonitoringBtn) refreshMonitoringBtn.addEventListener('click', loadMonitoringAudit);
+
+    const monitoringSearchInput = $('#monitoring-search');
+    if (monitoringSearchInput) {
+      monitoringSearchInput.addEventListener('input', (e) => {
+        state.monitoringSearch = e.target.value;
+        renderMonitoringTable();
+      });
+    }
+
+    const monitoringFilterAction = $('#monitoring-filter-action');
+    if (monitoringFilterAction) {
+      monitoringFilterAction.addEventListener('change', (e) => {
+        state.monitoringFilterAction = e.target.value;
+        void loadMonitoringAudit();
+      });
+    }
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
@@ -3247,31 +4557,31 @@
   /* ============================== BOOT ============================== */
 
   function init() {
+    state.mode = 'api';
     buildPeriodSelects();
-    loadDemoData();
     bindEvents();
+    initFirebase();
     updateClock();
     if (clockTimer) window.clearInterval(clockTimer);
     clockTimer = window.setInterval(updateClock, 15000);
     renderAll();
     setView('dashboard', true);
 
-    if (state.mode === 'api') {
-      if (!state.token) {
-        state.mode = 'demo';
-        storageSet('simgaji.mode', 'demo', localStorage);
-        updateProfileUI();
-        return;
-      }
+    if (state.token) {
       setStatus('Menghubungkan ke API…');
       connectApiSession(state.token)
         .then((profile) => {
           setStatus('Data API siap.');
           if (!profile.needs_opd) {
-            toast('Terhubung ke API', `${state.employees.length} pegawai dimuat.`, 'success');
+            toast('Terhubung ke API', `Selamat datang, ${profile.display_name || profile.email}.`, 'success');
           }
         })
-        .catch((caught) => fallbackToDemo(caught.message || 'Token atau koneksi tidak valid.'));
+        .catch((caught) => {
+          promptLogin(caught.message || 'Sesi telah kedaluwarsa. Silakan masuk kembali.');
+        });
+    } else {
+      updateProfileUI();
+      openConnectionModal();
     }
   }
 

@@ -220,6 +220,11 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
             detail="Akun Anda dinonaktifkan.",
         )
 
+    if display_name and not user.display_name:
+        user.display_name = display_name
+        db.commit()
+        db.refresh(user)
+
     opd = db.get(RefOpd, user.opd_id) if user.opd_id else None
     return UserProfile(
         email=email_norm,

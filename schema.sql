@@ -153,3 +153,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_potongan_berjangka_period
 CREATE UNIQUE INDEX IF NOT EXISTS uq_potongan_manual_period
     ON payroll_potongan_item (nip, period, pos_id)
     WHERE berjangka_id IS NULL;
+
+-- 7. PENYESUAIAN GAJI (TUNDA BAYAR, RETUR REKENING, DLL.)
+CREATE TABLE IF NOT EXISTS payroll_penyesuaian (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nip VARCHAR(30) NOT NULL,
+    nama VARCHAR(255),
+    period DATE NOT NULL,
+    opd_id INT REFERENCES ref_opd(id) ON DELETE CASCADE,
+    jenis_penyesuaian VARCHAR(100) NOT NULL DEFAULT 'Tunda Bayar',
+    nominal NUMERIC(15, 2) NOT NULL,
+    keterangan TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'ditunda',
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_penyesuaian_nip_period ON payroll_penyesuaian(nip, period);
+CREATE INDEX IF NOT EXISTS idx_penyesuaian_opd ON payroll_penyesuaian(opd_id);
+
