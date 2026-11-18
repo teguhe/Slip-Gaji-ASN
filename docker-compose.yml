@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: slip_gaji_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: slip_gaji_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d slip_gaji_db && psql -U postgres -d slip_gaji_db -tAc 'SELECT 1 FROM payroll_monthly LIMIT 1' >/dev/null",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  app:
+    build: .
+    container_name: slip_gaji_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres_password@db:5432/slip_gaji_db
+      FIREBASE_ADMIN_CREDENTIALS: ${FIREBASE_ADMIN_CREDENTIALS:-/app/firebase_creds.json}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-teguhe@gmail.com}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+      MAX_IMPORT_ROWS: ${MAX_IMPORT_ROWS:-50000}
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+
+volumes:
+  pgdata:

@@ -1,0 +1,11 @@
+# Kredensial lokal tidak boleh masuk ke image/version control.
+.env
+firebase_creds.json
+*.json.key
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.git/
+.gitignore

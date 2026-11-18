@@ -1,0 +1,17 @@
+# Secrets & environment
+.env
+firebase_creds.json
+*.json.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

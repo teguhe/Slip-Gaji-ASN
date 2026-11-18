@@ -1,0 +1,4 @@
+# Development/testing dependencies (tidak dipakai image production)
+-r requirements.txt
+pytest==8.1.1
+httpx==0.27.0

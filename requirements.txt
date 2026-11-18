@@ -1,0 +1,12 @@
+fastapi==0.110.0
+uvicorn==0.28.0
+pydantic==2.6.4
+pandas==2.2.1
+xlrd==2.0.1
+openpyxl==3.1.2
+SQLAlchemy==2.0.28
+psycopg2-binary==2.9.9
+firebase-admin==6.5.0
+
+# Upload multipart untuk endpoint import Excel
+python-multipart==0.0.9

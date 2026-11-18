@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b3d68">
+  <title>SIMGAJI ASN — Cetak Slip Pembayaran Gaji</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%238fd4ff'/%3E%3Cstop offset='1' stop-color='%231a6fb0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='4' width='26' height='24' rx='4' fill='url(%23g)' stroke='%23eaf8ff' stroke-width='1.5'/%3E%3Cpath d='M9 11h14M9 16h14M9 21h9' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <!-- 7.css v0.21.1 — Windows 7 component system (CDN, fallback lokal). -->
+  <link rel="stylesheet" href="https://unpkg.com/7.css@0.21.1"
+        onerror="this.onerror=null;this.href='/static/vendor/7.css'">
+  <link rel="stylesheet" href="/static/vendor/7.css">
+  <link rel="stylesheet" href="/static/css/aero.css">
+</head>
+<body>
+
+  <svg class="svg-sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="icon-logo" viewBox="0 0 24 24">
+        <path d="M5 3.5h9l5 5V21a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 21V5A1.5 1.5 0 0 1 5.5 3.5Z" fill="currentColor" opacity=".18"/>
+        <path d="M5 3.5h9l5 5V21a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 21V5A1.5 1.5 0 0 1 5.5 3.5Z"/>
+        <path d="M14 3.5V9h5M8 13h8M8 17h6"/>
+      </symbol>
+      <symbol id="icon-dashboard" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/>
+      </symbol>
+      <symbol id="icon-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15.5v3A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5v-3"/>
+      </symbol>
+      <symbol id="icon-receipt" viewBox="0 0 24 24">
+        <path d="M5 3.5h14v18l-2.4-1.7L14.2 21 12 19.4 9.8 21l-2.4-1.2L5 21.5Z"/>
+        <path d="M8.5 8h7M8.5 12h7M8.5 16h4"/>
+      </symbol>
+      <symbol id="icon-printer" viewBox="0 0 24 24">
+        <path d="M7 9V3.5h10V9"/><path d="M5 9h14a2 2 0 0 1 2 2v6.5h-4V21H7v-3.5H3V11a2 2 0 0 1 2-2Z"/>
+        <path d="M7 15h10M17.5 12h.01"/>
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="m4.5 12.5 4.5 4.5L19.5 6.5"/>
+      </symbol>
+      <symbol id="icon-warning" viewBox="0 0 24 24">
+        <path d="M12 3 22 21H2L12 3Z"/><path d="M12 9v5M12 17.5v.1"/>
+      </symbol>
+      <symbol id="icon-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.1"/>
+      </symbol>
+      <symbol id="icon-file" viewBox="0 0 24 24">
+        <path d="M6 3.5h8l4 4V21H6Z"/><path d="M14 3.5V8h4M9 12h6M9 16h6"/>
+      </symbol>
+      <symbol id="icon-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.7"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24">
+        <path d="M20 11a8 8 0 1 0-2.3 6.4"/><path d="M20 4v7h-7"/>
+      </symbol>
+      <symbol id="icon-connection" viewBox="0 0 24 24">
+        <path d="M8 15.5a5 5 0 0 1 0-7l1.5-1.5M16 8.5a5 5 0 0 1 0 7L14.5 17"/>
+        <path d="m9 15 6-6"/>
+      </symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 14h9l1-14M10 11v6M14 11v6"/>
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14"/>
+      </symbol>
+      <symbol id="icon-arrow-right" viewBox="0 0 24 24">
+        <path d="M4 12h15M14 7l5 5-5 5"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="desktop" id="desktop">
+    <div class="wallpaper-aurora" aria-hidden="true"></div>
+
+    <div class="desktop-shortcut" id="closed-shortcut" hidden tabindex="0" role="button"
+         aria-label="Buka kembali SIMGAJI ASN">
+      <span class="shortcut-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
+      <span>SIMGAJI ASN</span>
+    </div>
+
+    <main class="window glass active app-window" id="app-window"
+          aria-label="Aplikasi Cetak Slip Gaji ASN">
+      <div class="title-bar" id="title-bar">
+        <div class="title-bar-text">
+          <span class="title-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
+          <span class="title-main">SIMGAJI ASN</span>
+          <span class="title-divider">|</span>
+          <span class="title-sub">Cetak Slip Pembayaran Gaji</span>
+        </div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Minimize" data-window-action="minimize" title="Minimize"></button>
+          <button type="button" aria-label="Maximize" data-window-action="maximize" title="Maximize"></button>
+          <button type="button" aria-label="Close" data-window-action="close" title="Close"></button>
+        </div>
+      </div>
+
+      <div class="app-toolbar">
+        <div class="toolbar-left">
+          <div class="breadcrumb" aria-label="Breadcrumb">
+            <span class="crumb-root">SIMGAJI</span>
+            <span class="crumb-sep">›</span>
+            <strong id="toolbar-crumb">Dashboard</strong>
+          </div>
+          <span class="toolbar-sep" aria-hidden="true"></span>
+          <span class="toolbar-opd" id="toolbar-opd">Badan Kepegawaian dan Pengembangan SDM</span>
+        </div>
+        <div class="toolbar-right">
+          <label class="toolbar-field" for="period-select">
+            <span>Periode</span>
+            <select id="period-select" aria-label="Pilih periode penggajian"></select>
+          </label>
+          <button type="button" class="mode-chip" id="data-mode-chip" title="Ubah sumber data">
+            <span class="mode-dot" aria-hidden="true"></span>
+            <span id="data-mode-label">Mode Demo</span>
+          </button>
+          <button type="button" class="toolbar-icon-button" id="btn-refresh" title="Muat ulang data" aria-label="Muat ulang data">
+            <svg class="icon"><use href="#icon-refresh"></use></svg>
+          </button>
+          <button type="button" class="toolbar-icon-button" id="btn-about" title="Tentang aplikasi" aria-label="Tentang aplikasi">
+            <svg class="icon"><use href="#icon-info"></use></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="window-body app-body">
+        <aside class="app-sidebar" aria-label="Sidebar">
+          <div class="profile-card">
+            <div class="profile-avatar" aria-hidden="true">BS</div>
+            <div class="profile-copy">
+              <strong>Bendahara OPD</strong>
+              <span id="profile-opd">Badan Kepegawaian dan Pengembangan SDM</span>
+            </div>
+          </div>
+
+          <nav class="side-nav" aria-label="Navigasi utama">
+            <button type="button" class="side-nav-item active" data-view-link="dashboard" title="Dashboard" aria-label="Dashboard">
+              <svg class="icon"><use href="#icon-dashboard"></use></svg>
+              <span class="side-nav-label">Dashboard</span>
+              <span class="nav-badge" id="nav-count">0</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view-link="import" title="Import SIMGAJI" aria-label="Import SIMGAJI">
+              <svg class="icon"><use href="#icon-upload"></use></svg>
+              <span class="side-nav-label">Import SIMGAJI</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view-link="potongan" title="Potongan" aria-label="Potongan">
+              <svg class="icon"><use href="#icon-receipt"></use></svg>
+              <span class="side-nav-label">Potongan</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view-link="print" title="Cetak Slip" aria-label="Cetak Slip">
+              <svg class="icon"><use href="#icon-printer"></use></svg>
+              <span class="side-nav-label">Cetak Slip</span>
+            </button>
+          </nav>
+
+          <div class="sidebar-paper-card">
+            <div class="paper-mini" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div>
+              <strong>Kertas F4 / Folio</strong>
+              <p>215 × 330 mm<br>5 slip per lembar</p>
+            </div>
+          </div>
+
+          <div class="sidebar-foot">
+            <button type="button" class="side-link" id="btn-connection" title="Sumber data" aria-label="Sumber data">
+              <svg class="icon"><use href="#icon-connection"></use></svg>
+              <span>Sumber data</span>
+            </button>
+            <span class="version-tag">v1.0.0</span>
+          </div>
+        </aside>
+
+        <div class="app-content" id="app-content">
+          <!-- ================= DASHBOARD ================= -->
+          <section class="view active" id="view-dashboard" data-view="dashboard">
+            <header class="view-head">
+              <div>
+                <p class="eyebrow">Dashboard Bendahara</p>
+                <h1>Ringkasan Gaji ASN</h1>
+                <p class="subtle" id="dashboard-opd">Badan Kepegawaian dan Pengembangan SDM</p>
+              </div>
+              <div class="head-actions">
+                <span class="period-badge" id="dashboard-period">Oktober 2026</span>
+                <button type="button" class="default" data-view-link="import">
+                  <svg class="icon"><use href="#icon-upload"></use></svg>
+                  Import SIMGAJI
+                </button>
+              </div>
+            </header>
+
+            <div class="metric-grid">
+              <article class="metric-card tone-blue">
+                <div class="metric-top">
+                  <span class="metric-icon"><svg class="icon"><use href="#icon-user"></use></svg></span>
+                  <span class="metric-label">Total Pegawai</span>
+                </div>
+                <div class="metric-value" id="metric-pegawai">0</div>
+                <div class="metric-sub" id="metric-pegawai-sub">Pegawai aktif OPD</div>
+              </article>
+              <article class="metric-card tone-cyan">
+                <div class="metric-top">
+                  <span class="metric-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
+                  <span class="metric-label">Penghasilan Kotor</span>
+                </div>
+                <div class="metric-value" id="metric-kotor">Rp 0</div>
+                <div class="metric-sub" id="metric-kotor-sub">Sebelum potongan</div>
+              </article>
+              <article class="metric-card tone-amber">
+                <div class="metric-top">
+                  <span class="metric-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
+                  <span class="metric-label">Total Potongan</span>
+                </div>
+                <div class="metric-value" id="metric-potongan">Rp 0</div>
+                <div class="metric-sub" id="metric-potongan-sub">SIMGAJI + internal</div>
+              </article>
+              <article class="metric-card tone-green">
+                <div class="metric-top">
+                  <span class="metric-icon"><svg class="icon"><use href="#icon-check"></use></svg></span>
+                  <span class="metric-label">Take Home Pay</span>
+                </div>
+                <div class="metric-value" id="metric-thp">Rp 0</div>
+                <div class="metric-sub" id="metric-thp-sub">Bersih diterima ASN</div>
+              </article>
+            </div>
+
+            <div class="dashboard-mid">
+              <section class="panel chart-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Tren Take Home Pay</h2>
+                    <p class="panel-sub">Enam periode terakhir</p>
+                  </div>
+                  <span class="pill-soft" id="chart-caption">2026</span>
+                </div>
+                <div class="chart-wrap">
+                  <div class="chart-y" aria-hidden="true">
+                    <span>Rp 30 jt</span><span>Rp 20 jt</span><span>Rp 10 jt</span><span>Rp 0</span>
+                  </div>
+                  <div class="chart-bars" id="chart-bars" role="img" aria-label="Grafik tren take home pay enam bulan"></div>
+                </div>
+              </section>
+
+              <section class="panel compose-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Komposisi Potongan</h2>
+                    <p class="panel-sub">Periode berjalan</p>
+                  </div>
+                  <span class="pill-soft" id="compose-total">Rp 0</span>
+                </div>
+                <div class="compose-list">
+                  <div class="compose-item">
+                    <div class="compose-label"><span>Potongan SIMGAJI</span><strong id="compose-resmi-value">Rp 0</strong></div>
+                    <div class="progress-track"><span id="compose-resmi-bar" style="width:0%"></span></div>
+                  </div>
+                  <div class="compose-item">
+                    <div class="compose-label"><span>Potongan Internal</span><strong id="compose-internal-value">Rp 0</strong></div>
+                    <div class="progress-track amber"><span id="compose-internal-bar" style="width:0%"></span></div>
+                  </div>
+                </div>
+                <div class="compose-note">
+                  <svg class="icon"><use href="#icon-info"></use></svg>
+                  <span>Potongan internal mencakup iuran, koperasi, dan cicilan berjangka.</span>
+                </div>
+              </section>
+            </div>
+
+            <div class="dashboard-lower">
+              <section class="panel employee-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Daftar Pegawai</h2>
+                    <p class="panel-sub" id="employee-count-label">0 pegawai</p>
+                  </div>
+                  <div class="panel-tools">
+                    <label class="search-box" for="employee-search">
+                      <svg class="icon"><use href="#icon-search"></use></svg>
+                      <input type="search" id="employee-search" placeholder="Cari NIP atau nama…" autocomplete="off">
+                    </label>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table class="listview" id="employee-table">
+                    <thead>
+                      <tr>
+                        <th class="check-col">
+                          <input type="checkbox" id="select-all-employees" aria-label="Pilih semua pegawai">
+                          <label class="check-label" for="select-all-employees"></label>
+                        </th>
+                        <th>NIP / Nama</th>
+                        <th>Pangkat</th>
+                        <th class="money-col">Kotor</th>
+                        <th class="money-col">Potongan</th>
+                        <th class="money-col">THP</th>
+                        <th class="action-col">Slip</th>
+                      </tr>
+                    </thead>
+                    <tbody id="employee-table-body"></tbody>
+                  </table>
+                  <div class="empty-state" id="employee-empty" hidden>
+                    <svg class="icon"><use href="#icon-user"></use></svg>
+                    <strong>Belum ada data pegawai</strong>
+                    <span>Import file SIMGAJI untuk periode ini.</span>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="panel activity-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Aktivitas Terakhir</h2>
+                    <p class="panel-sub">Jejak import & potongan</p>
+                  </div>
+                </div>
+                <div class="activity-list" id="activity-list"></div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ================= IMPORT ================= -->
+          <section class="view" id="view-import" data-view="import" hidden>
+            <header class="view-head">
+              <div>
+                <p class="eyebrow">Modul Import</p>
+                <h1>Import SIMGAJI PNS</h1>
+                <p class="subtle">43 kolom wajib + kolom <code>nmskpd</code> untuk verifikasi OPD.</p>
+              </div>
+              <div class="head-actions">
+                <span class="pill-soft">Hanya .xls / .xlsx</span>
+              </div>
+            </header>
+
+            <div class="import-grid">
+              <section class="panel">
+                <div class="panel-head">
+                  <div><h2>1. Pilih File</h2><p class="panel-sub">Maksimal 20 MB per file</p></div>
+                </div>
+
+                <div class="drop-zone" id="drop-zone" tabindex="0" role="button"
+                     aria-label="Pilih atau letakkan file Excel SIMGAJI">
+                  <span class="drop-icon"><svg class="icon"><use href="#icon-upload"></use></svg></span>
+                  <strong>Letakkan file SIMGAJI di sini</strong>
+                  <span>atau klik untuk memilih file dari komputer</span>
+                  <span class="drop-formats">.xls &nbsp;•&nbsp; .xlsx</span>
+                  <input type="file" id="file-input" accept=".xls,.xlsx" hidden>
+                </div>
+
+                <div class="file-card" id="file-card" hidden>
+                  <span class="file-icon"><svg class="icon"><use href="#icon-file"></use></svg></span>
+                  <div class="file-copy">
+                    <strong id="file-name">—</strong>
+                    <span id="file-size">—</span>
+                  </div>
+                  <span class="status-pill" id="file-status">Siap</span>
+                </div>
+
+                <div class="opd-check" id="opd-check">
+                  <div class="opd-check-head">
+                    <span class="section-label">Validasi OPD</span>
+                    <span class="status-pill neutral" id="opd-check-status">Menunggu file</span>
+                  </div>
+                  <div class="opd-row"><span>OPD di file</span><strong id="opd-file-value">—</strong></div>
+                  <div class="opd-row"><span>OPD akun login</span><strong id="opd-account-value">—</strong></div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="button" class="default" id="btn-import" disabled>
+                    <svg class="icon"><use href="#icon-upload"></use></svg>
+                    Mulai Import
+                  </button>
+                  <button type="button" id="btn-clear-file" disabled>Bersihkan</button>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-head">
+                  <div><h2>2. Progres Import</h2><p class="panel-sub">Upsert berdasarkan (nip, tglgaji)</p></div>
+                </div>
+
+                <div class="progress-block">
+                  <div class="progress-track large" role="progressbar" id="import-progress"
+                       aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <span id="import-progress-bar" style="width:0%"></span>
+                  </div>
+                  <div class="progress-meta">
+                    <strong id="import-status">Belum ada file dipilih.</strong>
+                    <span id="import-status-pct">0%</span>
+                  </div>
+                  <p class="hint" id="import-status-hint">Pilih file SIMGAJI untuk memulai validasi.</p>
+                </div>
+
+                <div class="import-result" id="import-result" hidden>
+                  <div class="result-head">
+                    <span class="result-icon"><svg class="icon"><use href="#icon-check"></use></svg></span>
+                    <div><strong>Import berhasil</strong><span id="result-period">Periode —</span></div>
+                  </div>
+                  <div class="result-grid">
+                    <div><span>Baris</span><strong id="result-rows">0</strong></div>
+                    <div><span>Baru</span><strong id="result-inserted">0</strong></div>
+                    <div><span>Diperbarui</span><strong id="result-updated">0</strong></div>
+                  </div>
+                  <div class="result-actions">
+                    <button type="button" class="default" id="btn-result-dashboard">Lihat Dashboard</button>
+                    <button type="button" id="btn-result-again">Import Lagi</button>
+                  </div>
+                </div>
+
+                <div class="error-box" id="import-error" hidden>
+                  <div class="error-head"><svg class="icon"><use href="#icon-warning"></use></svg><strong>Import gagal</strong></div>
+                  <p id="import-error-message">—</p>
+                  <ul id="import-error-list"></ul>
+                </div>
+
+                <fieldset class="rule-box">
+                  <legend>Validasi otomatis</legend>
+                  <div class="rule-row"><span class="rule-check">✓</span> 43 kolom wajib + <code>nmskpd</code></div>
+                  <div class="rule-row"><span class="rule-check">✓</span> Kecocokan OPD dengan profil login</div>
+                  <div class="rule-row"><span class="rule-check">✓</span> Presisi nominal <code>NUMERIC(15,2)</code></div>
+                  <div class="rule-row"><span class="rule-check">✓</span> Upsert <code>(nip, tglgaji)</code> tanpa duplikat</div>
+                  <div class="rule-row"><span class="rule-check">✓</span> Audit log setiap import</div>
+                </fieldset>
+              </section>
+            </div>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div><h2>Riwayat Import</h2><p class="panel-sub">Log aktivitas import terakhir</p></div>
+              </div>
+              <div class="table-wrap">
+                <table class="listview">
+                  <thead>
+                    <tr><th>Waktu</th><th>File</th><th>OPD</th><th>Baris</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="import-history-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <!-- ================= POTONGAN ================= -->
+          <section class="view" id="view-potongan" data-view="potongan" hidden>
+            <header class="view-head">
+              <div>
+                <p class="eyebrow">Phase 3 • Potongan Fleksibel</p>
+                <h1>Potongan Pegawai</h1>
+                <p class="subtle">Pos potongan, pinjaman berjangka, cicilan tenor, dan import manual.</p>
+              </div>
+              <div class="head-actions potongan-head-actions">
+                <button type="button" data-open-modal="pos" title="Kelola pos potongan">
+                  <svg class="icon"><use href="#icon-receipt"></use></svg>
+                  Kelola Pos
+                </button>
+                <button type="button" data-open-modal="manual-import" title="Import potongan bulanan">
+                  <svg class="icon"><use href="#icon-upload"></use></svg>
+                  Import Potongan
+                </button>
+                <button type="button" class="default" data-open-modal="loan">
+                  <svg class="icon"><use href="#icon-plus"></use></svg>
+                  Pinjaman Baru
+                </button>
+              </div>
+            </header>
+
+            <div class="info-strip">
+              <svg class="icon"><use href="#icon-info"></use></svg>
+              <span id="potongan-mode-note-text">Mode demo: perubahan pos dan pinjaman disimpan pada sesi ini.</span>
+            </div>
+
+            <section class="panel employee-picker">
+              <div class="picker-grid">
+                <label class="field">
+                  <span>Pegawai</span>
+                  <select id="potongan-nip"></select>
+                </label>
+                <div class="field readonly-field">
+                  <span>Nama</span>
+                  <strong id="potongan-nama">—</strong>
+                </div>
+                <div class="field readonly-field">
+                  <span>Pangkat / Golongan</span>
+                  <strong id="potongan-pangkat">—</strong>
+                </div>
+                <div class="field readonly-field">
+                  <span>Total potongan internal</span>
+                  <strong id="potongan-total-internal">Rp 0</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel loan-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Rekap Potongan Berjangka</h2>
+                  <p class="panel-sub" id="loan-count">—</p>
+                </div>
+                <div class="panel-tools">
+                  <span class="pill-soft" id="loan-period">Oktober 2026</span>
+                  <button type="button" id="btn-generate-berjangka" title="Realisasikan cicilan untuk periode terpilih">
+                    <svg class="icon"><use href="#icon-refresh"></use></svg>
+                    Realisasi Periode
+                  </button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="listview loan-table">
+                  <thead>
+                    <tr>
+                      <th>NIP / Nama</th>
+                      <th>Pos Potongan</th>
+                      <th class="money-col">Nominal/Bulan</th>
+                      <th>Mulai</th>
+                      <th>Tenor</th>
+                      <th>Progres</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loan-table-body"></tbody>
+                </table>
+                <div class="empty-state compact" id="loan-empty" hidden>
+                  <svg class="icon"><use href="#icon-receipt"></use></svg>
+                  <strong>Belum ada pinjaman berjangka</strong>
+                  <span>Daftarkan pinjaman baru untuk memulai cicilan tenor.</span>
+                </div>
+              </div>
+            </section>
+
+            <div class="tabs-shell">
+              <menu role="tablist" aria-label="Jenis potongan">
+                <button type="button" role="tab" id="tab-btn-bulanan" data-tab="bulanan"
+                        aria-selected="true" aria-controls="tab-panel-bulanan" tabindex="0">Potongan Bulanan</button>
+                <button type="button" role="tab" id="tab-btn-berjangka" data-tab="berjangka"
+                        aria-selected="false" aria-controls="tab-panel-berjangka" tabindex="-1">Potongan Berjangka</button>
+              </menu>
+
+              <div role="tabpanel" id="tab-panel-bulanan" aria-labelledby="tab-btn-bulanan">
+                <form id="form-bulanan" novalidate>
+                  <div class="form-grid">
+                    <label class="field">
+                      <span>Pos potongan</span>
+                      <select id="bulanan-pos">
+                        <option value="Iuran KORPRI" data-nama="Iuran KORPRI">Iuran KORPRI</option>
+                        <option value="Dharma Wanita" data-nama="Dharma Wanita">Dharma Wanita</option>
+                        <option value="Infaq / Zakat" data-nama="Infaq / Zakat">Infaq / Zakat</option>
+                        <option value="Koperasi Dimas" data-nama="Koperasi Dimas">Koperasi Dimas</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>Nominal (Rp)</span>
+                      <input type="text" id="bulanan-nominal" inputmode="decimal" placeholder="Contoh: 50.000" autocomplete="off">
+                    </label>
+                    <label class="field">
+                      <span>Periode</span>
+                      <select id="bulanan-period"></select>
+                    </label>
+                    <label class="field field-wide">
+                      <span>Keterangan <em>(opsional)</em></span>
+                      <input type="text" id="bulanan-keterangan" placeholder="Contoh: iuran bulan Oktober" autocomplete="off">
+                    </label>
+                  </div>
+                  <p class="form-note">Input cepat ini menyimpan ke sesi demo. Untuk data nyata gunakan <strong>Import Potongan</strong>.</p>
+                  <p class="form-error" id="bulanan-error" hidden></p>
+                  <div class="form-actions">
+                    <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Simpan Potongan</button>
+                    <button type="reset">Reset</button>
+                  </div>
+                </form>
+              </div>
+
+              <div role="tabpanel" id="tab-panel-berjangka" aria-labelledby="tab-btn-berjangka" hidden>
+                <div class="loan-launcher">
+                  <span class="loan-launcher-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
+                  <div class="loan-launcher-copy">
+                    <h3>Pendaftaran Pinjaman Berjangka</h3>
+                    <p>Masukkan NIP, pos potongan, nominal per bulan, periode mulai, dan tenor. Periode akhir dihitung otomatis.</p>
+                  </div>
+                  <button type="button" class="default" data-open-modal="loan">
+                    <svg class="icon"><use href="#icon-plus"></use></svg>
+                    Buka Form Pinjaman
+                  </button>
+                </div>
+                <div class="tenor-preview">
+                  <div><span>Rentang tenor</span><strong>1 – 120 bulan</strong></div>
+                  <div><span>Realisasi</span><strong>Otomatis saat payroll diproses</strong></div>
+                  <div><span>Format progres</span><strong>“Cicilan 14 dari 36”</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="potongan-lower">
+              <section class="panel">
+                <div class="panel-head">
+                  <div><h2>Rincian Potongan Pegawai</h2><p class="panel-sub" id="potongan-list-sub">—</p></div>
+                  <span class="pill-soft" id="potongan-list-total">Rp 0</span>
+                </div>
+                <div class="deduction-list" id="potongan-list"></div>
+                <div class="empty-state compact" id="potongan-empty" hidden>
+                  <svg class="icon"><use href="#icon-receipt"></use></svg>
+                  <strong>Belum ada potongan internal</strong>
+                  <span>Tambahkan potongan bulanan atau berjangka.</span>
+                </div>
+              </section>
+
+              <aside class="panel">
+                <div class="panel-head"><div><h2>Panduan Singkat</h2><p class="panel-sub">Aturan potongan</p></div></div>
+                <div class="guide-list">
+                  <div class="guide-item"><span class="guide-num">1</span><p><strong>Bulanan</strong> — import Excel berisi kolom <code>nip</code> dan <code>nominal</code>.</p></div>
+                  <div class="guide-item"><span class="guide-num">2</span><p><strong>Berjangka</strong> — mulai, tenor, dan periode akhir dihitung otomatis.</p></div>
+                  <div class="guide-item"><span class="guide-num">3</span><p><strong>Progres</strong> — realisasi menyimpan <code>cicilan_ke</code> seperti 14 dari 36.</p></div>
+                  <div class="guide-item"><span class="guide-num">4</span><p><strong>Presisi</strong> — semua nominal memakai <code>NUMERIC(15,2)</code>.</p></div>
+                  <div class="guide-item"><span class="guide-num">5</span><p><strong>Audit</strong> — pembuatan pos dan pinjaman dicatat di <code>audit_logs</code>.</p></div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ================= PRINT ================= -->
+          <section class="view" id="view-print" data-view="print" hidden>
+            <header class="view-head no-print">
+              <div>
+                <p class="eyebrow">Pratinjau Cetak</p>
+                <h1>Slip Gaji — Kertas F4</h1>
+                <p class="subtle">215 × 330 mm • maksimal 5 slip per lembar • tinggi slip ≤ 60 mm</p>
+              </div>
+              <div class="head-actions">
+                <button type="button" class="default" id="btn-print">
+                  <svg class="icon"><use href="#icon-printer"></use></svg>
+                  Cetak
+                </button>
+              </div>
+            </header>
+
+            <div class="print-workspace">
+              <aside class="panel print-employee-panel no-print">
+                <div class="panel-head">
+                  <div>
+                    <h2>Pilih Pegawai</h2>
+                    <p class="panel-sub" id="print-list-sub">0 dipilih</p>
+                  </div>
+                </div>
+                <ul role="listbox" id="print-employee-listbox" class="has-shadow has-hover"
+                    aria-label="Pilih pegawai untuk dicetak" aria-multiselectable="true" tabindex="0"></ul>
+                <p class="print-list-hint">Klik nama untuk memilih lebih dari satu.</p>
+              </aside>
+
+              <div class="print-main">
+                <div class="print-toolbar no-print">
+                  <div class="print-toolbar-left">
+                    <span class="page-pill">F4</span>
+                    <strong id="print-selection-info">0 pegawai • 0 halaman</strong>
+                    <span class="print-page-count" id="print-page-count">5 slip / halaman</span>
+                  </div>
+                  <div class="print-toolbar-right">
+                    <div class="check-inline">
+                      <input type="checkbox" id="print-use-selected" checked>
+                      <label for="print-use-selected">Gunakan pilihan</label>
+                    </div>
+                    <button type="button" id="btn-select-all-print">Pilih Semua</button>
+                  </div>
+                </div>
+
+                <div class="paper-viewport">
+                  <div id="preview-pages"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="status-bar app-status">
+        <p class="status-bar-field" id="status-message">Siap</p>
+        <p class="status-bar-field" id="status-opd">OPD: —</p>
+        <p class="status-bar-field" id="status-period">Periode: —</p>
+        <p class="status-bar-field" id="status-data-mode">Demo</p>
+      </div>
+    </main>
+
+    <div class="start-menu" id="start-menu" hidden>
+      <div class="start-menu-head">
+        <span class="start-avatar">BS</span>
+        <div><strong>Bendahara OPD</strong><span>SIMGAJI ASN</span></div>
+      </div>
+      <div class="start-menu-list">
+        <button type="button" data-view-link="dashboard"><svg class="icon"><use href="#icon-dashboard"></use></svg> Dashboard</button>
+        <button type="button" data-view-link="import"><svg class="icon"><use href="#icon-upload"></use></svg> Import SIMGAJI</button>
+        <button type="button" data-view-link="potongan"><svg class="icon"><use href="#icon-receipt"></use></svg> Potongan</button>
+        <button type="button" data-view-link="print"><svg class="icon"><use href="#icon-printer"></use></svg> Cetak Slip</button>
+        <div class="start-menu-sep"></div>
+        <button type="button" id="start-connection"><svg class="icon"><use href="#icon-connection"></use></svg> Sumber Data</button>
+        <button type="button" id="start-about"><svg class="icon"><use href="#icon-info"></use></svg> Tentang Aplikasi</button>
+      </div>
+      <div class="start-menu-foot">Windows 7 Aero Glass • 7.css</div>
+    </div>
+
+    <div class="taskbar" role="toolbar" aria-label="Taskbar">
+      <button type="button" class="start-orb" id="start-orb" aria-label="Menu Start" aria-expanded="false">
+        <span class="win-logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+      <span class="taskbar-divider" aria-hidden="true"></span>
+      <button type="button" class="taskbar-app active" id="taskbar-app" aria-label="SIMGAJI ASN">
+        <span class="taskbar-app-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
+        <span class="taskbar-app-label">SIMGAJI ASN</span>
+      </button>
+      <div class="taskbar-spacer"></div>
+      <div class="tray">
+        <button type="button" class="tray-button" id="tray-connection" title="Sumber data">
+          <svg class="icon"><use href="#icon-connection"></use></svg>
+        </button>
+        <div class="tray-clock" id="tray-clock" aria-label="Jam sistem">
+          <span id="clock-time">00:00</span>
+          <span id="clock-date">01/01/2026</span>
+        </div>
+        <button type="button" class="show-desktop" id="show-desktop" title="Tampilkan desktop" aria-label="Tampilkan desktop"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hasil cetak murni; disembunyikan di layar dan ditampilkan saat print. -->
+  <div id="print-root" aria-hidden="true"></div>
+
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="window glass active modal-window" role="dialog" aria-modal="true"
+         aria-labelledby="connection-title" data-modal="connection" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="connection-title">Sumber Data</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-connection"></use></svg></span>
+          <p>Pilih sumber data dashboard. Mode demo memakai contoh data lokal; mode API memerlukan Firebase ID Token.</p>
+        </div>
+        <fieldset>
+          <legend>Mode data</legend>
+          <div class="field-row">
+            <input type="radio" id="mode-demo" name="data-mode" value="demo" checked>
+            <label for="mode-demo">Demo lokal <span class="hint-inline">(tanpa kredensial)</span></label>
+          </div>
+          <div class="field-row">
+            <input type="radio" id="mode-api" name="data-mode" value="api">
+            <label for="mode-api">API backend <span class="hint-inline">(PostgreSQL)</span></label>
+          </div>
+        </fieldset>
+        <div class="token-wrap" id="connection-token-wrap" hidden>
+          <label class="field">
+            <span>Firebase ID Token</span>
+            <input type="password" id="api-token" placeholder="Tempel ID token dari Firebase…" autocomplete="off">
+          </label>
+          <p class="hint">Token disimpan hanya di <code>sessionStorage</code> perangkat ini.</p>
+        </div>
+        <p class="form-error" id="connection-error" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="default" id="btn-apply-connection">Terapkan</button>
+          <button type="button" data-close-modal>Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="window glass active modal-window" role="dialog" aria-modal="true"
+         aria-labelledby="about-title" data-modal="about" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="about-title">Tentang SIMGAJI ASN</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="about-head">
+          <span class="about-logo"><svg class="icon"><use href="#icon-logo"></use></svg></span>
+          <div>
+            <h2>SIMGAJI ASN</h2>
+            <p>Cetak Slip Pembayaran Gaji</p>
+            <span class="version-tag">Versi 1.0.0</span>
+          </div>
+        </div>
+        <div class="about-grid">
+          <div><span>Backend</span><strong>FastAPI + PostgreSQL</strong></div>
+          <div><span>Autentikasi</span><strong>Firebase Auth</strong></div>
+          <div><span>Layout cetak</span><strong>F4 215 × 330 mm</strong></div>
+          <div><span>Komponen UI</span><strong>7.css + Aero Glass</strong></div>
+        </div>
+        <p class="about-note">Dashboard saat ini dapat berjalan dengan data demo. Hubungkan Firebase ID Token untuk membaca data PostgreSQL dan mengimpor SIMGAJI.</p>
+        <div class="dialog-actions">
+          <button type="button" class="default" data-close-modal>OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="window glass active modal-window modal-small" role="dialog" aria-modal="true"
+         aria-labelledby="close-title" data-modal="close" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="close-title">Tutup SIMGAJI ASN</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon warn"><svg class="icon"><use href="#icon-warning"></use></svg></span>
+          <p>Tutup jendela aplikasi? Perubahan mode demo yang belum dicetak akan hilang dari tampilan.</p>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="default" id="btn-confirm-close">Tutup</button>
+          <button type="button" data-close-modal>Batal</button>
+        </div>
+      </div>
+    </div>
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="loan-title" data-modal="loan" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="loan-title">Daftarkan Pinjaman Berjangka</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
+          <p>Isi data pinjaman. Periode akhir dan progres cicilan dihitung otomatis berdasarkan tenor.</p>
+        </div>
+        <div class="form-grid loan-dialog-grid">
+          <label class="field">
+            <span>NIP</span>
+            <input type="text" id="loan-nip" list="loan-nip-options" placeholder="18 digit NIP" autocomplete="off">
+            <datalist id="loan-nip-options"></datalist>
+          </label>
+          <div class="field readonly-field">
+            <span>Nama pegawai</span>
+            <strong id="loan-nama">—</strong>
+          </div>
+          <label class="field">
+            <span>Pos potongan</span>
+            <select id="loan-pos"></select>
+          </label>
+          <label class="field">
+            <span>Nominal per bulan (Rp)</span>
+            <input type="text" id="loan-nominal" inputmode="decimal" placeholder="Contoh: 1.200.000" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Mulai periode</span>
+            <select id="loan-start"></select>
+          </label>
+          <label class="field">
+            <span>Tenor (bulan)</span>
+            <input type="number" id="loan-tenor" min="1" max="120" value="36" inputmode="numeric">
+          </label>
+          <label class="field field-wide">
+            <span>Keterangan</span>
+            <input type="text" id="loan-keterangan" placeholder="Contoh: pinjaman modal usaha" autocomplete="off">
+          </label>
+        </div>
+        <div class="tenor-preview">
+          <div><span>Periode berakhir</span><strong id="loan-end">—</strong></div>
+          <div><span>Status tenor</span><strong id="loan-preview">1 / 36 bulan</strong></div>
+        </div>
+        <p class="form-error" id="loan-error" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="default" id="btn-save-loan">
+            <svg class="icon"><use href="#icon-check"></use></svg>
+            Simpan Pinjaman
+          </button>
+          <button type="button" data-close-modal>Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="pos-title" data-modal="pos" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="pos-title">Pos Potongan OPD</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
+          <p>Pos potongan hanya berlaku untuk OPD Anda. Nonaktifkan pos lama tanpa menghapus riwayat.</p>
+        </div>
+        <div class="pos-dialog-layout">
+          <div class="pos-table-wrap">
+            <div class="panel-sub" id="pos-list-count">0 pos</div>
+            <table class="listview pos-table">
+              <thead>
+                <tr><th>Nama Pos</th><th>Kategori</th><th>Status</th><th>Aksi</th></tr>
+              </thead>
+              <tbody id="pos-table-body"></tbody>
+            </table>
+            <div class="empty-state compact" id="pos-empty" hidden>
+              <strong>Belum ada pos potongan</strong>
+              <span>Tambahkan pos pertama di form sebelah.</span>
+            </div>
+          </div>
+          <form id="form-pos" class="pos-form" novalidate>
+            <fieldset>
+              <legend>Tambah Pos</legend>
+              <label class="field">
+                <span>Nama pos</span>
+                <input type="text" id="pos-nama" maxlength="150" placeholder="Contoh: Infaq / Zakat" autocomplete="off">
+              </label>
+              <label class="field">
+                <span>Kategori</span>
+                <select id="pos-kategori">
+                  <option value="bulanan">Bulanan</option>
+                  <option value="berjangka">Berjangka</option>
+                </select>
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Tambah</button>
+              </div>
+            </fieldset>
+            <p class="form-error" id="pos-error" hidden></p>
+          </form>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" data-close-modal>Tutup</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="manual-title" data-modal="manual-import" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="manual-title">Import Potongan Manual</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-upload"></use></svg></span>
+          <p>File Excel sederhana dengan kolom <code>nip</code> dan <code>nominal</code> untuk satu pos potongan pada periode terpilih.</p>
+        </div>
+        <div class="manual-import-grid">
+          <div class="field field-wide">
+            <span>File Excel (.xls / .xlsx)</span>
+            <div class="file-picker">
+              <input type="file" id="manual-file" accept=".xls,.xlsx" hidden>
+              <label role="button" tabindex="0" for="manual-file" class="file-picker-button">Pilih File…</label>
+              <span class="file-picker-name" id="manual-file-name">Belum ada file</span>
+            </div>
+          </div>
+          <label class="field">
+            <span>Pos potongan</span>
+            <select id="manual-pos"></select>
+          </label>
+          <label class="field">
+            <span>Periode</span>
+            <select id="manual-period"></select>
+          </label>
+        </div>
+        <p class="hint">Gunakan NIP yang sudah ada pada payroll OPD untuk periode tersebut.</p>
+        <div class="manual-file-info" id="manual-file-info" hidden>—</div>
+        <div class="manual-progress">
+          <div class="progress-track large"><span id="manual-progress-bar" style="width:0%"></span></div>
+          <p class="progress-meta" id="manual-status">Pilih file dan pos untuk memulai.</p>
+        </div>
+        <div class="import-result" id="manual-result" hidden>
+          <div class="result-head">
+            <span class="result-icon"><svg class="icon"><use href="#icon-check"></use></svg></span>
+            <div><strong id="manual-result-title">Import potongan berhasil</strong><span id="manual-result-period">—</span></div>
+          </div>
+          <div class="result-grid">
+            <div><span>Baris</span><strong id="manual-result-rows">0</strong></div>
+            <div><span>Baru</span><strong id="manual-result-inserted">0</strong></div>
+            <div><span>Diperbarui</span><strong id="manual-result-updated">0</strong></div>
+          </div>
+        </div>
+        <div class="error-box" id="manual-error" hidden>
+          <div class="error-head"><svg class="icon"><use href="#icon-warning"></use></svg><strong>Import gagal</strong></div>
+          <p id="manual-error-message">—</p>
+          <ul id="manual-error-list"></ul>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="default" id="btn-run-manual-import">Import</button>
+          <button type="button" data-close-modal>Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
