@@ -812,6 +812,9 @@
     if (!token) throw new Error('Token API belum diatur.');
     const headers = new Headers(options.headers || {});
     headers.set('Authorization', `Bearer ${token}`);
+    if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
     const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -827,7 +830,14 @@
     const detail = body && body.detail;
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail)) {
-      return detail.map((item) => item.msg || String(item)).join('; ');
+      return detail.map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && item.msg) {
+          const field = Array.isArray(item.loc) ? item.loc.filter((x) => x !== 'body').join('.') : '';
+          return field ? `${field}: ${item.msg}` : item.msg;
+        }
+        return String(item);
+      }).join('; ');
     }
     if (detail && detail.message) return detail.message;
     return fallback;
@@ -1933,6 +1943,7 @@
 
       await apiRequest('/api/v1/payroll/penyesuaian', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nip,
           nama: nama || null,
@@ -3016,6 +3027,7 @@
 
     apiRequest('/api/v1/potongan/item', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nip: employee.nip,
         pos_id: Number(posId),
@@ -3554,18 +3566,13 @@
     const options = PERIODS.map((period) => (
       `<option value="${period}">${periodLabel(period)}</option>`
     )).join('');
-    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+    ['#period-select', '#master-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
       const select = $(selector);
-      if (select) select.innerHTML = options;
+      if (select) {
+        select.innerHTML = options;
+        select.value = state.period;
+      }
     });
-    const periodSelect = $('#period-select');
-    if (periodSelect) periodSelect.value = state.period;
-    const bulananPeriod = $('#bulanan-period');
-    if (bulananPeriod) bulananPeriod.value = state.period;
-    const manualPeriod = $('#manual-period');
-    if (manualPeriod) manualPeriod.value = state.period;
-    const loanStart = $('#loan-start');
-    if (loanStart) loanStart.value = state.period;
   }
 
   function bindEvents() {
@@ -3647,12 +3654,10 @@
       periodSelect.addEventListener('change', () => {
         state.period = periodSelect.value;
         state.selected = new Set();
-        const bulananPeriod = $('#bulanan-period');
-        if (bulananPeriod) bulananPeriod.value = state.period;
-        const manualPeriod = $('#manual-period');
-        if (manualPeriod) manualPeriod.value = state.period;
-        const loanStart = $('#loan-start');
-        if (loanStart) loanStart.value = state.period;
+        ['#master-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+          const el = $(selector);
+          if (el) el.value = state.period;
+        });
         renderAll();
         if (state.token) {
           loadApiData(state.token).then((data) => {
@@ -4145,7 +4150,11 @@
     const masterGajiPeriodSelect = $('#master-gaji-period-select');
     if (masterGajiPeriodSelect) {
       masterGajiPeriodSelect.addEventListener('change', (e) => {
-        setPeriod(e.target.value);
+        state.period = e.target.value;
+        ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+          const el = $(selector);
+          if (el) el.value = state.period;
+        });
         void loadMasterGaji();
       });
     }
