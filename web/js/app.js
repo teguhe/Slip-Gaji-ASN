@@ -1842,24 +1842,127 @@
     }
   }
 
-  function logout() {
+  function clearAllData() {
     state.mode = 'api';
     state.token = '';
     state.profile = null;
     state.employees = [];
+    state.masterGajiList = [];
+    state.masterGajiStats = null;
+    state.penyesuaianList = [];
+    state.monitoringLogs = [];
     state.opdOptions = [];
+    state.posList = [];
+    state.loans = [];
+    state.selected = new Set();
+    state.opd = 'Belum terhubung';
+    state.opdRaw = '';
+    state.potonganNip = '';
     state.profileChangeMode = false;
+
     storageRemove('simgaji.token', sessionStorage);
+    storageRemove('simgaji.mode', localStorage);
+
+    // Reset metric cards & dashboard
+    setText('#metric-pegawai', '0');
+    setText('#metric-kotor', 'Rp 0');
+    setText('#metric-potongan', 'Rp 0');
+    setText('#metric-thp', 'Rp 0');
+    setText('#compose-resmi-value', 'Rp 0');
+    setText('#compose-internal-value', 'Rp 0');
+    const chartBars = $('#chart-bars');
+    if (chartBars) chartBars.innerHTML = '';
+    const employeeTbody = $('#employee-table-body');
+    if (employeeTbody) employeeTbody.innerHTML = '';
+
+    // Reset master gaji
+    setText('#stats-total-pegawai', '0');
+    setText('#stats-total-kotor', 'Rp 0');
+    setText('#stats-total-potongan', 'Rp 0');
+    setText('#stats-total-thp', 'Rp 0');
+    setText('#stats-sub-gapok', 'Gapok: Rp 0');
+    setText('#stats-sub-potongan', 'Resmi: Rp 0 • Internal: Rp 0');
+    setText('#stats-sub-penyesuaian', 'Penyesuaian: Rp 0');
+
+    const tbTj = $('#tbody-breakdown-tunjangan');
+    if (tbTj) tbTj.innerHTML = '<tr><td colspan="2" class="table-empty">Silakan login terlebih dahulu</td></tr>';
+    const tbPot = $('#tbody-breakdown-potongan');
+    if (tbPot) tbPot.innerHTML = '<tr><td colspan="2" class="table-empty">Silakan login terlebih dahulu</td></tr>';
+    const tbExcel = $('#tbody-excel-gaji');
+    if (tbExcel) tbExcel.innerHTML = '<tr><td colspan="12" class="table-empty">Silakan login terlebih dahulu.</td></tr>';
+    const tbPeny = $('#tbody-penyesuaian');
+    if (tbPeny) tbPeny.innerHTML = '<tr><td colspan="8" class="table-empty">Silakan login terlebih dahulu.</td></tr>';
+    const tbMon = $('#monitoring-tbody');
+    if (tbMon) tbMon.innerHTML = '<tr><td colspan="6" class="table-empty">Silakan login terlebih dahulu.</td></tr>';
+    const tbOpd = $('#master-opd-tbody');
+    if (tbOpd) tbOpd.innerHTML = '';
+    const tbUsers = $('#master-user-tbody');
+    if (tbUsers) tbUsers.innerHTML = '';
+
+    // Reset profile display
+    setText('#profile-name', '—');
+    setText('#profile-role', '—');
+    setText('#profile-opd', '—');
+    setText('#status-data-mode', 'Belum Login');
+    const avatar = $('#profile-avatar');
+    if (avatar) avatar.textContent = '—';
+  }
+
+  function showLoginScreen() {
+    const loginScreen = $('#login-screen');
+    const appWindow = $('#app-window');
+    const taskbar = document.querySelector('.taskbar');
+    const closedShortcut = $('#closed-shortcut');
+    const startMenu = $('#start-menu');
+
+    if (loginScreen) loginScreen.hidden = false;
+    if (appWindow) appWindow.hidden = true;
+    if (taskbar) taskbar.hidden = true;
+    if (closedShortcut) closedShortcut.hidden = true;
+    if (startMenu) startMenu.hidden = true;
+
+    const error = $('#login-page-error');
+    if (error) error.hidden = true;
+
+    try {
+      if (window.location.pathname !== '/login') {
+        history.replaceState(null, '', '/login');
+      }
+    } catch (_) {}
+  }
+
+  function showAppScreen() {
+    const loginScreen = $('#login-screen');
+    const appWindow = $('#app-window');
+    const taskbar = document.querySelector('.taskbar');
+    const closedShortcut = $('#closed-shortcut');
+
+    if (loginScreen) loginScreen.hidden = true;
+    if (appWindow) {
+      appWindow.hidden = false;
+      appWindow.classList.remove('is-closed', 'is-minimized');
+    }
+    if (taskbar) taskbar.hidden = false;
+    if (closedShortcut) closedShortcut.hidden = true;
+
+    try {
+      if (window.location.pathname === '/login') {
+        history.replaceState(null, '', '/');
+      }
+    } catch (_) {}
+  }
+
+  function logout() {
+    clearAllData();
     if (typeof window.firebase !== 'undefined' && firebase.auth) {
       try {
         firebase.auth().signOut();
       } catch (_) {}
     }
     closeModal();
-    renderAll();
     updateProfileUI();
-    toast('Logout', 'Anda telah keluar dari akun Google.', 'info');
-    openModal('connection');
+    toast('Logout', 'Anda telah keluar dari aplikasi.', 'info');
+    showLoginScreen();
   }
 
   /* ============================== MASTER GAJI ============================== */
@@ -3582,11 +3685,13 @@
     }
   }
 
-  async function loginWithGoogle() {
-    const error = $('#connection-error');
+  async function loginWithGoogle(errorSelector = '#connection-error') {
+    const error = $(errorSelector) || $('#login-page-error') || $('#connection-error');
     if (error) error.hidden = true;
     const btn = $('#btn-google-login');
+    const pageBtn = $('#login-page-google-btn');
     if (btn) btn.disabled = true;
+    if (pageBtn) pageBtn.disabled = true;
 
     try {
       if (typeof window.firebase === 'undefined' || !firebase.auth) {
@@ -3601,8 +3706,9 @@
       if (tokenInput) tokenInput.value = token;
 
       const profile = await connectApiSession(token);
+      showAppScreen();
+      closeModal();
       if (!profile.needs_opd) {
-        closeModal();
         toast('Login Berhasil', `Masuk sebagai ${cred.user.email}.`, 'success');
       }
     } catch (caught) {
@@ -3618,6 +3724,39 @@
         error.hidden = false;
       }
       toast('Login Gagal', caught.message || 'Gagal login dengan Google.', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (pageBtn) pageBtn.disabled = false;
+    }
+  }
+
+  async function applyLoginPageToken() {
+    const tokenInput = $('#login-page-token');
+    const token = tokenInput ? tokenInput.value.trim() : '';
+    const error = $('#login-page-error');
+    if (error) error.hidden = true;
+
+    if (!token) {
+      if (error) {
+        error.textContent = 'Silakan masukkan Firebase ID Token terlebih dahulu.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    const btn = $('#login-page-token-btn');
+    if (btn) btn.disabled = true;
+    try {
+      const profile = await connectApiSession(token);
+      showAppScreen();
+      if (!profile.needs_opd) {
+        toast('Login Berhasil', `Masuk sebagai ${profile.email}.`, 'success');
+      }
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal masuk dengan token.';
+        error.hidden = false;
+      }
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -4429,7 +4568,13 @@
     const applyButton = $('#btn-apply-connection');
     if (applyButton) applyButton.addEventListener('click', applyConnection);
     const googleLoginBtn = $('#btn-google-login');
-    if (googleLoginBtn) googleLoginBtn.addEventListener('click', loginWithGoogle);
+    if (googleLoginBtn) googleLoginBtn.addEventListener('click', () => loginWithGoogle('#connection-error'));
+    const loginPageGoogleBtn = $('#login-page-google-btn');
+    if (loginPageGoogleBtn) loginPageGoogleBtn.addEventListener('click', () => loginWithGoogle('#login-page-error'));
+    const loginPageTokenBtn = $('#login-page-token-btn');
+    if (loginPageTokenBtn) loginPageTokenBtn.addEventListener('click', applyLoginPageToken);
+    const startLogoutBtn = $('#start-logout');
+    if (startLogoutBtn) startLogoutBtn.addEventListener('click', logout);
     const dialogLogoutBtn = $('#btn-dialog-logout');
     if (dialogLogoutBtn) dialogLogoutBtn.addEventListener('click', logout);
     const statusLogoutBtn = $('#status-logout-btn');
@@ -4564,10 +4709,11 @@
     updateClock();
     if (clockTimer) window.clearInterval(clockTimer);
     clockTimer = window.setInterval(updateClock, 15000);
-    renderAll();
-    setView('dashboard', true);
 
     if (state.token) {
+      showAppScreen();
+      renderAll();
+      setView('dashboard', true);
       setStatus('Menghubungkan ke API…');
       connectApiSession(state.token)
         .then((profile) => {
@@ -4577,11 +4723,11 @@
           }
         })
         .catch((caught) => {
-          promptLogin(caught.message || 'Sesi telah kedaluwarsa. Silakan masuk kembali.');
+          logout();
         });
     } else {
-      updateProfileUI();
-      openConnectionModal();
+      clearAllData();
+      showLoginScreen();
     }
   }
 

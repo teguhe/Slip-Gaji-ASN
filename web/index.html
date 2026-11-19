@@ -100,6 +100,69 @@
   <div class="desktop" id="desktop">
     <div class="wallpaper-aurora" aria-hidden="true"></div>
 
+    <!-- ================= HALAMAN LOGIN (LOGON SCREEN) ================= -->
+    <div class="login-screen" id="login-screen" hidden>
+      <div class="login-panel window glass active">
+        <div class="title-bar">
+          <div class="title-bar-text">
+            <span class="title-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
+            <span>Masuk ke SLIP GAJI ASN</span>
+          </div>
+        </div>
+        <div class="window-body login-body">
+          <div class="login-avatar-wrap">
+            <div class="login-avatar">
+              <svg class="icon"><use href="#icon-user"></use></svg>
+            </div>
+          </div>
+          <div class="login-title-wrap">
+            <h2>SLIP GAJI ASN</h2>
+            <p class="login-sub">Sistem Penggajian &amp; Cetak Slip Gaji ASN Pemerintah Daerah</p>
+          </div>
+
+          <div class="login-card-content">
+            <div class="login-notice">
+              <svg class="icon"><use href="#icon-shield"></use></svg>
+              <span>Akses dibatasi khusus Bendahara OPD dan Administrator terdaftar.</span>
+            </div>
+
+            <div class="login-actions">
+              <button type="button" class="btn-google-login btn-google-prominent" id="login-page-google-btn">
+                <svg class="icon-google" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Masuk dengan Akun Google</span>
+              </button>
+            </div>
+
+            <p class="form-error" id="login-page-error" hidden></p>
+
+            <details class="manual-token-details" style="margin-top: 14px;">
+              <summary style="font-size: 11px; cursor: pointer; color: #466174;">Atau gunakan Firebase ID Token manual</summary>
+              <div class="field" style="margin-top: 8px;">
+                <input type="password" id="login-page-token" placeholder="Tempel Firebase ID Token…" autocomplete="off">
+                <button type="button" class="default" id="login-page-token-btn" style="margin-top: 6px; width: 100%;">Masuk dengan Token</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="login-card-foot">
+            <span class="security-foot">
+              <svg class="icon"><use href="#icon-lock"></use></svg>
+              Keamanan Data Multi-Tenant OPD &bull; F4 Print Ready
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-branding-bottom">
+        <span>Windows 7 Aero Glass &bull; SLIP GAJI ASN v1.0.0</span>
+      </div>
+    </div>
+
     <div class="desktop-shortcut" id="closed-shortcut" hidden tabindex="0" role="button"
          aria-label="Buka kembali SLIP GAJI ASN">
       <span class="shortcut-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
@@ -1150,6 +1213,7 @@
         <div class="start-menu-sep"></div>
         <button type="button" id="start-connection"><svg class="icon"><use href="#icon-connection"></use></svg> Akun &amp; Autentikasi</button>
         <button type="button" id="start-about"><svg class="icon"><use href="#icon-info"></use></svg> Tentang Aplikasi</button>
+        <button type="button" id="start-logout" style="color: #991b1b;"><svg class="icon"><use href="#icon-lock"></use></svg> Keluar (Logout)</button>
       </div>
       <div class="start-menu-foot">Windows 7 Aero Glass • 7.css</div>
     </div>

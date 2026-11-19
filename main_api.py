@@ -58,6 +58,7 @@ def health_check(db: Session = Depends(get_db)) -> HealthResponse:
     return HealthResponse(status="ok", database="ok")
 
 
+@app.get("/login", include_in_schema=False)
 @app.get("/", include_in_schema=False)
 def root():
     """Sajikan dashboard Aero Glass; fallback JSON bila aset web belum ada."""
