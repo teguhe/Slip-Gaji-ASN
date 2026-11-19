@@ -146,15 +146,41 @@ def test_import_rejects_invalid_nip(db_session, bendahara_profile):
     db_session.rollback()
 
 
-def test_import_rejects_multiple_opd_values(db_session, bendahara_profile):
-    with pytest.raises(SimgajiImportError) as exc_info:
-        _import(
-            db_session,
-            bendahara_profile,
-            [make_row(), make_row(nip=SECOND_NIP, nmskpd=OTHER_OPD_NAME)],
-        )
-    assert "lebih dari satu" in str(exc_info.value).lower()
-    db_session.rollback()
+def test_import_filters_out_non_matching_opd_rows_for_bendahara(
+    db_session, seeded, bendahara_profile
+):
+    result = _import(
+        db_session,
+        bendahara_profile,
+        [make_row(), make_row(nip=SECOND_NIP, nmskpd=OTHER_OPD_NAME)],
+    )
+    assert result["status"] == "success"
+    assert result["total_rows"] == 1
+    assert result["inserted"] == 1
+    assert any("dilewati" in w.lower() for w in result["warnings"])
+
+    rows = db_session.scalars(select(PayrollMonthly)).all()
+    assert len(rows) == 1
+    assert rows[0].nip == NIP
+    assert rows[0].nmskpd == seeded.opd_name
+
+
+def test_super_admin_can_import_multiple_opd_values(
+    db_session, seeded, super_admin_profile
+):
+    result = _import(
+        db_session,
+        super_admin_profile,
+        [make_row(), make_row(nip=SECOND_NIP, nmskpd=OTHER_OPD_NAME)],
+    )
+    assert result["status"] == "success"
+    assert result["total_rows"] == 2
+    assert result["inserted"] == 2
+    rows = db_session.scalars(select(PayrollMonthly)).all()
+    assert len(rows) == 2
+    nips = {r.nip: r.nmskpd for r in rows}
+    assert nips[NIP] == seeded.opd_name
+    assert nips[SECOND_NIP] == OTHER_OPD_NAME
 
 
 def test_super_admin_can_import_other_opd(
@@ -171,17 +197,19 @@ def test_super_admin_can_import_other_opd(
     assert payroll.nmskpd == OTHER_OPD_NAME
 
 
-def test_super_admin_cannot_import_unregistered_opd(
+def test_super_admin_auto_creates_unregistered_opd(
     db_session, super_admin_profile
 ):
-    with pytest.raises(SimgajiImportError) as exc_info:
-        _import(
-            db_session,
-            super_admin_profile,
-            [make_row(nmskpd="OPD TIDAK ADA")],
-        )
-    assert "belum terdaftar" in str(exc_info.value).lower()
-    db_session.rollback()
+    result = _import(
+        db_session,
+        super_admin_profile,
+        [make_row(nmskpd="OPD TIDAK ADA")],
+    )
+    assert result["status"] == "success"
+    assert result["opd"] == "OPD TIDAK ADA"
+    payroll = db_session.scalar(select(PayrollMonthly))
+    assert payroll is not None
+    assert payroll.nmskpd == "OPD TIDAK ADA"
 
 
 def test_import_parses_rupiah_prefixed_string(db_session, bendahara_profile):

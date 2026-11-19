@@ -52,7 +52,7 @@ def test_me_requires_opd_for_first_login(api_app, seeded):
     }
 
 
-def test_bendahara_can_set_opd_once(api_app, db_session, seeded):
+def test_bendahara_cannot_self_assign_opd(api_app, db_session, seeded):
     user = _new_user(db_session, "new@example.com")
     profile = UserProfile(
         email=user.email,
@@ -64,31 +64,15 @@ def test_bendahara_can_set_opd_once(api_app, db_session, seeded):
     api_app.dependency_overrides[get_current_user] = lambda: profile
 
     with TestClient(api_app) as client:
-        first = client.patch(
+        res = client.patch(
             "/api/v1/auth/me/opd",
             json={"opd_id": seeded.opd_id},
         )
-        assert first.status_code == 200, first.text
-        assert first.json()["opd_name"] == seeded.opd_name
-        assert first.json()["needs_opd"] is False
-
-        second = client.patch(
-            "/api/v1/auth/me/opd",
-            json={"opd_id": seeded.other_opd_id},
-        )
-        assert second.status_code == 403
+        assert res.status_code == 403
+        assert "Super Admin" in res.json()["detail"]
 
     db_session.refresh(user)
-    assert user.opd_id == seeded.opd_id
-
-    audit = db_session.scalar(
-        select(AuditLog).where(
-            AuditLog.action == "SET_USER_OPD",
-            AuditLog.user_email == "new@example.com",
-        )
-    )
-    assert audit is not None
-    assert audit.details["nmskpd"] == seeded.opd_name
+    assert user.opd_id is None
 
 
 def test_super_admin_can_change_active_opd(api_app, db_session, seeded):

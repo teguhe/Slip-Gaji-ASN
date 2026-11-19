@@ -415,8 +415,31 @@ def test_ui_root_and_static_assets_are_served(api_app):
         js = client.get("/static/js/app.js")
 
     assert root.status_code == 200
-    assert "SIMGAJI ASN" in root.text
+    assert "SLIP GAJI ASN" in root.text
     assert "aero.css" in root.text
     assert css.status_code == 200
     assert js.status_code == 200
+
+
+def test_create_penyesuaian_gaji_manual_nama(api_app, db_session, seeded, bendahara_profile):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/payroll/penyesuaian",
+            json={
+                "nip": "198001012005011003",
+                "nama": "Ahmad Yani Manual",
+                "period": "2026-10",
+                "jenis_penyesuaian": "Tunda Bayar",
+                "nominal": "1500000.00",
+                "status": "ditunda",
+                "keterangan": "Rekening retur",
+            },
+        )
+        assert res.status_code == 201, res.text
+        data = res.json()
+        assert data["nip"] == "198001012005011003"
+        assert data["nama"] == "Ahmad Yani Manual"
+        assert Decimal(str(data["nominal"])) == Decimal("1500000.00")
+        assert data["period"] == "2026-10"
 

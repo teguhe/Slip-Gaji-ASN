@@ -490,10 +490,11 @@ def create_penyesuaian(
         ).limit(1)
     )
 
-    nama_pegawai = None
+    nama_pegawai = payload.nama.strip() if payload.nama and payload.nama.strip() else None
     if payroll_rec:
         assert_opd_access(current_user, payroll_rec.nmskpd)
-        nama_pegawai = payroll_rec.nama
+        if not nama_pegawai:
+            nama_pegawai = payroll_rec.nama
 
     # Resolve target OPD ID
     target_opd_id = current_user.opd_id

@@ -1605,6 +1605,13 @@
     if (appWindow) {
       appWindow.hidden = false;
       appWindow.classList.remove('is-closed', 'is-minimized');
+      appWindow.classList.add('is-maximized');
+      const maxBtn = document.querySelector('[data-window-action="maximize"], [data-window-action="restore"]');
+      if (maxBtn) {
+        maxBtn.setAttribute('aria-label', 'Restore');
+        maxBtn.setAttribute('title', 'Restore Down');
+        maxBtn.setAttribute('data-window-action', 'restore');
+      }
     }
     if (taskbar) taskbar.hidden = false;
     if (closedShortcut) closedShortcut.hidden = true;
@@ -1891,13 +1898,17 @@
     if (!state.token) return;
 
     const nipInput = $('#penyesuaian-nip');
+    const namaInput = $('#penyesuaian-nama');
     const jenisInput = $('#penyesuaian-jenis');
     const nominalInput = $('#penyesuaian-nominal');
     const statusInput = $('#penyesuaian-status');
     const ketInput = $('#penyesuaian-keterangan');
+    const masterPeriodSelect = $('#master-gaji-period-select');
     const saveBtn = $('#btn-save-penyesuaian');
 
     const nip = nipInput ? nipInput.value.trim() : '';
+    const nama = namaInput ? namaInput.value.trim() : '';
+    const currentPeriod = (masterPeriodSelect && masterPeriodSelect.value) ? masterPeriodSelect.value : state.period;
     const jenis = jenisInput ? jenisInput.value : 'Tunda Bayar';
     const nominal = nominalInput ? Number(nominalInput.value) : 0;
     const penStatus = statusInput ? statusInput.value : 'ditunda';
@@ -1922,7 +1933,8 @@
         method: 'POST',
         body: JSON.stringify({
           nip,
-          period: state.period,
+          nama: nama || null,
+          period: currentPeriod,
           jenis_penyesuaian: jenis,
           nominal,
           status: penStatus,
@@ -3443,14 +3455,17 @@
     toast('Aplikasi ditutup', 'Klik ikon SLIP GAJI ASN di desktop untuk membuka kembali.', 'info');
   }
 
-  function toggleMaximize() {
+  function toggleMaximize(force) {
     const windowNode = $('#app-window');
     if (!windowNode) return;
-    const maximized = windowNode.classList.toggle('is-maximized');
-    const maximizeButton = document.querySelector('[data-window-action="maximize"]');
+    const isCurrentlyMax = windowNode.classList.contains('is-maximized');
+    const shouldMaximize = typeof force === 'boolean' ? force : !isCurrentlyMax;
+    windowNode.classList.toggle('is-maximized', shouldMaximize);
+    const maximizeButton = document.querySelector('[data-window-action="maximize"], [data-window-action="restore"]');
     if (maximizeButton) {
-      maximizeButton.setAttribute('aria-label', maximized ? 'Restore' : 'Maximize');
-      maximizeButton.setAttribute('data-window-action', maximized ? 'restore' : 'maximize');
+      maximizeButton.setAttribute('aria-label', shouldMaximize ? 'Restore' : 'Maximize');
+      maximizeButton.setAttribute('title', shouldMaximize ? 'Restore Down' : 'Maximize');
+      maximizeButton.setAttribute('data-window-action', shouldMaximize ? 'restore' : 'maximize');
     }
   }
 
@@ -3465,12 +3480,9 @@
 
   function handleWindowAction(action) {
     if (action === 'minimize') minimizeWindow();
-    else if (action === 'maximize') toggleMaximize();
-    else if (action === 'restore') {
-      const windowNode = $('#app-window');
-      if (windowNode && windowNode.classList.contains('is-maximized')) toggleMaximize();
-      else restoreWindow();
-    } else if (action === 'close') openModal('close');
+    else if (action === 'maximize') toggleMaximize(true);
+    else if (action === 'restore') toggleMaximize(false);
+    else if (action === 'close') openModal('close');
   }
 
   /* ============================== MODALS / TOAST ============================== */
@@ -3555,6 +3567,14 @@
   }
 
   function bindEvents() {
+    const titleBar = $('#title-bar');
+    if (titleBar) {
+      titleBar.addEventListener('dblclick', (event) => {
+        if (event.target.closest('.title-bar-controls')) return;
+        toggleMaximize();
+      });
+    }
+
     // Navigasi
     document.addEventListener('click', (event) => {
       const viewButton = event.target.closest('[data-view-link]');
@@ -4175,13 +4195,14 @@
         const namaInput = $('#penyesuaian-nama');
         if (!namaInput) return;
         if (!nip) {
-          namaInput.value = '';
           return;
         }
-        const emp = (state.employees || []).find((e) => e.nip === nip) ||
-                    (state.masterGajiList || []).find((e) => e.nip === nip);
-        if (emp) {
-          namaInput.value = emp.nama;
+        if (!namaInput.value.trim()) {
+          const emp = (state.employees || []).find((e) => e.nip === nip) ||
+                      (state.masterGajiList || []).find((e) => e.nip === nip);
+          if (emp && emp.nama) {
+            namaInput.value = emp.nama;
+          }
         }
       };
       penyesuaianNip.addEventListener('input', lookupName);
@@ -4192,8 +4213,10 @@
     if (btnResetPenyesuaian) {
       btnResetPenyesuaian.addEventListener('click', () => {
         setTimeout(() => {
+          const masterPeriodSelect = $('#master-gaji-period-select');
+          const currentPeriod = (masterPeriodSelect && masterPeriodSelect.value) ? masterPeriodSelect.value : state.period;
           const periodInput = $('#penyesuaian-period');
-          if (periodInput) periodInput.value = state.period;
+          if (periodInput) periodInput.value = currentPeriod;
           const namaInput = $('#penyesuaian-nama');
           if (namaInput) namaInput.value = '';
         }, 10);

@@ -157,15 +157,26 @@ def _read_dataframe(content: bytes, filename: str) -> pd.DataFrame:
     return df
 
 
-def _extract_excel_opd(df: pd.DataFrame) -> tuple[str, str]:
-    values: list[str] = []
-    for value in df["nmskpd"]:
-        if pd.isna(value):
-            continue
-        text = _stringify(value)
-        if text:
-            values.append(text)
+def _clean_nmskpd(df: pd.DataFrame) -> None:
+    """Bersihkan nilai nmskpd dan isi merged cell secara konsisten."""
 
+    def _clean_cell(v: Any) -> str | None:
+        if pd.isna(v):
+            return None
+        text = _stringify(v)
+        return text if text else None
+
+    cleaned = df["nmskpd"].map(_clean_cell)
+    df["nmskpd"] = cleaned.ffill().bfill()
+    if df["nmskpd"].isna().all():
+        raise SimgajiImportError(
+            "Kolom 'nmskpd' kosong. Nama OPD wajib diisi untuk verifikasi akses."
+        )
+
+
+def _extract_excel_opd(df: pd.DataFrame) -> tuple[str, str]:
+    _clean_nmskpd(df)
+    values = [str(v).strip() for v in df["nmskpd"].dropna().unique() if str(v).strip()]
     if not values:
         raise SimgajiImportError(
             "Kolom 'nmskpd' kosong. Nama OPD wajib diisi untuk verifikasi akses."
@@ -175,22 +186,7 @@ def _extract_excel_opd(df: pd.DataFrame) -> tuple[str, str]:
     for value in values:
         normalized_to_raw.setdefault(normalize_opd_name(value), value)
 
-    if len(normalized_to_raw) > 1:
-        daftar = "; ".join(sorted(set(normalized_to_raw.values())))[:500]
-        raise SimgajiImportError(
-            "File memuat lebih dari satu nilai nmskpd: " + daftar
-        )
-
     normalized, raw = next(iter(normalized_to_raw.items()))
-
-    # Merged cell pada file SIMGAJI lazim hanya mengisi nmskpd di baris pertama.
-    # Aman di-forward/back-fill karena sebelumnya sudah dipastikan hanya ada satu OPD.
-    df["nmskpd"] = df["nmskpd"].ffill().bfill()
-    if df["nmskpd"].isna().any():
-        raise SimgajiImportError(
-            "Terdapat baris tanpa nilai nmskpd dan tidak dapat ditentukan OPD-nya."
-        )
-
     return normalized, raw
 
 
@@ -480,7 +476,7 @@ def _parse_money(
 def _parse_rows(
     df: pd.DataFrame,
     *,
-    canonical_opd: str,
+    canonical_opd: str | dict[str, str],
     user_email: str,
     imported_at: datetime,
 ) -> tuple[list[dict[str, Any]], list[str]]:
@@ -550,13 +546,19 @@ def _parse_rows(
                     "presisi. Ekspor ulang dengan format kolom NIP sebagai teks."
                 )
 
+        if isinstance(canonical_opd, dict):
+            row_opd_norm = normalize_opd_name(source_row["nmskpd"])
+            row_canonical_opd = canonical_opd.get(row_opd_norm, _stringify(source_row["nmskpd"]))
+        else:
+            row_canonical_opd = canonical_opd
+
         record: dict[str, Any] = {
             "tglgaji": tglgaji,
             "nip": nip,
             "nama": nama.strip(),
             "norek": (norek or "").strip() or None,
             "kdpangkat": (kdpangkat or "").strip() or None,
-            "nmskpd": canonical_opd,
+            "nmskpd": row_canonical_opd,
             **numeric_values,
             "imported_by": user_email,
             "imported_at": imported_at,
@@ -702,26 +704,77 @@ def import_simgaji_excel(
 
     safe_filename = Path(filename or "upload.xlsx").name
     df = _read_dataframe(content, safe_filename)
-    excel_opd_norm, excel_opd_raw = _extract_excel_opd(df)
+    _clean_nmskpd(df)
 
-    # Otorisasi OPD dilakukan sebelum query ref_opd dan sebelum parsing nominal.
-    _check_opd_permission(user, excel_opd_norm, excel_opd_raw)
-    ref_opd = _resolve_ref_opd(db, excel_opd_norm, excel_opd_raw, user=user)
+    warnings: list[str] = []
+
+    # Filter OPD berdasarkan hak akses pengguna:
+    # Semua baris yang nmskpd-nya tidak sesuai hak akses tidak perlu diimport.
+    if user.role != "super_admin":
+        if user.role != "bendahara_opd":
+            raise SimgajiPermissionError(
+                "Role akun tidak diizinkan melakukan import data payroll."
+            )
+        if not user.opd_name:
+            raise SimgajiPermissionError(
+                "Profil OPD akun Anda belum diatur. Hubungi Super Admin sebelum import."
+            )
+
+        user_opd_norm = normalize_opd_name(user.opd_name)
+        is_matching = df["nmskpd"].map(normalize_opd_name) == user_opd_norm
+        skipped_count = int((~is_matching).sum())
+
+        if not is_matching.any():
+            distinct_found = sorted(
+                {str(v).strip() for v in df["nmskpd"].dropna().unique() if str(v).strip()}
+            )
+            daftar = "; ".join(distinct_found)[:300]
+            raise SimgajiPermissionError(
+                f"Tidak ada data dalam file yang sesuai dengan OPD akun Anda ({user.opd_name}). "
+                f"OPD pada file ({daftar}) tidak cocok dengan hak akses Anda. Import dibatalkan."
+            )
+
+        if skipped_count > 0:
+            warnings.append(
+                f"{skipped_count} baris data OPD lain dilewati karena tidak sesuai hak akses OPD Anda ({user.opd_name})."
+            )
+
+        # Hanya import baris yang cocok dengan hak akses bendahara
+        df = df.loc[is_matching].copy()
+
+        ref_opd = _resolve_ref_opd(db, user_opd_norm, user.opd_name, user=user)
+        canonical_opd: str | dict[str, str] = ref_opd.nmskpd.strip()
+        result_opd_name = ref_opd.nmskpd.strip()
+    else:
+        # Super admin memiliki hak akses ke semua OPD
+        distinct_raw = sorted(
+            {str(v).strip() for v in df["nmskpd"].dropna().unique() if str(v).strip()}
+        )
+        opd_map: dict[str, str] = {}
+        for raw_val in distinct_raw:
+            norm_val = normalize_opd_name(raw_val)
+            if norm_val not in opd_map:
+                ref = _resolve_ref_opd(db, norm_val, raw_val, user=user)
+                opd_map[norm_val] = ref.nmskpd.strip()
+
+        canonical_opd = opd_map
+        result_opd_name = ", ".join(sorted(set(opd_map.values())))
 
     imported_at = datetime.now(timezone.utc)
-    records, warnings = _parse_rows(
+    records, row_warnings = _parse_rows(
         df,
-        canonical_opd=ref_opd.nmskpd.strip(),
+        canonical_opd=canonical_opd,
         user_email=user.email,
         imported_at=imported_at,
     )
+    warnings.extend(row_warnings)
 
     if not records:
         raise SimgajiImportError("Tidak ada baris data valid yang dapat diimpor.")
 
     # Super admin boleh melakukan koreksi lintas OPD; bendahara tidak boleh.
     if user.role != "super_admin":
-        _assert_no_cross_opd_conflict(db, records, ref_opd.nmskpd.strip())
+        _assert_no_cross_opd_conflict(db, records, result_opd_name)
 
     periods = sorted({f"{record['tglgaji']:%Y-%m}" for record in records})
     import_id = uuid.uuid4()
@@ -735,7 +788,7 @@ def import_simgaji_excel(
             db,
             period_dates,
             created_by=user.email,
-            opd_name=ref_opd.nmskpd.strip(),
+            opd_name=result_opd_name if user.role != "super_admin" else None,
         )
 
         db.add(
@@ -747,7 +800,7 @@ def import_simgaji_excel(
                 details={
                     "import_id": str(import_id),
                     "filename": safe_filename,
-                    "opd": ref_opd.nmskpd.strip(),
+                    "opd": result_opd_name,
                     "total_rows": len(records),
                     "inserted": inserted,
                     "updated": updated,
@@ -767,7 +820,7 @@ def import_simgaji_excel(
     logger.info(
         "Import SIMGAJI sukses: user=%s opd=%s rows=%s inserted=%s updated=%s",
         user.email,
-        ref_opd.nmskpd,
+        result_opd_name,
         len(records),
         inserted,
         updated,
@@ -777,7 +830,7 @@ def import_simgaji_excel(
         "status": "success",
         "import_id": str(import_id),
         "filename": safe_filename,
-        "opd": ref_opd.nmskpd.strip(),
+        "opd": result_opd_name,
         "total_rows": len(records),
         "inserted": inserted,
         "updated": updated,

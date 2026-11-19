@@ -56,6 +56,29 @@ def _prepare_database() -> None:
             ).scalar()
             if not exists:
                 connection.exec_driver_sql(schema_path.read_text(encoding="utf-8"))
+            else:
+                penyesuaian_exists = connection.execute(
+                    text("SELECT to_regclass('public.payroll_penyesuaian')")
+                ).scalar()
+                if not penyesuaian_exists:
+                    connection.exec_driver_sql("""
+                        CREATE TABLE IF NOT EXISTS payroll_penyesuaian (
+                            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                            nip VARCHAR(30) NOT NULL,
+                            nama VARCHAR(255),
+                            period DATE NOT NULL,
+                            opd_id INT REFERENCES ref_opd(id) ON DELETE SET NULL,
+                            jenis_penyesuaian VARCHAR(100) NOT NULL DEFAULT 'Tunda Bayar',
+                            nominal NUMERIC(15, 2) NOT NULL,
+                            keterangan TEXT,
+                            status VARCHAR(50) NOT NULL DEFAULT 'ditunda',
+                            created_by VARCHAR(255) NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        );
+                        CREATE INDEX IF NOT EXISTS idx_penyesuaian_nip_period ON payroll_penyesuaian(nip, period);
+                        CREATE INDEX IF NOT EXISTS idx_penyesuaian_opd ON payroll_penyesuaian(opd_id);
+                    """)
     finally:
         engine.dispose()
 
@@ -83,7 +106,7 @@ def db_session(prepared_database):
     session.execute(
         text(
             "TRUNCATE TABLE audit_logs, payroll_potongan_item, potongan_berjangka, "
-            "payroll_monthly, app_users, ref_pos_potongan, ref_opd "
+            "payroll_penyesuaian, payroll_monthly, app_users, ref_pos_potongan, ref_opd "
             "RESTART IDENTITY CASCADE"
         )
     )

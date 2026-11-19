@@ -161,7 +161,7 @@
       <span>SLIP GAJI ASN</span>
     </div>
 
-    <main class="window glass active app-window" id="app-window"
+    <main class="window glass active app-window is-maximized" id="app-window"
           aria-label="Aplikasi Cetak Slip Gaji ASN" hidden>
       <div class="title-bar" id="title-bar">
         <div class="title-bar-text">
@@ -172,7 +172,7 @@
         </div>
         <div class="title-bar-controls">
           <button type="button" aria-label="Minimize" data-window-action="minimize" title="Minimize"></button>
-          <button type="button" aria-label="Maximize" data-window-action="maximize" title="Maximize"></button>
+          <button type="button" aria-label="Restore" data-window-action="restore" title="Restore Down"></button>
           <button type="button" aria-label="Close" data-window-action="close" title="Close"></button>
         </div>
       </div>
@@ -566,18 +566,15 @@
                     </div>
 
                     <form id="form-penyesuaian" novalidate style="padding: 10px 14px;">
+                      <input type="hidden" id="penyesuaian-period">
                       <div class="form-grid">
-                        <label class="field">
-                          <span>Periode Gaji</span>
-                          <input type="text" id="penyesuaian-period" readonly>
-                        </label>
                         <label class="field">
                           <span>NIP Pegawai <span class="required">*</span></span>
                           <input type="text" id="penyesuaian-nip" placeholder="Masukkan 18 digit NIP ASN" autocomplete="off" required>
                         </label>
                         <label class="field">
                           <span>Nama Pegawai</span>
-                          <input type="text" id="penyesuaian-nama" placeholder="Otomatis terisi dari payroll…" readonly>
+                          <input type="text" id="penyesuaian-nama" autocomplete="off">
                         </label>
                         <label class="field">
                           <span>Jenis Penyesuaian <span class="required">*</span></span>

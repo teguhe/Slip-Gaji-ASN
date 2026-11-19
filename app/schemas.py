@@ -258,6 +258,7 @@ class MasterUserUpdate(BaseModel):
 
 class PenyesuaianGajiCreate(BaseModel):
     nip: str = Field(..., min_length=1, max_length=30)
+    nama: str | None = Field(None, max_length=255)
     period: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="Format YYYY-MM")
     jenis_penyesuaian: str = Field("Tunda Bayar", max_length=100)
     nominal: Decimal = Field(..., gt=Decimal("0.00"))
