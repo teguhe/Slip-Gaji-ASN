@@ -443,3 +443,60 @@ def test_create_penyesuaian_gaji_manual_nama(api_app, db_session, seeded, bendah
         assert Decimal(str(data["nominal"])) == Decimal("1500000.00")
         assert data["period"] == "2026-10"
 
+
+def test_endpoint_inspect_excel(api_app, db_session, seeded, bendahara_profile):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/payroll/inspect-excel",
+            files={"file": ("simgaji.xlsx", make_excel([make_row(tglgaji=date(2026, 10, 1))]), EXCEL_MIME)},
+        )
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["period"] == "2026-10"
+        assert "Oktober 2026" in data["period_label"]
+        assert data["opd"] == seeded.opd_name
+        assert data["is_opd_match"] is True
+
+
+def test_endpoint_available_periods_and_dashboard_recap(api_app, db_session, seeded, bendahara_profile):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=bendahara_profile,
+    )
+    # Import 2 periods
+    import_simgaji_excel(
+        content=make_excel([make_row(tglgaji=date(2025, 1, 1), nip="196812211991011001")]),
+        filename="simgaji1.xlsx",
+        user=bendahara_profile,
+        db=db_session,
+    )
+    import_simgaji_excel(
+        content=make_excel([make_row(tglgaji=date(2026, 10, 1), nip="196812211991011001")]),
+        filename="simgaji2.xlsx",
+        user=bendahara_profile,
+        db=db_session,
+    )
+
+    with TestClient(api_app) as client:
+        # Test /api/v1/payroll/periods
+        res = client.get("/api/v1/payroll/periods")
+        assert res.status_code == 200, res.text
+        periods_data = res.json()
+        assert periods_data["total_months"] == 2
+        assert periods_data["oldest_period"] == "2025-01"
+        assert periods_data["newest_period"] == "2026-10"
+        assert periods_data["available_periods"] == ["2025-01", "2026-10"]
+
+        # Test /api/v1/dashboard/summary
+        dash_res = client.get("/api/v1/dashboard/summary?period=2026-10")
+        assert dash_res.status_code == 200, dash_res.text
+        dash_data = dash_res.json()
+        assert "period_recap" in dash_data
+        recap = dash_data["period_recap"]
+        assert recap["total_months"] == 2
+        assert recap["oldest_period"] == "2025-01"
+        assert recap["newest_period"] == "2026-10"
+

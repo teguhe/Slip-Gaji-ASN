@@ -75,7 +75,10 @@ def _error(row: int, column: str | None, message: str) -> dict[str, Any]:
 
 
 def _normalize_header(value: Any) -> str:
-    return str(value).replace("\ufeff", "").strip().lower()
+    cleaned = str(value).replace("\ufeff", "").strip().lower()
+    if cleaned in {"tglgaji", "tgl_gaji", "tgl gaji", "tanggal_gaji", "tanggal gaji", "tgl.gaji"}:
+        return "tglgaji"
+    return cleaned
 
 
 def normalize_opd_name(value: Any) -> str:
@@ -253,66 +256,76 @@ def _parse_date(value: Any, row: int, errors: list[dict[str, Any]]) -> date | No
         errors.append(_error(row, "tglgaji", "Tanggal gaji wajib diisi."))
         return None
 
-    if isinstance(value, pd.Timestamp):
-        return value.date()
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
+    parsed_date: date | None = None
 
-    if isinstance(value, (int, np.integer)) and not isinstance(value, bool):
+    if isinstance(value, pd.Timestamp):
+        parsed_date = value.date()
+    elif isinstance(value, datetime):
+        parsed_date = value.date()
+    elif isinstance(value, date):
+        parsed_date = value
+    elif isinstance(value, (int, np.integer)) and not isinstance(value, bool):
         integer_value = int(value)
-        # Format YYYYMMDD (mis. 20261001) lebih aman dideteksi lebih dulu.
-        if len(str(integer_value)) == 8:
+        # Format YYYYMM (mis. 202610)
+        if len(str(integer_value)) == 6:
             try:
-                return datetime.strptime(str(integer_value), "%Y%m%d").date()
+                parsed_date = datetime.strptime(str(integer_value), "%Y%m").date()
             except ValueError:
                 pass
-        try:
-            parsed = (datetime(1899, 12, 30) + timedelta(days=integer_value)).date()
-        except (OverflowError, ValueError):
-            errors.append(_error(row, "tglgaji", "Tanggal gaji tidak valid."))
-            return None
-        if not 1900 <= parsed.year <= 2100:
-            errors.append(_error(row, "tglgaji", "Tanggal gaji di luar rentang wajar."))
-            return None
-        return parsed
-
-    if isinstance(value, (float, np.floating)):
+        # Format YYYYMMDD (mis. 20261001) lebih aman dideteksi lebih dulu.
+        elif len(str(integer_value)) == 8:
+            try:
+                parsed_date = datetime.strptime(str(integer_value), "%Y%m%d").date()
+            except ValueError:
+                pass
+        if parsed_date is None:
+            try:
+                parsed = (datetime(1899, 12, 30) + timedelta(days=integer_value)).date()
+                if 1900 <= parsed.year <= 2100:
+                    parsed_date = parsed
+            except (OverflowError, ValueError):
+                pass
+    elif isinstance(value, (float, np.floating)):
         number = float(value)
-        if not math.isfinite(number):
-            errors.append(_error(row, "tglgaji", "Tanggal gaji tidak valid."))
+        if math.isfinite(number):
+            try:
+                parsed = (datetime(1899, 12, 30) + timedelta(days=number)).date()
+                if 1900 <= parsed.year <= 2100:
+                    parsed_date = parsed
+            except (OverflowError, ValueError):
+                pass
+    else:
+        text = _stringify(value)
+        if not text:
+            errors.append(_error(row, "tglgaji", "Tanggal gaji wajib diisi."))
             return None
-        try:
-            parsed = (datetime(1899, 12, 30) + timedelta(days=number)).date()
-        except (OverflowError, ValueError):
-            errors.append(_error(row, "tglgaji", "Tanggal gaji tidak valid."))
-            return None
-        if not 1900 <= parsed.year <= 2100:
-            errors.append(_error(row, "tglgaji", "Tanggal gaji di luar rentang wajar."))
-            return None
-        return parsed
 
-    text = _stringify(value)
-    if not text:
-        errors.append(_error(row, "tglgaji", "Tanggal gaji wajib diisi."))
+        for pattern in (
+            "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%d.%m.%Y",
+            "%Y-%m", "%m-%Y", "%m/%Y", "%Y/%m", "%m.%Y", "%Y.%m",
+            "%d/%m/%y", "%d-%m-%y", "%d.%m.%y",
+        ):
+            try:
+                parsed_date = datetime.strptime(text, pattern).date()
+                break
+            except ValueError:
+                continue
+
+        if parsed_date is None:
+            parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
+            if not pd.isna(parsed):
+                parsed_date = parsed.date()
+
+    if parsed_date is None:
+        errors.append(_error(row, "tglgaji", f"Format tanggal gaji tidak dikenali: {value!r}."))
         return None
 
-    for pattern in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%d.%m.%Y"):
-        try:
-            return datetime.strptime(text, pattern).date()
-        except ValueError:
-            continue
-
-    parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
-    if pd.isna(parsed):
-        errors.append(_error(row, "tglgaji", f"Format tanggal tidak dikenali: {text!r}."))
-        return None
-    result = parsed.date()
-    if not 1900 <= result.year <= 2100:
+    if not 1900 <= parsed_date.year <= 2100:
         errors.append(_error(row, "tglgaji", "Tanggal gaji di luar rentang wajar."))
         return None
-    return result
+
+    # Normalisasi ke hari pertama bulan agar seragam menjadi data periode bulanan (YYYY-MM-01)
+    return date(parsed_date.year, parsed_date.month, 1)
 
 
 def _parse_nip(value: Any, row: int, errors: list[dict[str, Any]]) -> str | None:

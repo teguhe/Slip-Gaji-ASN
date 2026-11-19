@@ -6,7 +6,9 @@ import logging
 import uuid
 from decimal import Decimal
 from pathlib import Path as FilePath
+from typing import Any
 
+import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Request, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -25,9 +27,11 @@ from app.models import (
 )
 from app.schemas import (
     DashboardEmployee,
+    DashboardPeriodRecap,
     DashboardSummaryResponse,
     DashboardTotals,
     ImportExcelResponse,
+    InspectExcelResponse,
     MasterGajiPayrollRow,
     MasterGajiStatsResponse,
     PenyesuaianGajiCreate,
@@ -36,9 +40,19 @@ from app.schemas import (
     SlipGajiResponse,
 )
 from app.services.audit import write_audit
-from app.services.payroll_summary import load_payroll_summary
+from app.services.payroll_summary import (
+    format_period_label,
+    load_payroll_period_recap,
+    load_payroll_summary,
+)
 from app.services.periods import PeriodError, add_months, parse_period, period_str
-from app.services.simgaji_import import SimgajiImportError, import_simgaji_excel
+from app.services.simgaji_import import (
+    SimgajiImportError,
+    _parse_date,
+    _read_dataframe,
+    import_simgaji_excel,
+    normalize_opd_name,
+)
 from app.services.tenancy import assert_opd_access, resolve_opd_filter
 
 logger = logging.getLogger(__name__)
@@ -122,6 +136,129 @@ def import_excel(
         ) from exc
 
     return ImportExcelResponse(**result)
+
+
+@router.post(
+    "/inspect-excel",
+    response_model=InspectExcelResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Inspeksi file Excel SIMGAJI sebelum import (baca kolom pertama tglgaji & nmskpd)",
+    responses={
+        400: {"description": "File tidak dapat dibaca atau kosong"},
+        415: {"description": "Format file bukan .xls/.xlsx"},
+        422: {"description": "Format tanggal atau kolom tidak valid"},
+    },
+)
+def inspect_excel(
+    file: UploadFile = File(..., description="File Excel SIMGAJI PNS (.xls/.xlsx)"),
+    current_user: UserProfile = Depends(get_current_user),
+) -> InspectExcelResponse:
+    """Membaca file Excel secara aman, mendeteksi kolom pertama (tglgaji),
+    mengekstrak data periode dan nmskpd untuk validasi awal sebelum diimport."""
+    raw_name = (file.filename or "").replace("\\", "/")
+    filename = FilePath(raw_name).name
+    suffix = FilePath(filename).suffix.lower()
+    if suffix not in {".xls", ".xlsx"}:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Format file harus .xls atau .xlsx.",
+        )
+
+    settings = get_settings()
+    try:
+        content = file.file.read(settings.max_upload_bytes + 1)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File upload tidak dapat dibaca.",
+        ) from exc
+
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File upload kosong.",
+        )
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Ukuran file melebihi batas {settings.max_upload_bytes // (1024 * 1024)} MB.",
+        )
+
+    try:
+        df = _read_dataframe(content, filename)
+    except SimgajiImportError as exc:
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"message": exc.message, "errors": exc.errors},
+        ) from exc
+
+    data_columns = [col for col in df.columns if col != "__row__"]
+    first_col = data_columns[0] if data_columns else "tglgaji"
+
+    parsed_date = None
+    row_errors: list[dict[str, Any]] = []
+    for _, row in df.iterrows():
+        val = row.get("tglgaji")
+        if val is not None and not pd.isna(val):
+            parsed_date = _parse_date(val, int(row.get("__row__", 2)), row_errors)
+            if parsed_date:
+                break
+
+    if not parsed_date:
+        err_msg = row_errors[0]["message"] if row_errors else "Tidak ditemukan tanggal gaji yang valid pada kolom 'tglgaji'."
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Gagal mengekstrak data periode dari kolom 'tglgaji': {err_msg}",
+        )
+
+    period_str_val = f"{parsed_date.year:04d}-{parsed_date.month:02d}"
+    period_label_val = format_period_label(period_str_val)
+
+    opd_vals = [
+        str(v).strip() for v in df["nmskpd"].dropna().unique() if str(v).strip()
+    ]
+    file_opd = opd_vals[0] if opd_vals else "—"
+
+    is_match = True
+    warning = None
+    if current_user.role != "super_admin":
+        if not current_user.opd_name:
+            is_match = False
+            warning = "Profil OPD akun login Anda belum diatur oleh Super Admin."
+        else:
+            user_opd_norm = normalize_opd_name(current_user.opd_name)
+            file_opd_norm = normalize_opd_name(file_opd)
+            is_match = (user_opd_norm == file_opd_norm)
+            if not is_match:
+                warning = f"OPD file ({file_opd}) tidak cocok dengan OPD akun Anda ({current_user.opd_name})."
+
+    return InspectExcelResponse(
+        status="success",
+        filename=filename,
+        first_column=first_col,
+        period=period_str_val,
+        period_label=period_label_val,
+        opd=file_opd,
+        total_rows=len(df),
+        is_opd_match=is_match,
+        user_opd=current_user.opd_name,
+        warning=warning,
+    )
+
+
+@router.get(
+    "/periods",
+    response_model=DashboardPeriodRecap,
+    summary="Daftar periode gaji yang tersedia untuk OPD dan rekapitulasi rentang waktu",
+)
+def get_available_periods(
+    opd: str | None = Query(None, max_length=255),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> DashboardPeriodRecap:
+    filter_opd = resolve_opd_filter(current_user, opd)
+    recap = load_payroll_period_recap(db, filter_opd)
+    return DashboardPeriodRecap(**recap)
 
 
 @router.get(

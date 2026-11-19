@@ -9,11 +9,12 @@ from app.auth import AuthContext, get_auth_context
 from app.db import get_db
 from app.schemas import (
     DashboardEmployee,
+    DashboardPeriodRecap,
     DashboardSummaryResponse,
     DashboardTotals,
 )
 from app.services.audit import write_audit
-from app.services.payroll_summary import load_payroll_summary
+from app.services.payroll_summary import load_payroll_period_recap, load_payroll_summary
 from app.services.periods import PeriodError, add_months, parse_period, period_str
 from app.services.tenancy import resolve_opd_filter
 
@@ -75,11 +76,13 @@ def get_dashboard_summary(
         end_period,
         filter_opd,
     )
+    period_recap_data = load_payroll_period_recap(db, filter_opd)
     response = DashboardSummaryResponse(
         period=period_str(start_period),
         opd=filter_opd or "Semua OPD",
         employees=[DashboardEmployee(**row) for row in employee_rows],
         totals=DashboardTotals(**total_rows),
+        period_recap=DashboardPeriodRecap(**period_recap_data),
     )
 
     write_audit(

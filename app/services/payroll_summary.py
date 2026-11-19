@@ -92,3 +92,76 @@ def load_payroll_summary(
         "take_home_pay": total_thp,
     }
     return employees, totals
+
+
+MONTH_NAMES = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+]
+
+
+def format_period_label(period_str_val: str) -> str:
+    parts = str(period_str_val or "").split("-")
+    if len(parts) == 2:
+        try:
+            m_idx = int(parts[1]) - 1
+            if 0 <= m_idx < 12:
+                return f"{MONTH_NAMES[m_idx]} {parts[0]}"
+        except ValueError:
+            pass
+    return str(period_str_val or "")
+
+
+def load_payroll_period_recap(
+    db: Session,
+    opd_name: str | None = None,
+) -> dict[str, Any]:
+    """Mengembalikan rekapitulasi ketersediaan data penggajian bulanan per OPD:
+    - total_months: berapa bulan data tersedia
+    - oldest_period: periode paling lama (YYYY-MM)
+    - oldest_period_label: label periode paling lama (mis. Januari 2024)
+    - newest_period: periode paling baru (YYYY-MM)
+    - newest_period_label: label periode paling baru (mis. Oktober 2026)
+    - available_periods: daftar seluruh periode unik yang ada (sorted ASC)
+    """
+    statement = select(PayrollMonthly.tglgaji)
+    if opd_name:
+        statement = statement.where(
+            func.lower(func.trim(PayrollMonthly.nmskpd)) == opd_name.strip().lower()
+        )
+    statement = statement.distinct()
+    dates = db.scalars(statement).all()
+
+    if not dates:
+        return {
+            "total_months": 0,
+            "oldest_period": None,
+            "oldest_period_label": None,
+            "newest_period": None,
+            "newest_period_label": None,
+            "available_periods": [],
+        }
+
+    period_set = {f"{d.year:04d}-{d.month:02d}" for d in dates if d}
+    sorted_periods = sorted(period_set)
+    if not sorted_periods:
+        return {
+            "total_months": 0,
+            "oldest_period": None,
+            "oldest_period_label": None,
+            "newest_period": None,
+            "newest_period_label": None,
+            "available_periods": [],
+        }
+
+    oldest = sorted_periods[0]
+    newest = sorted_periods[-1]
+
+    return {
+        "total_months": len(sorted_periods),
+        "oldest_period": oldest,
+        "oldest_period_label": format_period_label(oldest),
+        "newest_period": newest,
+        "newest_period_label": format_period_label(newest),
+        "available_periods": sorted_periods,
+    }

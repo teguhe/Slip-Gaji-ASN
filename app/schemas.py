@@ -73,11 +73,34 @@ class DashboardTotals(BaseModel):
     take_home_pay: Decimal
 
 
+class DashboardPeriodRecap(BaseModel):
+    total_months: int = 0
+    oldest_period: str | None = None
+    oldest_period_label: str | None = None
+    newest_period: str | None = None
+    newest_period_label: str | None = None
+    available_periods: list[str] = Field(default_factory=list)
+
+
+class InspectExcelResponse(BaseModel):
+    status: Literal["success"] = "success"
+    filename: str
+    first_column: str
+    period: str
+    period_label: str
+    opd: str
+    total_rows: int
+    is_opd_match: bool
+    user_opd: str | None = None
+    warning: str | None = None
+
+
 class DashboardSummaryResponse(BaseModel):
     period: str
     opd: str
     employees: list[DashboardEmployee]
     totals: DashboardTotals
+    period_recap: DashboardPeriodRecap | None = None
 
 
 

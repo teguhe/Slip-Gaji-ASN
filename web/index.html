@@ -299,6 +299,33 @@
               </div>
             </header>
 
+            <!-- Rekap Ketersediaan Data Penggajian -->
+            <section class="panel period-recap-banner" id="dashboard-period-recap" style="margin-bottom: 16px;">
+              <div class="panel-head">
+                <div>
+                  <h2>Rekap Ketersediaan Data Penggajian</h2>
+                  <p class="panel-sub">Informasi ketersediaan arsip data gaji bulanan pada database</p>
+                </div>
+              </div>
+              <div class="recap-grid">
+                <article class="recap-card">
+                  <span class="recap-label">Bulan Data Tersedia</span>
+                  <strong class="recap-value" id="recap-total-months">0 Bulan</strong>
+                  <span class="recap-sub">Total periode terarsip</span>
+                </article>
+                <article class="recap-card">
+                  <span class="recap-label">Periode Paling Lama</span>
+                  <strong class="recap-value mono" id="recap-oldest-period">—</strong>
+                  <span class="recap-sub" id="recap-oldest-label">Arsip terlama</span>
+                </article>
+                <article class="recap-card">
+                  <span class="recap-label">Periode Paling Baru</span>
+                  <strong class="recap-value mono" id="recap-newest-period">—</strong>
+                  <span class="recap-sub" id="recap-newest-label">Arsip terbaru</span>
+                </article>
+              </div>
+            </section>
+
             <div class="metric-grid">
               <article class="metric-card tone-blue">
                 <div class="metric-top">
@@ -507,6 +534,10 @@
                       <p class="panel-sub" id="excel-data-subtitle">Menampilkan data gaji yang diimpor dari Excel</p>
                     </div>
                     <div class="table-actions">
+                      <div class="filter-group">
+                        <label for="excel-gaji-period-select" class="subtle-label">Periode:</label>
+                        <select id="excel-gaji-period-select" class="filter-select" aria-label="Pilih Periode"></select>
+                      </div>
                       <div class="search-box">
                         <svg class="icon"><use href="#icon-search"></use></svg>
                         <input type="search" id="excel-gaji-search" placeholder="Cari NIP atau Nama…" aria-label="Cari NIP atau Nama">
@@ -743,9 +774,11 @@
 
                 <div class="opd-check" id="opd-check">
                   <div class="opd-check-head">
-                    <span class="section-label">Validasi OPD</span>
+                    <span class="section-label">Validasi Struktur & OPD</span>
                     <span class="status-pill neutral" id="opd-check-status">Menunggu file</span>
                   </div>
+                  <div class="opd-row"><span>Kolom Pertama</span><strong id="first-col-value">—</strong></div>
+                  <div class="opd-row"><span>Periode (tglgaji)</span><strong id="period-file-value">—</strong></div>
                   <div class="opd-row"><span>OPD di file</span><strong id="opd-file-value">—</strong></div>
                   <div class="opd-row"><span>OPD akun login</span><strong id="opd-account-value">—</strong></div>
                 </div>

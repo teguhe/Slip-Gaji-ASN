@@ -39,6 +39,15 @@
   const state = {
     view: 'dashboard',
     period: DEFAULT_PERIOD,
+    availablePeriods: [],
+    periodRecap: {
+      total_months: 0,
+      oldest_period: null,
+      oldest_period_label: null,
+      newest_period: null,
+      newest_period_label: null,
+      available_periods: [],
+    },
     mode: 'api',
     token: storageGet('simgaji.token', sessionStorage) || '',
     opd: '',
@@ -148,6 +157,14 @@
   function periodShort(period) {
     const [, month] = String(period).split('-').map(Number);
     return MONTH_SHORT[month - 1] || period;
+  }
+
+  function getAllPeriods() {
+    const list = Array.from(new Set([...(state.availablePeriods || []), ...PERIODS]));
+    if (state.period && !list.includes(state.period)) {
+      list.push(state.period);
+    }
+    return list.sort();
   }
 
   function addMonths(period, count) {
@@ -372,6 +389,18 @@
 
     renderChart(totals);
     renderComposition(totals);
+    renderPeriodRecap();
+  }
+
+  function renderPeriodRecap() {
+    const recap = state.periodRecap || {};
+    const setText = (selector, value) => {
+      const node = $(selector);
+      if (node) node.textContent = value;
+    };
+    setText('#recap-total-months', `${recap.total_months || 0} Bulan`);
+    setText('#recap-oldest-period', recap.oldest_period_label || recap.oldest_period || '—');
+    setText('#recap-newest-period', recap.newest_period_label || recap.newest_period || '—');
   }
 
   function renderChart(totals) {
@@ -1702,13 +1731,17 @@
       opdLabel.textContent = `OPD: ${state.opd || 'Semua OPD'} • Periode: ${periodLabel(state.period)}`;
     }
 
-    const periodSelect = $('#master-gaji-period-select');
-    if (periodSelect) {
-      if (!periodSelect.options.length) {
-        periodSelect.innerHTML = PERIODS.map((p) => `<option value="${p}">${periodLabel(p)}</option>`).join('');
+    const allPeriods = getAllPeriods();
+    const periodOptions = allPeriods.map((p) => `<option value="${p}">${periodLabel(p)}</option>`).join('');
+    ['#master-gaji-period-select', '#excel-gaji-period-select'].forEach((sel) => {
+      const select = $(sel);
+      if (select) {
+        if (!select.options.length) {
+          select.innerHTML = periodOptions;
+        }
+        select.value = state.period;
       }
-      periodSelect.value = state.period;
-    }
+    });
 
     const activeTab = state.masterGajiTab || 'gaji-stats';
     if (activeTab === 'gaji-stats') {
@@ -2741,6 +2774,10 @@
       opdStatus.className = 'status-pill neutral';
       opdStatus.textContent = 'Menunggu file';
     }
+    const firstCol = $('#first-col-value');
+    if (firstCol) firstCol.textContent = '—';
+    const periodFile = $('#period-file-value');
+    if (periodFile) periodFile.textContent = '—';
     const fileOpd = $('#opd-file-value');
     if (fileOpd) fileOpd.textContent = '—';
     const accountOpd = $('#opd-account-value');
@@ -2774,21 +2811,93 @@
     const fileStatus = $('#file-status');
     if (fileStatus) {
       fileStatus.className = 'status-pill';
-      fileStatus.textContent = 'Siap';
+      fileStatus.textContent = 'Membaca…';
     }
     const opdStatus = $('#opd-check-status');
     if (opdStatus) {
       opdStatus.className = 'status-pill warn';
-      opdStatus.textContent = 'Akan diverifikasi';
+      opdStatus.textContent = 'Membaca struktur…';
     }
+    const firstCol = $('#first-col-value');
+    if (firstCol) firstCol.textContent = 'Membaca…';
+    const periodFile = $('#period-file-value');
+    if (periodFile) periodFile.textContent = 'Membaca…';
     const fileOpd = $('#opd-file-value');
-    if (fileOpd) fileOpd.textContent = 'Diperiksa dari kolom nmskpd';
+    if (fileOpd) fileOpd.textContent = 'Membaca…';
     const accountOpd = $('#opd-account-value');
     if (accountOpd) accountOpd.textContent = state.opd;
 
     setImportRunning(false);
     resetImportPanels();
-    setProgress(0, 'File siap diimpor.', 'Klik “Mulai Import” untuk memvalidasi dan menyimpan.');
+    setProgress(15, 'Membaca struktur file…', 'Mengekstrak kolom pertama (tglgaji) sebagai data periode.');
+
+    const importButton = $('#btn-import');
+    if (importButton) importButton.disabled = true;
+
+    if (state.token) {
+      const formData = new FormData();
+      formData.append('file', file);
+      fetch(`${API_BASE}/api/v1/payroll/inspect-excel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${state.token}` },
+        body: formData,
+      })
+      .then((res) => res.json().then((body) => ({ ok: res.ok, status: res.status, body })))
+      .then(({ ok, body }) => {
+        if (!ok) {
+          const detail = body && body.detail;
+          const msg = typeof detail === 'string' ? detail : (detail && detail.message) || 'Gagal membaca file Excel.';
+          const errs = detail && Array.isArray(detail.errors) ? detail.errors : [];
+          if (fileStatus) {
+            fileStatus.className = 'status-pill error';
+            fileStatus.textContent = 'Gagal';
+          }
+          if (opdStatus) {
+            opdStatus.className = 'status-pill error';
+            opdStatus.textContent = 'Struktur Salah';
+          }
+          if (firstCol) firstCol.textContent = 'Tidak Valid';
+          if (periodFile) periodFile.textContent = 'Tidak Valid';
+          showImportError(msg, errs);
+          return;
+        }
+
+        if (firstCol) firstCol.textContent = `${body.first_column} (Format Tanggal)`;
+        if (periodFile) periodFile.textContent = `${body.period_label} (${body.period})`;
+        if (fileOpd) fileOpd.textContent = body.opd || '—';
+        if (fileStatus) {
+          fileStatus.className = 'status-pill';
+          fileStatus.textContent = 'Terverifikasi';
+        }
+
+        if (body.is_opd_match) {
+          if (opdStatus) {
+            opdStatus.className = 'status-pill';
+            opdStatus.textContent = 'Cocok';
+          }
+          setProgress(0, `File siap diimpor untuk Periode ${body.period_label}.`, `${body.total_rows} baris data terdeteksi. Klik “Mulai Import” untuk memproses.`);
+          if (importButton) importButton.disabled = false;
+        } else {
+          if (opdStatus) {
+            opdStatus.className = 'status-pill error';
+            opdStatus.textContent = 'OPD Berbeda';
+          }
+          showImportError(body.warning || 'OPD file tidak sesuai dengan hak akses akun login Anda.', []);
+          if (importButton) importButton.disabled = true;
+        }
+      })
+      .catch((err) => {
+        if (fileStatus) {
+          fileStatus.className = 'status-pill';
+          fileStatus.textContent = 'Siap';
+        }
+        if (firstCol) firstCol.textContent = 'tglgaji';
+        if (periodFile) periodFile.textContent = 'Akan dibaca saat import';
+        if (importButton) importButton.disabled = false;
+      });
+    } else {
+      if (importButton) importButton.disabled = false;
+    }
   }
 
   function showImportError(message, errors = []) {
@@ -2930,10 +3039,15 @@
       showImportResult(body);
       addImportHistory(body, filename);
       addActivity('import', 'Import SIMGAJI berhasil', `${filename} • ${body.total_rows || 0} baris`, 'green');
-      toast('Import berhasil', `${body.inserted || 0} baru, ${body.updated || 0} diperbarui.`, 'success');
+
+      if (body.periods && body.periods.length) {
+        state.period = body.periods[0];
+      }
+      await loadAvailablePeriods();
+      toast('Import berhasil', `Data gaji periode ${periodLabel(state.period)} (${body.inserted || 0} baru, ${body.updated || 0} diperbarui) berhasil disimpan.`, 'success');
       renderAll();
 
-      if ((body.periods || []).includes(state.period)) {
+      if (state.token) {
         loadApiData(state.token).then((data) => {
           applyApiData(data, state.token);
           renderAll();
@@ -3154,10 +3268,35 @@
       }];
     }
 
+    if (data.period_recap) {
+      state.periodRecap = data.period_recap;
+      if (Array.isArray(data.period_recap.available_periods)) {
+        state.availablePeriods = data.period_recap.available_periods;
+      }
+      buildPeriodSelects();
+    }
+
     storageSet('simgaji.mode', 'api', localStorage);
     storageSet('simgaji.token', token, sessionStorage);
     renderAll();
     void loadPotonganReferenceData();
+  }
+
+  async function loadAvailablePeriods() {
+    if (!state.token) return;
+    try {
+      const recap = await apiRequest('/api/v1/payroll/periods');
+      if (recap) {
+        state.periodRecap = recap;
+        if (Array.isArray(recap.available_periods)) {
+          state.availablePeriods = recap.available_periods;
+        }
+        buildPeriodSelects();
+        renderPeriodRecap();
+      }
+    } catch {
+      // fallback silent
+    }
   }
 
   function promptLogin(message) {
@@ -3563,10 +3702,11 @@
   /* ============================== EVENTS ============================== */
 
   function buildPeriodSelects() {
-    const options = PERIODS.map((period) => (
+    const all = getAllPeriods();
+    const options = all.map((period) => (
       `<option value="${period}">${periodLabel(period)}</option>`
     )).join('');
-    ['#period-select', '#master-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+    ['#period-select', '#master-gaji-period-select', '#excel-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
       const select = $(selector);
       if (select) {
         select.innerHTML = options;
@@ -3654,7 +3794,7 @@
       periodSelect.addEventListener('change', () => {
         state.period = periodSelect.value;
         state.selected = new Set();
-        ['#master-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+        ['#master-gaji-period-select', '#excel-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
           const el = $(selector);
           if (el) el.value = state.period;
         });
@@ -4151,7 +4291,19 @@
     if (masterGajiPeriodSelect) {
       masterGajiPeriodSelect.addEventListener('change', (e) => {
         state.period = e.target.value;
-        ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+        ['#period-select', '#excel-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+          const el = $(selector);
+          if (el) el.value = state.period;
+        });
+        void loadMasterGaji();
+      });
+    }
+
+    const excelGajiPeriodSelect = $('#excel-gaji-period-select');
+    if (excelGajiPeriodSelect) {
+      excelGajiPeriodSelect.addEventListener('change', (e) => {
+        state.period = e.target.value;
+        ['#period-select', '#master-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
           const el = $(selector);
           if (el) el.value = state.period;
         });
