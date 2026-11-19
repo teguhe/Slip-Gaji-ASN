@@ -84,6 +84,10 @@
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const setText = (selector, value, root = document) => {
+    const node = $(selector, root);
+    if (node) node.textContent = value == null ? '' : String(value);
+  };
 
   function storageGet(key, storage) {
     try {
@@ -897,31 +901,33 @@
     const roleBadge = $('#profile-dialog-role');
     if (roleBadge) roleBadge.classList.toggle('super', superAdmin);
 
+    const isLoggedIn = Boolean(state.token || profile);
+
     const changeButton = $('#btn-profile-change-opd');
     if (changeButton) changeButton.hidden = !superAdmin;
     const logoutButton = $('#btn-profile-logout');
-    if (logoutButton) logoutButton.hidden = !isApi;
+    if (logoutButton) logoutButton.hidden = !isLoggedIn;
     const statusChange = $('#status-change-opd-btn');
-    if (statusChange) statusChange.hidden = !(isApi && superAdmin);
+    if (statusChange) statusChange.hidden = !superAdmin;
     const statusLogout = $('#status-logout-btn');
-    if (statusLogout) statusLogout.hidden = !isApi;
+    if (statusLogout) statusLogout.hidden = !isLoggedIn;
 
     // Admin-only Master navigation in sidebar & start menu
     const navAdmin = $('#nav-admin-group');
-    if (navAdmin) navAdmin.hidden = !(isApi && superAdmin);
+    if (navAdmin) navAdmin.hidden = !superAdmin;
     const startAdmin = $('#start-admin-group');
-    if (startAdmin) startAdmin.hidden = !(isApi && superAdmin);
+    if (startAdmin) startAdmin.hidden = !superAdmin;
 
     // Multi-tenant lock banner for users without assigned OPD
     const lockBanner = $('#tenant-locked-banner');
     if (lockBanner) lockBanner.hidden = !isLocked;
 
     // OPD selection box: only super admin can manually switch active OPD here
-    const showOpdBox = isApi && superAdmin && state.profileChangeMode;
+    const showOpdBox = superAdmin && state.profileChangeMode;
     const opdBox = $('#profile-opd-box');
     if (opdBox) opdBox.hidden = !showOpdBox;
     const addOpdBox = $('#super-admin-add-opd');
-    if (addOpdBox) addOpdBox.hidden = !(isApi && superAdmin);
+    if (addOpdBox) addOpdBox.hidden = !superAdmin;
     if (showOpdBox) populateProfileOpdSelect();
   }
 
