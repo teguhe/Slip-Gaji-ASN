@@ -3930,12 +3930,8 @@
     if (refreshButton) refreshButton.addEventListener('click', refreshData);
     const aboutButton = $('#btn-about');
     if (aboutButton) aboutButton.addEventListener('click', () => openModal('about'));
-    const connectionButton = $('#btn-connection');
-    if (connectionButton) connectionButton.addEventListener('click', openConnectionModal);
     const modeChip = $('#data-mode-chip');
     if (modeChip) modeChip.addEventListener('click', openConnectionModal);
-    const trayConnection = $('#tray-connection');
-    if (trayConnection) trayConnection.addEventListener('click', openConnectionModal);
     const startConnection = $('#start-connection');
     if (startConnection) startConnection.addEventListener('click', openConnectionModal);
     const startAbout = $('#start-about');
