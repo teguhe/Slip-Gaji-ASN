@@ -1,15 +1,13 @@
 /* ============================================================
    SLIP GAJI ASN — Aero Glass dashboard controller
-   Vanilla JS. Mode demo berjalan tanpa backend; mode API memakai
-   Firebase ID Token dan endpoint FastAPI.
+   Vanilla JS. Menggunakan Firebase Auth (Google Sign-In)
+   dan REST API FastAPI + PostgreSQL backend.
    ============================================================ */
 
 (function () {
   'use strict';
 
-  const DEMO_OPD = 'BADAN KEPEGAWAIAN DAN PENGEMBANGAN SUMBER DAYA MANUSIA';
-  const DEMO_OPD_TITLE = 'Badan Kepegawaian dan Pengembangan Sumber Daya Manusia';
-  const DEMO_PERIOD = '2026-10';
+  const DEFAULT_PERIOD = '2026-10';
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const API_BASE = '';
   const FIREBASE_CONFIG = {
@@ -38,133 +36,14 @@
     return out;
   })();
 
-  const TREND = [
-    { period: '2026-05', value: 22400000 },
-    { period: '2026-06', value: 23150000 },
-    { period: '2026-07', value: 22800000 },
-    { period: '2026-08', value: 23650000 },
-    { period: '2026-09', value: 24050000 },
-    { period: '2026-10', value: 23863924.55 },
-  ];
-
-  const SEED_IMPORTS = [
-    {
-      time: '03/10/2026 09:14',
-      file: 'SIMGAJI_PNS_OKT_2026.xlsx',
-      opd: DEMO_OPD,
-      rows: 6,
-      inserted: 6,
-      updated: 0,
-      status: 'success',
-    },
-    {
-      time: '02/09/2026 10:02',
-      file: 'SIMGAJI_PNS_SEP_2026.xlsx',
-      opd: DEMO_OPD,
-      rows: 6,
-      inserted: 6,
-      updated: 0,
-      status: 'success',
-    },
-    {
-      time: '01/08/2026 08:45',
-      file: 'SIMGAJI_PNS_AGU_2026.xlsx',
-      opd: DEMO_OPD,
-      rows: 6,
-      inserted: 5,
-      updated: 1,
-      status: 'success',
-    },
-  ];
-
-  const SEED_ACTIVITIES = [
-    {
-      type: 'import',
-      tone: 'green',
-      title: 'Import SIMGAJI berhasil',
-      detail: 'SIMGAJI_PNS_OKT_2026.xlsx • 6 baris',
-      time: '09:14',
-    },
-    {
-      type: 'potongan',
-      tone: 'amber',
-      title: 'Potongan internal diperbarui',
-      detail: 'Bank Jateng • Cicilan 14/36',
-      time: '08:52',
-    },
-    {
-      type: 'sync',
-      tone: '',
-      title: 'Sinkronisasi OPD',
-      detail: 'Profil OPD terverifikasi',
-      time: '08:40',
-    },
-  ];
-
-  const DEMO_POS = [
-    { id: 1, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Iuran KORPRI', kategori: 'bulanan', is_active: true },
-    { id: 2, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Dharma Wanita', kategori: 'bulanan', is_active: true },
-    { id: 3, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Infaq / Zakat', kategori: 'bulanan', is_active: true },
-    { id: 4, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Koperasi Dimas', kategori: 'bulanan', is_active: true },
-    { id: 5, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Pinjaman Bank Jateng', kategori: 'berjangka', is_active: true },
-    { id: 6, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Angsuran Koperasi', kategori: 'berjangka', is_active: true },
-    { id: 7, opd_id: 1, opd_nama: DEMO_OPD, nama_pos: 'Sekolah / Pendidikan', kategori: 'bulanan', is_active: true },
-  ];
-
-  const DEMO_LOANS = [
-    {
-      id: 'demo-loan-1',
-      nip: '196812211991011001',
-      nama: 'CELSO EDGAR NASCIMENTO',
-      pos_id: 5,
-      pos_nama: 'Pinjaman Bank Jateng',
-      opd_nama: DEMO_OPD,
-      nominal_per_bulan: 1200000,
-      start_period: '2025-09',
-      end_period: '2028-08',
-      tenor_bulan: 36,
-      keterangan: 'Pinjaman modal',
-      created_by: 'bendahara@example.com',
-    },
-    {
-      id: 'demo-loan-2',
-      nip: '197505102000121004',
-      nama: 'BUDI SANTOSO',
-      pos_id: 5,
-      pos_nama: 'Pinjaman Bank Jateng',
-      opd_nama: DEMO_OPD,
-      nominal_per_bulan: 750000,
-      start_period: '2026-03',
-      end_period: '2028-02',
-      tenor_bulan: 24,
-      keterangan: 'Pinjaman renovasi',
-      created_by: 'bendahara@example.com',
-    },
-    {
-      id: 'demo-loan-3',
-      nip: '199002172015031006',
-      nama: 'AHMAD FAUZI',
-      pos_id: 6,
-      pos_nama: 'Angsuran Koperasi',
-      opd_nama: DEMO_OPD,
-      nominal_per_bulan: 900000,
-      start_period: '2026-08',
-      end_period: '2029-07',
-      tenor_bulan: 36,
-      keterangan: 'Angsuran koperasi',
-      created_by: 'bendahara@example.com',
-    },
-  ];
-
   const state = {
     view: 'dashboard',
-    period: DEMO_PERIOD,
+    period: DEFAULT_PERIOD,
     mode: 'api',
     token: storageGet('simgaji.token', sessionStorage) || '',
     opd: '',
     opdRaw: '',
     employees: [],
-    demoEmployees: [],
     imports: [],
     activities: [],
     trend: [],
@@ -413,216 +292,6 @@
     return employee;
   }
 
-  /* ============================== DEMO DATA ============================== */
-
-  function makeInternal(pos, nominal, info, extra = {}) {
-    return {
-      id: uid('pot'),
-      pos,
-      nominal,
-      info,
-      kategori: 'bulanan',
-      ...extra,
-    };
-  }
-
-  function buildDemoEmployees() {
-    const employees = [
-      {
-        nip: '196812211991011001',
-        nama: 'CELSO EDGAR NASCIMENTO',
-        kdpangkat: 'IV/a',
-        norek: '3033034147',
-        income: {
-          gapok: 5235000,
-          tjistri: 523500,
-          tjanak: 104700,
-          tjberas: 217260,
-          tjaskes: 284812.92,
-          tjumum: 0,
-        },
-        resmi: {
-          iwpPegawai: 58632.37,
-          iwpTaspen: 469056,
-          pph: 234528,
-          jkkJkm: 50256,
-          lain: 0,
-        },
-        internal: [
-          makeInternal('Iuran KORPRI', 20000, 'Bulanan • Oktober 2026'),
-          makeInternal('Koperasi Dimas', 250000, 'Simpawan wajib • Oktober 2026'),
-          makeInternal('Pinjaman Bank Jateng', 1200000, 'Cicilan 14 dari 36 • s.d. September 2029', { kategori: 'berjangka', cicilan: 14, tenor: 36 }),
-          makeInternal('Infaq / Zakat', 50000, 'Bulanan • Oktober 2026'),
-        ],
-      },
-      {
-        nip: '198203152006042003',
-        nama: 'SITI RAHMAWATI',
-        kdpangkat: 'III/c',
-        norek: '3033035521',
-        income: {
-          gapok: 4620000,
-          tjistri: 462000,
-          tjanak: 92400,
-          tjberas: 191760,
-          tjaskes: 251928,
-          tjumum: 0,
-        },
-        resmi: {
-          iwpPegawai: 51744,
-          iwpTaspen: 414000,
-          pph: 168000,
-          jkkJkm: 44352,
-          lain: 0,
-        },
-        internal: [
-          makeInternal('Iuran KORPRI', 20000, 'Bulanan • Oktober 2026'),
-          makeInternal('Dharma Wanita', 25000, 'Bulanan • Oktober 2026'),
-          makeInternal('Infaq / Zakat', 50000, 'Bulanan • Oktober 2026'),
-          makeInternal('Koperasi Dimas', 150000, 'Angsuran • Oktober 2026'),
-        ],
-      },
-      {
-        nip: '197505102000121004',
-        nama: 'BUDI SANTOSO',
-        kdpangkat: 'III/b',
-        norek: '3033037712',
-        income: {
-          gapok: 3980000,
-          tjistri: 398000,
-          tjanak: 79600,
-          tjberas: 165180,
-          tjaskes: 216910,
-          tjumum: 0,
-        },
-        resmi: {
-          iwpPegawai: 44576,
-          iwpTaspen: 356000,
-          pph: 96000,
-          jkkJkm: 38208,
-          lain: 0,
-        },
-        internal: [
-          makeInternal('Iuran KORPRI', 20000, 'Bulanan • Oktober 2026'),
-          makeInternal('Koperasi Dimas', 200000, 'Simpawan wajib • Oktober 2026'),
-          makeInternal('Pinjaman Bank Jateng', 750000, 'Cicilan 8 dari 24 • s.d. Mei 2028', { kategori: 'berjangka', cicilan: 8, tenor: 24 }),
-          makeInternal('Infaq / Zakat', 25000, 'Bulanan • Oktober 2026'),
-        ],
-      },
-      {
-        nip: '198811052012022005',
-        nama: 'MARIA FRANSISKA',
-        kdpangkat: 'III/d',
-        norek: '3033039984',
-        income: {
-          gapok: 5780000,
-          tjistri: 0,
-          tjanak: 115600,
-          tjberas: 239820,
-          tjaskes: 314940,
-          tjumum: 100000,
-        },
-        resmi: {
-          iwpPegawai: 64736,
-          iwpTaspen: 520000,
-          pph: 280000,
-          jkkJkm: 55488,
-          lain: 0,
-        },
-        internal: [
-          makeInternal('Iuran KORPRI', 20000, 'Bulanan • Oktober 2026'),
-          makeInternal('Koperasi Dimas', 300000, 'Simpawan wajib • Oktober 2026'),
-          makeInternal('Infaq / Zakat', 100000, 'Bulanan • Oktober 2026'),
-          makeInternal('Sekolah / Pendidikan', 150000, 'Bulanan • Oktober 2026'),
-        ],
-      },
-      {
-        nip: '199002172015031006',
-        nama: 'AHMAD FAUZI',
-        kdpangkat: 'III/a',
-        norek: '3033041120',
-        income: {
-          gapok: 4250000,
-          tjistri: 425000,
-          tjanak: 85000,
-          tjberas: 176400,
-          tjaskes: 231675,
-          tjumum: 0,
-        },
-        resmi: {
-          iwpPegawai: 47600,
-          iwpTaspen: 380000,
-          pph: 120000,
-          jkkJkm: 40800,
-          lain: 0,
-        },
-        internal: [
-          makeInternal('Iuran KORPRI', 20000, 'Bulanan • Oktober 2026'),
-          makeInternal('Koperasi Dimas', 250000, 'Simpawan wajib • Oktober 2026'),
-          makeInternal('Pinjaman Bank Jateng', 900000, 'Cicilan 3 dari 36 • s.d. Desember 2029', { kategori: 'berjangka', cicilan: 3, tenor: 36 }),
-          makeInternal('Infaq / Zakat', 50000, 'Bulanan • Oktober 2026'),
-        ],
-      },
-      {
-        nip: '199406282019012007',
-        nama: 'DEWI LESTARI',
-        kdpangkat: 'II/d',
-        norek: '3033042266',
-        income: {
-          gapok: 3650000,
-          tjistri: 0,
-          tjanak: 0,
-          tjberas: 151410,
-          tjaskes: 198925,
-          tjumum: 75000,
-        },
-        resmi: {
-          iwpPegawai: 40880,
-          iwpTaspen: 326000,
-          pph: 72000,
-          jkkJkm: 35040,
-          lain: 0,
-        },
-        internal: [
-          makeInternal('Iuran KORPRI', 20000, 'Bulanan • Oktober 2026'),
-          makeInternal('Dharma Wanita', 25000, 'Bulanan • Oktober 2026'),
-          makeInternal('Infaq / Zakat', 50000, 'Bulanan • Oktober 2026'),
-          makeInternal('Koperasi Dimas', 100000, 'Simpawan wajib • Oktober 2026'),
-        ],
-      },
-    ];
-
-    return employees.map((config) => {
-      const employee = {
-        nip: config.nip,
-        nama: config.nama,
-        kdpangkat: config.kdpangkat,
-        norek: config.norek,
-        opd: DEMO_OPD,
-        income: config.income,
-        resmi: config.resmi,
-        internalPotongan: config.internal || [],
-        basePotonganInternal: 0,
-        summaryOnly: false,
-      };
-      return recomputeEmployee(employee);
-    });
-  }
-
-  function loadDemoData() {
-    state.demoEmployees = buildDemoEmployees();
-    state.employees = deepClone(state.demoEmployees);
-    state.opd = DEMO_OPD_TITLE;
-    state.opdRaw = DEMO_OPD;
-    state.imports = deepClone(SEED_IMPORTS);
-    state.activities = deepClone(SEED_ACTIVITIES);
-    state.trend = deepClone(TREND);
-    state.posList = deepClone(DEMO_POS);
-    state.loans = deepClone(DEMO_LOANS);
-    state.selected = new Set();
-    state.potonganNip = state.employees[0] ? state.employees[0].nip : '';
-  }
-
   /* ============================== RENDER ============================== */
 
   function setStatus(message) {
@@ -647,22 +316,20 @@
 
   function renderChrome() {
     const period = periodLabel(state.period);
-    const modeLabel = state.mode === 'api' ? 'Terhubung API' : 'Mode Demo';
+    const modeLabel = 'Terhubung API';
 
     const nodes = [
-      ['#profile-opd', state.opd],
-      ['#toolbar-opd', shortOpd(state.opd, 62)],
-      ['#dashboard-opd', state.opd],
-      ['#status-opd', `OPD: ${shortOpd(state.opd, 46)}`],
+      ['#profile-opd', state.opd || 'Belum Ada OPD'],
+      ['#toolbar-opd', shortOpd(state.opd || 'Belum Ada OPD', 62)],
+      ['#dashboard-opd', state.opd || 'Belum Ada OPD'],
+      ['#status-opd', `OPD: ${shortOpd(state.opd || '—', 46)}`],
       ['#status-period', `Periode: ${period}`],
       ['#dashboard-period', period],
       ['#data-mode-label', modeLabel],
-      ['#status-data-mode', state.mode === 'api' ? 'API' : 'Demo'],
-      ['#chart-caption', state.mode === 'api' ? `${state.period.slice(0, 4)} • est.` : state.period.slice(0, 4)],
+      ['#status-data-mode', 'API'],
+      ['#chart-caption', state.period ? state.period.slice(0, 4) : ''],
       ['#loan-period', period],
-      ['#potongan-mode-note-text', state.mode === 'api'
-        ? 'Mode API: pos, pinjaman, dan import potongan disimpan ke PostgreSQL.'
-        : 'Mode demo: perubahan pos dan pinjaman disimpan pada sesi ini.'],
+      ['#potongan-mode-note-text', 'Pos potongan dan pinjaman tersimpan di basis data PostgreSQL.'],
     ];
     nodes.forEach(([selector, value]) => {
       const node = $(selector);
@@ -670,7 +337,7 @@
     });
 
     const chip = $('#data-mode-chip');
-    if (chip) chip.classList.toggle('is-api', state.mode === 'api');
+    if (chip) chip.classList.add('is-api');
 
     const navCount = $('#nav-count');
     if (navCount) navCount.textContent = String(state.employees.length);
@@ -1190,30 +857,21 @@
   }
 
   function isUserLocked() {
-    return state.mode === 'api' && state.profile && !state.profile.is_super_admin && Boolean(state.profile.needs_opd);
+    return Boolean(state.profile && !state.profile.is_super_admin && state.profile.needs_opd);
   }
 
   function updateProfileUI() {
-    const isApi = state.mode === 'api';
     const profile = state.profile;
     const superAdmin = Boolean(profile && profile.is_super_admin);
-    const isLocked = isApi && !superAdmin && Boolean(profile && profile.needs_opd);
+    const isLocked = isUserLocked();
 
-    const name = isApi
-      ? (profile ? (profile.display_name || profile.email || 'Pengguna API') : 'Memuat profil…')
-      : 'Bendahara OPD';
-    const roleLabel = isApi
-      ? (superAdmin ? 'Super Admin' : 'Bendahara OPD')
-      : 'Bendahara';
-    const opdLabel = isApi
-      ? (profile && profile.opd_name
-        ? profile.opd_name
-        : (superAdmin ? 'Semua OPD (Akses Global)' : 'Belum ditetapkan (Terkunci)'))
-      : state.opd;
-    const email = isApi ? (profile ? profile.email : '—') : 'mode-demo@local';
-    const method = isApi
-      ? (profile ? (profile.auth_method === 'api_key' ? 'API Key' : 'Firebase Auth') : 'API')
-      : 'Mode Demo';
+    const name = profile ? (profile.display_name || profile.email || 'Pengguna') : '—';
+    const roleLabel = superAdmin ? 'Super Admin' : (isLocked ? 'Menunggu Penugasan' : 'Bendahara OPD');
+    const opdLabel = profile && profile.opd_name
+      ? profile.opd_name
+      : (superAdmin ? 'Semua OPD (Akses Global)' : (isLocked ? 'Belum ditetapkan (Terkunci)' : '—'));
+    const email = profile ? profile.email : '—';
+    const method = 'Google Auth (Gmail)';
     const avatar = initialsFrom(name, email);
 
     const setText = (selector, value) => {
@@ -1221,7 +879,7 @@
       if (node) node.textContent = value;
     };
 
-    setText('#profile-name', isApi ? (profile ? (profile.display_name || profile.email) : 'Memuat…') : 'Bendahara OPD');
+    setText('#profile-name', name);
     setText('#profile-role', roleLabel);
     setText('#profile-opd', opdLabel);
     const sidebarAvatar = $('#profile-avatar');
@@ -1232,7 +890,7 @@
     setText('#profile-dialog-role', roleLabel);
     setText('#profile-dialog-opd', opdLabel);
     setText('#profile-dialog-method', method);
-    setText('#profile-dialog-status', isApi ? (isLocked ? 'Belum Ada OPD (Terkunci)' : 'Aktif') : 'Demo');
+    setText('#profile-dialog-status', isLocked ? 'Belum Ada OPD (Terkunci)' : (profile ? 'Aktif' : 'Belum Login'));
     const dialogAvatar = $('#profile-dialog-avatar');
     if (dialogAvatar) dialogAvatar.textContent = avatar;
 
@@ -1240,7 +898,7 @@
     if (roleBadge) roleBadge.classList.toggle('super', superAdmin);
 
     const changeButton = $('#btn-profile-change-opd');
-    if (changeButton) changeButton.hidden = !(isApi && superAdmin);
+    if (changeButton) changeButton.hidden = !superAdmin;
     const logoutButton = $('#btn-profile-logout');
     if (logoutButton) logoutButton.hidden = !isApi;
     const statusChange = $('#status-change-opd-btn');
@@ -2416,11 +2074,7 @@
   }
 
   async function loadPotonganReferenceData() {
-    if (state.mode !== 'api' || !state.token) {
-      if (!state.posList.length) state.posList = deepClone(DEMO_POS);
-      if (!state.loans.length) state.loans = deepClone(DEMO_LOANS);
-      return;
-    }
+    if (!state.token) return;
 
     try {
       const query = new URLSearchParams({ period: state.period });
@@ -2553,77 +2207,38 @@
     const keterangan = $('#loan-keterangan').value.trim();
     const end = addMonths(start, tenor - 1);
 
-    if (state.mode === 'api' && state.token) {
-      const button = $('#btn-save-loan');
-      state.loanSaving = true;
-      if (button) button.disabled = true;
-      try {
-        await apiRequest('/api/v1/potongan/berjangka', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nip,
-            pos_id: Number(pos.id),
-            nominal_per_bulan: nominal.toFixed(2),
-            start_period: start,
-            tenor_bulan: tenor,
-            keterangan: keterangan || null,
-          }),
-        });
-        closeModal();
-        toast('Pinjaman tersimpan', `${pos.nama_pos} • ${tenor} bulan untuk ${employee.nama}.`, 'success');
-        addActivity('potongan', 'Pinjaman berjangka dibuat', `${employee.nama} • ${pos.nama_pos} • ${tenor} bulan`, 'amber');
-        await loadPotonganReferenceData();
-        await loadEmployeePotongan(nip, state.period);
-      } catch (caught) {
-        showInlineError('loan', caught.message);
-      } finally {
-        state.loanSaving = false;
-        if (button) button.disabled = false;
-      }
+    if (!state.token) {
+      logout();
       return;
     }
 
-    // Mode demo
-    const loan = {
-      id: uid('loan'),
-      nip,
-      nama: employee.nama,
-      pos_id: pos.id,
-      pos_nama: pos.nama_pos,
-      opd_nama: state.opd,
-      nominal_per_bulan: nominal,
-      start_period: start,
-      end_period: end,
-      tenor_bulan: tenor,
-      keterangan,
-      created_by: 'Demo',
-    };
-    state.loans.unshift(loan);
-
-    const progress = loanProgressFor(loan, state.period);
-    if (progress.cicilan) {
-      employee.internalPotongan = employee.internalPotongan || [];
-      employee.internalPotongan.push({
-        id: uid('pot'),
-        pos: pos.nama_pos,
-        nominal,
-        info: `Cicilan ${progress.cicilan} dari ${tenor} • ${periodLabel(start)} – ${periodLabel(end)}`,
-        kategori: 'berjangka',
-        period: start,
-        start,
-        end,
-        tenor,
-        cicilan: progress.cicilan,
-        keterangan,
+    const button = $('#btn-save-loan');
+    state.loanSaving = true;
+    if (button) button.disabled = true;
+    try {
+      await apiRequest('/api/v1/potongan/berjangka', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nip,
+          pos_id: Number(pos.id),
+          nominal_per_bulan: nominal.toFixed(2),
+          start_period: start,
+          tenor_bulan: tenor,
+          keterangan: keterangan || null,
+        }),
       });
-      recomputeEmployee(employee);
+      closeModal();
+      toast('Pinjaman tersimpan', `${pos.nama_pos} • ${tenor} bulan untuk ${employee.nama}.`, 'success');
+      addActivity('potongan', 'Pinjaman berjangka dibuat', `${employee.nama} • ${pos.nama_pos} • ${tenor} bulan`, 'amber');
+      await loadPotonganReferenceData();
+      await loadEmployeePotongan(nip, state.period);
+    } catch (caught) {
+      showInlineError('loan', caught.message);
+    } finally {
+      state.loanSaving = false;
+      if (button) button.disabled = false;
     }
-
-    addActivity('potongan', 'Pinjaman berjangka dibuat', `${employee.nama} • ${pos.nama_pos} • ${tenor} bulan`, 'amber');
-    renderAll();
-    closeModal();
-    toast('Pinjaman dicatat', `${pos.nama_pos} • ${tenor} bulan s.d. ${periodLabel(end)}.`, 'success');
   }
 
   function showInlineError(name, message) {
@@ -2661,44 +2276,31 @@
       return;
     }
 
-    if (state.mode === 'api' && state.token) {
-      const button = $('#form-pos button[type="submit"]');
-      if (button) button.disabled = true;
-      try {
-        const saved = await apiRequest('/api/v1/potongan/pos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nama_pos: nama, kategori }),
-        });
-        state.posList.push(mapApiPos(saved));
-        addActivity('potongan', 'Pos potongan ditambahkan', `${nama} • ${kategori}`, 'amber');
-        renderAll();
-        const form = $('#form-pos');
-        if (form) form.reset();
-        toast('Pos ditambahkan', `${nama} (${kategori}) tersimpan.`, 'success');
-        await loadPotonganReferenceData();
-      } catch (caught) {
-        showInlineError('pos', caught.message);
-      } finally {
-        if (button) button.disabled = false;
-      }
+    if (!state.token) {
+      logout();
       return;
     }
 
-    const newId = state.posList.reduce((max, pos) => Math.max(max, Number(pos.id) || 0), 0) + 1;
-    state.posList.push({
-      id: newId,
-      opd_id: 1,
-      opd_nama: state.opd,
-      nama_pos: nama,
-      kategori,
-      is_active: true,
-    });
-    addActivity('potongan', 'Pos potongan ditambahkan', `${nama} • ${kategori}`, 'amber');
-    renderAll();
-    const form = $('#form-pos');
-    if (form) form.reset();
-    toast('Pos ditambahkan', `${nama} (${kategori}) untuk sesi demo.`, 'success');
+    const button = $('#form-pos button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const saved = await apiRequest('/api/v1/potongan/pos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nama_pos: nama, kategori }),
+      });
+      state.posList.push(mapApiPos(saved));
+      addActivity('potongan', 'Pos potongan ditambahkan', `${nama} • ${kategori}`, 'amber');
+      renderAll();
+      const form = $('#form-pos');
+      if (form) form.reset();
+      toast('Pos ditambahkan', `${nama} (${kategori}) tersimpan.`, 'success');
+      await loadPotonganReferenceData();
+    } catch (caught) {
+      showInlineError('pos', caught.message);
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   async function togglePos(posId) {
@@ -2706,26 +2308,24 @@
     if (!pos) return;
     const target = !pos.is_active;
 
-    if (state.mode === 'api' && state.token) {
-      try {
-        const saved = await apiRequest(`/api/v1/potongan/pos/${encodeURIComponent(pos.id)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_active: target }),
-        });
-        const index = state.posList.findIndex((item) => String(item.id) === String(pos.id));
-        if (index >= 0) state.posList[index] = mapApiPos(saved);
-        renderAll();
-        toast(target ? 'Pos diaktifkan' : 'Pos dinonaktifkan', saved.nama_pos, 'info');
-      } catch (caught) {
-        toast('Gagal mengubah pos', caught.message, 'error');
-      }
+    if (!state.token) {
+      logout();
       return;
     }
 
-    pos.is_active = target;
-    renderAll();
-    toast(target ? 'Pos diaktifkan' : 'Pos dinonaktifkan', pos.nama_pos, 'info');
+    try {
+      const saved = await apiRequest(`/api/v1/potongan/pos/${encodeURIComponent(pos.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: target }),
+      });
+      const index = state.posList.findIndex((item) => String(item.id) === String(pos.id));
+      if (index >= 0) state.posList[index] = mapApiPos(saved);
+      renderAll();
+      toast(target ? 'Pos diaktifkan' : 'Pos dinonaktifkan', saved.nama_pos, 'info');
+    } catch (caught) {
+      toast('Gagal mengubah pos', caught.message, 'error');
+    }
   }
 
   function openManualImport() {
@@ -2782,7 +2382,7 @@
     setManualProgress(0, 'Import gagal.');
   }
 
-  function showManualResult(data, demo = false) {
+  function showManualResult(data) {
     const error = $('#manual-error');
     if (error) error.hidden = true;
     const result = $('#manual-result');
@@ -2791,12 +2391,12 @@
       const node = $(selector);
       if (node) node.textContent = value;
     };
-    setText('#manual-result-title', demo ? 'Simulasi mode demo' : 'Import potongan berhasil');
+    setText('#manual-result-title', 'Import potongan berhasil');
     setText('#manual-result-rows', String(Number(data.total_rows) || 0));
     setText('#manual-result-inserted', String(Number(data.inserted) || 0));
     setText('#manual-result-updated', String(Number(data.updated) || 0));
     setText('#manual-result-period', `${data.pos || '—'} • ${data.period || state.period}`);
-    setManualProgress(100, demo ? 'Mode demo — tidak ada data yang disimpan.' : 'Import selesai.');
+    setManualProgress(100, 'Import selesai.');
   }
 
   async function runManualImport() {
@@ -2816,17 +2416,8 @@
       return;
     }
 
-    if (state.mode !== 'api' || !state.token) {
-      setManualProgress(100, 'Mode demo — file tidak dikirim ke server.');
-      showManualResult({
-        total_rows: 0,
-        inserted: 0,
-        updated: 0,
-        pos: pos.nama_pos,
-        period,
-      }, true);
-      addActivity('potongan', 'Import potongan demo', `${file.name} • ${pos.nama_pos}`, 'amber');
-      toast('Mode demo', 'Import tidak dikirim ke server. Gunakan mode API untuk penyimpanan nyata.', 'info');
+    if (!state.token) {
+      logout();
       return;
     }
 
@@ -2863,10 +2454,8 @@
 
   async function generateBerjangka() {
     const button = $('#btn-generate-berjangka');
-    if (state.mode !== 'api' || !state.token) {
-      const count = state.loans.filter((loan) => loanProgressFor(loan, state.period).status === 'aktif').length;
-      addActivity('potongan', 'Realisasi cicilan demo', `${count} pinjaman • ${periodLabel(state.period)}`, 'amber');
-      toast('Mode demo', `Realisasi ${count} pinjaman disimulasikan untuk ${periodLabel(state.period)}.`, 'info');
+    if (!state.token) {
+      logout();
       return;
     }
 
@@ -2986,7 +2575,7 @@
   }
 
   function renderSlip(employee, index) {
-    const opd = employee.opd || state.opdRaw || DEMO_OPD;
+    const opd = employee.opd || state.opdRaw || state.opd || '—';
     const incomeRows = [];
     const deductionRows = [];
     const internalRows = [];
@@ -3265,6 +2854,10 @@
       return;
     }
     if (!state.currentFile || state.importRunning) return;
+    if (!state.token) {
+      logout();
+      return;
+    }
 
     state.importRunning = true;
     setImportRunning(true);
@@ -3275,85 +2868,54 @@
     setProgress(8, 'Membaca file…', 'Memeriksa struktur kolom dan OPD.');
 
     const filename = state.currentFile.name;
+    let timer = null;
+    try {
+      let progress = 12;
+      timer = window.setInterval(() => {
+        progress = Math.min(88, progress + Math.random() * 8);
+        setProgress(progress, 'Mengunggah dan memproses…', 'Server memvalidasi OPD dan melakukan upsert.');
+      }, 180);
 
-    if (state.mode === 'api' && state.token) {
-      let timer = null;
-      try {
-        let progress = 12;
-        timer = window.setInterval(() => {
-          progress = Math.min(88, progress + Math.random() * 8);
-          setProgress(progress, 'Mengunggah dan memproses…', 'Server memvalidasi OPD dan melakukan upsert.');
-        }, 180);
+      const formData = new FormData();
+      formData.append('file', state.currentFile);
 
-        const formData = new FormData();
-        formData.append('file', state.currentFile);
-
-        const response = await fetch(`${API_BASE}/api/v1/payroll/import-excel`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${state.token}` },
-          body: formData,
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          const detail = body.detail;
-          const message = typeof detail === 'string'
-            ? detail
-            : (detail && detail.message) || `Import gagal (HTTP ${response.status}).`;
-          const errors = detail && Array.isArray(detail.errors) ? detail.errors : [];
-          throw Object.assign(new Error(message), { errors });
-        }
-
-        window.clearInterval(timer);
-        setProgress(100, 'Import selesai.', 'Data berhasil disimpan ke PostgreSQL.');
-        showImportResult(body);
-        addImportHistory(body, filename);
-        addActivity('import', 'Import SIMGAJI berhasil', `${filename} • ${body.total_rows || 0} baris`, 'green');
-        toast('Import berhasil', `${body.inserted || 0} baru, ${body.updated || 0} diperbarui.`, 'success');
-        renderAll();
-
-        if ((body.periods || []).includes(state.period)) {
-          loadApiData(state.token).then((data) => {
-            applyApiData(data, state.token);
-            renderAll();
-          }).catch(() => {});
-        }
-      } catch (caught) {
-        if (timer) window.clearInterval(timer);
-        showImportError(caught.message || 'Import gagal.', caught.errors || []);
-        toast('Import gagal', caught.message || 'Periksa file dan koneksi.', 'error');
+      const response = await fetch(`${API_BASE}/api/v1/payroll/import-excel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${state.token}` },
+        body: formData,
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = body.detail;
+        const message = typeof detail === 'string'
+          ? detail
+          : (detail && detail.message) || `Import gagal (HTTP ${response.status}).`;
+        const errors = detail && Array.isArray(detail.errors) ? detail.errors : [];
+        throw Object.assign(new Error(message), { errors });
       }
-      return;
-    }
 
-    // Demo import: simulasi progres dan hasil upsert.
-    let progress = 10;
-    const timer = window.setInterval(() => {
-      progress = Math.min(92, progress + 7 + Math.random() * 8);
-      const stage = progress < 40
-        ? 'Memvalidasi 43 kolom dan nmskpd…'
-        : progress < 72
-          ? 'Mencocokkan OPD dan NIP…'
-          : 'Melakukan upsert (nip, tglgaji)…';
-      setProgress(progress, stage, 'Mode demo — tidak mengirim file ke server.');
-    }, 170);
-
-    window.setTimeout(() => {
       window.clearInterval(timer);
-      const result = {
-        status: 'success',
-        opd: state.opdRaw || state.opd,
-        total_rows: state.employees.length || 6,
-        inserted: 0,
-        updated: state.employees.length || 6,
-        periods: [state.period],
-        warnings: [],
-      };
-      showImportResult(result);
-      addImportHistory(result, filename);
-      addActivity('import', 'Import SIMGAJI berhasil', `${filename} • ${result.total_rows} baris`, 'green');
-      toast('Import demo berhasil', `${result.updated} baris diperbarui (mode demo).`, 'success');
+      setProgress(100, 'Import selesai.', 'Data berhasil disimpan ke PostgreSQL.');
+      showImportResult(body);
+      addImportHistory(body, filename);
+      addActivity('import', 'Import SIMGAJI berhasil', `${filename} • ${body.total_rows || 0} baris`, 'green');
+      toast('Import berhasil', `${body.inserted || 0} baru, ${body.updated || 0} diperbarui.`, 'success');
       renderAll();
-    }, 1550);
+
+      if ((body.periods || []).includes(state.period)) {
+        loadApiData(state.token).then((data) => {
+          applyApiData(data, state.token);
+          renderAll();
+        }).catch(() => {});
+      }
+    } catch (caught) {
+      if (timer) window.clearInterval(timer);
+      showImportError(caught.message || 'Import gagal.', caught.errors || []);
+      toast('Import gagal', caught.message || 'Periksa file dan koneksi.', 'error');
+    } finally {
+      state.importRunning = false;
+      setImportRunning(false);
+    }
   }
 
   /* ============================== POTONGAN ACTIONS ============================== */
@@ -3427,47 +2989,41 @@
       readOnly: false,
     };
 
-    if (state.mode === 'api' && state.token) {
-      apiRequest('/api/v1/potongan/item', {
-        method: 'POST',
-        body: JSON.stringify({
-          nip: employee.nip,
-          pos_id: Number(posId),
-          period,
-          nominal,
-        }),
-      })
-      .then((created) => {
-        item.id = created.id;
-        employee.internalPotongan = employee.internalPotongan || [];
-        const existIdx = employee.internalPotongan.findIndex(
-          (x) => String(x.pos_id) === String(posId) && !x.readOnly
-        );
-        if (existIdx >= 0) {
-          employee.internalPotongan[existIdx] = item;
-        } else {
-          employee.internalPotongan.push(item);
-        }
-        recomputeEmployee(employee);
-        addActivity('potongan', 'Potongan bulanan disimpan ke database', `${employee.nama} • ${pos}`, 'amber');
-        renderAll();
-        resetBulananForm();
-        toast('Potongan disimpan', `${pos} ${formatRupiah(nominal, 0)} tersimpan ke server.`, 'success');
-      })
-      .catch((error) => {
-        showFormError('bulanan', error.message || 'Gagal menyimpan ke server');
-        toast('Gagal Menyimpan', error.message || 'Terjadi kesalahan saat menyimpan.', 'error');
-      });
+    if (!state.token) {
+      logout();
       return;
     }
 
-    employee.internalPotongan = employee.internalPotongan || [];
-    employee.internalPotongan.push(item);
-    recomputeEmployee(employee);
-    addActivity('potongan', 'Potongan bulanan ditambahkan', `${employee.nama} • ${pos}`, 'amber');
-    renderAll();
-    resetBulananForm();
-    toast('Potongan disimpan', `${pos} ${formatRupiah(nominal, 0)} untuk ${employee.nama}.`, 'success');
+    apiRequest('/api/v1/potongan/item', {
+      method: 'POST',
+      body: JSON.stringify({
+        nip: employee.nip,
+        pos_id: Number(posId),
+        period,
+        nominal,
+      }),
+    })
+    .then((created) => {
+      item.id = created.id;
+      employee.internalPotongan = employee.internalPotongan || [];
+      const existIdx = employee.internalPotongan.findIndex(
+        (x) => String(x.pos_id) === String(posId) && !x.readOnly
+      );
+      if (existIdx >= 0) {
+        employee.internalPotongan[existIdx] = item;
+      } else {
+        employee.internalPotongan.push(item);
+      }
+      recomputeEmployee(employee);
+      addActivity('potongan', 'Potongan bulanan disimpan ke database', `${employee.nama} • ${pos}`, 'amber');
+      renderAll();
+      resetBulananForm();
+      toast('Potongan disimpan', `${pos} ${formatRupiah(nominal, 0)} tersimpan ke server.`, 'success');
+    })
+    .catch((error) => {
+      showFormError('bulanan', error.message || 'Gagal menyimpan ke server');
+      toast('Gagal Menyimpan', error.message || 'Terjadi kesalahan saat menyimpan.', 'error');
+    });
   }
 
   function deletePotongan(id) {
@@ -3481,7 +3037,12 @@
       return;
     }
 
-    if (state.mode === 'api' && state.token && id && !id.startsWith('pot_')) {
+    if (!state.token) {
+      logout();
+      return;
+    }
+
+    if (id && !id.startsWith('pot_')) {
       apiRequest(`/api/v1/potongan/item/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       })
@@ -3495,14 +3056,7 @@
       .catch((error) => {
         toast('Gagal Menghapus', error.message || 'Terjadi kesalahan saat menghapus.', 'error');
       });
-      return;
     }
-
-    const [removed] = items.splice(index, 1);
-    recomputeEmployee(employee);
-    addActivity('potongan', 'Potongan dihapus', `${employee.nama} • ${removed.pos}`, 'amber');
-    renderAll();
-    toast('Potongan dihapus', `${removed.pos} dihapus dari sesi demo.`, 'info');
   }
 
   /* ============================== API / CONNECTION ============================== */
@@ -3575,26 +3129,8 @@
   }
 
   function promptLogin(message) {
-    state.mode = 'api';
-    state.token = '';
-    state.profile = null;
-    state.employees = [];
-    state.opdOptions = [];
-    state.profileChangeMode = false;
-    storageRemove('simgaji.token', sessionStorage);
-    if (typeof window.firebase !== 'undefined' && firebase.auth) {
-      try {
-        firebase.auth().signOut();
-      } catch (_) {}
-    }
-    renderAll();
-    updateProfileUI();
+    logout();
     if (message) toast('Autentikasi Diperlukan', message, 'warning');
-    openConnectionModal();
-  }
-
-  function fallbackToDemo(message) {
-    promptLogin(message);
   }
 
   function openConnectionModal() {
@@ -3763,24 +3299,22 @@
   }
 
   async function refreshData() {
-    if (state.mode === 'api' && state.token) {
-      if (isUserLocked()) {
-        toast('Akun Belum Ada OPD', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'warning');
-        return;
-      }
-      setStatus('Memuat ulang data…');
-      try {
-        const data = await loadApiData(state.token);
-        applyApiData(data, state.token);
-        toast('Data diperbarui', 'Ringkasan dashboard berhasil dimuat ulang.', 'success');
-      } catch (caught) {
-        toast('Gagal memuat ulang', caught.message || 'Periksa koneksi dan token.', 'error');
-      }
+    if (!state.token) {
+      logout();
       return;
     }
-    loadDemoData();
-    renderAll();
-    toast('Mode demo', 'Contoh data berhasil dimuat ulang.', 'info');
+    if (isUserLocked()) {
+      toast('Akun Belum Ada OPD', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'warning');
+      return;
+    }
+    setStatus('Memuat ulang data…');
+    try {
+      const data = await loadApiData(state.token);
+      applyApiData(data, state.token);
+      toast('Data diperbarui', 'Ringkasan dashboard berhasil dimuat ulang.', 'success');
+    } catch (caught) {
+      toast('Gagal memuat ulang', caught.message || 'Periksa koneksi dan token.', 'error');
+    }
   }
 
 
@@ -4092,7 +3626,7 @@
         const loanStart = $('#loan-start');
         if (loanStart) loanStart.value = state.period;
         renderAll();
-        if (state.mode === 'api' && state.token) {
+        if (state.token) {
           loadApiData(state.token).then((data) => {
             applyApiData(data, state.token);
             renderAll();
@@ -4100,8 +3634,6 @@
           }).catch((caught) => {
             toast('Gagal memuat periode', caught.message || 'Periksa koneksi.', 'error');
           });
-        } else {
-          toast('Periode demo', `Menampilkan data ${periodLabel(state.period)}.`, 'info');
         }
       });
     }
@@ -4711,18 +4243,18 @@
     clockTimer = window.setInterval(updateClock, 15000);
 
     if (state.token) {
-      showAppScreen();
-      renderAll();
-      setView('dashboard', true);
       setStatus('Menghubungkan ke API…');
       connectApiSession(state.token)
         .then((profile) => {
+          showAppScreen();
+          renderAll();
+          setView('dashboard', true);
           setStatus('Data API siap.');
           if (!profile.needs_opd) {
             toast('Terhubung ke API', `Selamat datang, ${profile.display_name || profile.email}.`, 'success');
           }
         })
-        .catch((caught) => {
+        .catch(() => {
           logout();
         });
     } else {

@@ -3182,7 +3182,9 @@ code {
   animation: loginFadeIn 0.25s ease-out;
 }
 
-.login-screen[hidden] {
+.login-screen[hidden],
+.app-window[hidden],
+.taskbar[hidden] {
   display: none !important;
 }
 

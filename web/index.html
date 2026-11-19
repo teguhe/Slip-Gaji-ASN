@@ -101,7 +101,7 @@
     <div class="wallpaper-aurora" aria-hidden="true"></div>
 
     <!-- ================= HALAMAN LOGIN (LOGON SCREEN) ================= -->
-    <div class="login-screen" id="login-screen" hidden>
+    <div class="login-screen" id="login-screen">
       <div class="login-panel window glass active">
         <div class="title-bar">
           <div class="title-bar-text">
@@ -134,19 +134,11 @@
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                 </svg>
-                <span>Masuk dengan Akun Google</span>
+                <span>Masuk dengan Akun Google (Gmail)</span>
               </button>
             </div>
 
             <p class="form-error" id="login-page-error" hidden></p>
-
-            <details class="manual-token-details" style="margin-top: 14px;">
-              <summary style="font-size: 11px; cursor: pointer; color: #466174;">Atau gunakan Firebase ID Token manual</summary>
-              <div class="field" style="margin-top: 8px;">
-                <input type="password" id="login-page-token" placeholder="Tempel Firebase ID Token…" autocomplete="off">
-                <button type="button" class="default" id="login-page-token-btn" style="margin-top: 6px; width: 100%;">Masuk dengan Token</button>
-              </div>
-            </details>
           </div>
 
           <div class="login-card-foot">
@@ -170,7 +162,7 @@
     </div>
 
     <main class="window glass active app-window" id="app-window"
-          aria-label="Aplikasi Cetak Slip Gaji ASN">
+          aria-label="Aplikasi Cetak Slip Gaji ASN" hidden>
       <div class="title-bar" id="title-bar">
         <div class="title-bar-text">
           <span class="title-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
@@ -200,9 +192,9 @@
             <span>Periode</span>
             <select id="period-select" aria-label="Pilih periode penggajian"></select>
           </label>
-          <button type="button" class="mode-chip" id="data-mode-chip" title="Ubah sumber data">
+          <button type="button" class="mode-chip is-api" id="data-mode-chip" title="Status koneksi API">
             <span class="mode-dot" aria-hidden="true"></span>
-            <span id="data-mode-label">Mode Demo</span>
+            <span id="data-mode-label">Terhubung API</span>
           </button>
           <button type="button" class="toolbar-icon-button" id="btn-refresh" title="Muat ulang data" aria-label="Muat ulang data">
             <svg class="icon"><use href="#icon-refresh"></use></svg>
@@ -865,7 +857,7 @@
 
             <div class="info-strip">
               <svg class="icon"><use href="#icon-info"></use></svg>
-              <span id="potongan-mode-note-text">Mode demo: perubahan pos dan pinjaman disimpan pada sesi ini.</span>
+              <span id="potongan-mode-note-text">Pos potongan dan pinjaman tersimpan di basis data PostgreSQL.</span>
             </div>
 
             <section class="panel employee-picker">
@@ -959,7 +951,7 @@
                       <input type="text" id="bulanan-keterangan" placeholder="Contoh: iuran bulan Oktober" autocomplete="off">
                     </label>
                   </div>
-                  <p class="form-note">Input cepat ini menyimpan ke sesi demo. Untuk data nyata gunakan <strong>Import Potongan</strong>.</p>
+                  <p class="form-note">Input cepat ini menyimpan data potongan pegawai ke basis data.</p>
                   <p class="form-error" id="bulanan-error" hidden></p>
                   <div class="form-actions">
                     <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Simpan Potongan</button>
@@ -1218,7 +1210,7 @@
       <div class="start-menu-foot">Windows 7 Aero Glass • 7.css</div>
     </div>
 
-    <div class="taskbar" role="toolbar" aria-label="Taskbar">
+    <div class="taskbar" role="toolbar" aria-label="Taskbar" hidden>
       <button type="button" class="start-orb" id="start-orb" aria-label="Menu Start" aria-expanded="false">
         <span class="win-logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
       </button>
@@ -1278,18 +1270,9 @@
           <button type="button" class="btn-table-icon danger" id="btn-dialog-logout" style="margin-top: 6px; width: auto; padding: 2px 8px; font-size: 10.5px;">Logout Sesi</button>
         </div>
 
-        <details class="manual-token-details" style="margin-top: 10px;">
-          <summary style="font-size: 11px; cursor: pointer; color: #466174;">Atau gunakan Firebase ID Token manual</summary>
-          <label class="field" style="margin-top: 6px;">
-            <span>Firebase ID Token</span>
-            <input type="password" id="api-token" placeholder="Tempel ID token dari Firebase…" autocomplete="off">
-          </label>
-          <p class="hint">Token disimpan hanya di <code>sessionStorage</code> browser ini.</p>
-        </details>
         <p class="form-error" id="connection-error" hidden></p>
         <div class="dialog-actions">
-          <button type="button" class="default" id="btn-apply-connection">Terapkan Token</button>
-          <button type="button" data-close-modal>Batal</button>
+          <button type="button" data-close-modal>Tutup</button>
         </div>
       </div>
     </div>
@@ -1529,13 +1512,13 @@
           <div class="profile-dialog-avatar" id="profile-dialog-avatar">BS</div>
           <div class="profile-dialog-copy">
             <h2 id="profile-dialog-name">Bendahara OPD</h2>
-            <p id="profile-dialog-email">mode-demo@local</p>
+            <p id="profile-dialog-email">—</p>
             <span class="role-badge" id="profile-dialog-role">Bendahara</span>
           </div>
         </div>
         <div class="profile-detail-grid">
           <div><span>OPD aktif</span><strong id="profile-dialog-opd">—</strong></div>
-          <div><span>Metode akses</span><strong id="profile-dialog-method">Mode Demo</strong></div>
+          <div><span>Metode akses</span><strong id="profile-dialog-method">Google Auth (Gmail)</strong></div>
           <div><span>Status akun</span><strong id="profile-dialog-status">Aktif</strong></div>
           <div><span>Isolasi data</span><strong>Multi-tenant OPD</strong></div>
         </div>

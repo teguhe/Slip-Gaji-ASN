@@ -10,7 +10,7 @@ Aplikasi penggajian dan cetak slip gaji ASN untuk Bendahara OPD, dibangun dengan
 - Pinjaman berjangka: perhitungan `end_period`, progres cicilan, dan generator realisasi bulanan otomatis saat payroll diproses.
 - Import potongan manual bulanan (`nip`, `nominal`) dengan mode upsert.
 - Cetak slip F4 215 × 330 mm, 5 slip per halaman, pratinjau interaktif.
-- Mode demo lokal dan mode API dengan Firebase ID Token.
+- Otentikasi aman terintegrasi dengan Firebase Auth (Google Sign-In / Gmail) dan REST API FastAPI + PostgreSQL.
 
 ## Stack
 

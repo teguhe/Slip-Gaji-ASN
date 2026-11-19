@@ -36,7 +36,7 @@
 - [x] Pratinjau cetak F4 interaktif + pemilihan pegawai + output print 5 slip/lembar.
 - [x] Dialog pendaftaran pinjaman 7.css, rekap listview berjangka, dan badge progres tenor (mis. 14 / 36 bulan).
 - [x] Dialog kelola pos potongan dan import potongan manual bulanan.
-- [x] Mode demo lokal dan mode API (Firebase ID Token) dengan endpoint ringkasan dashboard.
+- [x] Otentikasi terintegrasi Google Sign-In (Firebase Auth) dengan endpoint ringkasan dashboard FastAPI + PostgreSQL.
 - [x] Endpoint edit/hapus item potongan internal per item (`POST/DELETE /api/v1/potongan/item`) dan integrasi interaktif form bulanan.
 
 ## Phase 7: Production Deployment Readiness, Database Backup Automation, & User Handover Documentation
