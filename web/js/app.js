@@ -900,6 +900,8 @@
 
     const roleBadge = $('#profile-dialog-role');
     if (roleBadge) roleBadge.classList.toggle('super', superAdmin);
+    const sidebarRole = $('#profile-role');
+    if (sidebarRole) sidebarRole.classList.toggle('super', superAdmin);
 
     const isLoggedIn = Boolean(state.token || profile);
 
