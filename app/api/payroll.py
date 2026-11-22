@@ -39,7 +39,7 @@ from app.schemas import (
     PotonganDetail,
     SlipGajiResponse,
 )
-from app.services.audit import write_audit
+from app.services.audit import extract_client_ip, write_audit
 from app.services.payroll_summary import (
     format_period_label,
     load_payroll_period_recap,
@@ -113,7 +113,7 @@ def import_excel(
             ),
         )
 
-    ip_address = request.client.host if request.client else None
+    ip_address = extract_client_ip(request)
 
     try:
         result = import_simgaji_excel(
@@ -290,7 +290,7 @@ def get_opd_payroll_summary(
         ) from exc
 
     user = auth_ctx.user if auth_ctx.kind == "user" else None
-    ip_address = request.client.host if request.client else None
+    ip_address = extract_client_ip(request)
 
     try:
         filter_opd = resolve_opd_filter(user, opd)
@@ -659,7 +659,7 @@ def create_penyesuaian(
     db.commit()
     db.refresh(penyesuaian)
 
-    ip_address = request.client.host if request.client else None
+    ip_address = extract_client_ip(request)
     write_audit(
         db,
         actor_email=current_user.email,
@@ -725,7 +725,7 @@ def delete_penyesuaian(
     db.delete(penyesuaian)
     db.commit()
 
-    ip_address = request.client.host if request.client else None
+    ip_address = extract_client_ip(request)
     write_audit(
         db,
         actor_email=current_user.email,
@@ -770,7 +770,7 @@ def get_asn_payroll_by_period(
         ) from exc
 
     end_period = add_months(start_period, 1)
-    ip_address = request.client.host if request.client else None
+    ip_address = extract_client_ip(request)
 
     payroll = db.scalar(
         select(PayrollMonthly)

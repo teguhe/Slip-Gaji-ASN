@@ -22,7 +22,7 @@ from app.schemas import (
     MasterUserItem,
     MasterUserUpdate,
 )
-from app.services.audit import write_audit
+from app.services.audit import extract_client_ip, write_audit
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ def create_master_opd(
         table_name="ref_opd",
         record_id=str(new_opd.id),
         details={"nmskpd": new_opd.nmskpd},
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     db.refresh(new_opd)
@@ -176,7 +176,7 @@ def update_master_opd(
         table_name="ref_opd",
         record_id=str(opd.id),
         details={"old_name": old_name, "new_name": new_name},
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     db.refresh(opd)
@@ -267,7 +267,7 @@ def delete_master_opd(
         table_name="ref_opd",
         record_id=str(opd_id),
         details={"nmskpd": deleted_name},
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     return {"status": "success", "message": f"OPD '{deleted_name}' berhasil dihapus."}
@@ -365,7 +365,7 @@ def create_master_user(
             "opd_id": opd.id,
             "nmskpd": opd.nmskpd,
         },
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     db.refresh(new_user)
@@ -466,7 +466,7 @@ def update_master_user(
         table_name="app_users",
         record_id=str(u.id),
         details={"target_email": u.email, "changes": changes},
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     db.refresh(u)
@@ -531,7 +531,7 @@ def delete_master_user(
         table_name="app_users",
         record_id=str(uid),
         details={"deleted_email": deleted_email},
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     return {

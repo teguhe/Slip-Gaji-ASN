@@ -13,7 +13,7 @@ from app.schemas import (
     DashboardSummaryResponse,
     DashboardTotals,
 )
-from app.services.audit import write_audit
+from app.services.audit import extract_client_ip, write_audit
 from app.services.payroll_summary import load_payroll_period_recap, load_payroll_summary
 from app.services.periods import PeriodError, add_months, parse_period, period_str
 from app.services.tenancy import resolve_opd_filter
@@ -66,7 +66,7 @@ def get_dashboard_summary(
                 "auth_method": auth_ctx.auth_method,
                 "reason": "tenant_guard",
             },
-            ip_address=request.client.host if request.client else None,
+            ip_address=extract_client_ip(request),
         )
         raise exc
 
@@ -96,6 +96,6 @@ def get_dashboard_summary(
             "count": len(employee_rows),
             "auth_method": auth_ctx.auth_method,
         },
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     return response

@@ -10,7 +10,7 @@ from app.auth import UserProfile, get_current_user
 from app.db import get_db
 from app.models import AppUser, RefOpd
 from app.schemas import AuthMeResponse, CreateOpdRequest, OpdOptionResponse, SetOpdRequest
-from app.services.audit import write_audit
+from app.services.audit import extract_client_ip, write_audit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
@@ -95,7 +95,7 @@ def create_opd(
         table_name="ref_opd",
         record_id=str(new_opd.id),
         details={"nmskpd": new_opd.nmskpd},
-        ip_address=request.client.host if request.client else None,
+        ip_address=extract_client_ip(request),
     )
     db.commit()
     db.refresh(new_opd)
@@ -149,7 +149,7 @@ def set_my_opd(
                 "previous_opd_id": current_opd.id if current_opd else None,
                 "role": current_user.role,
             },
-            ip_address=request.client.host if request.client else None,
+            ip_address=extract_client_ip(request),
         )
         db.refresh(app_user)
 

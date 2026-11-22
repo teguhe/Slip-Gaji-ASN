@@ -52,6 +52,7 @@ from app.schemas import (
     PotonganItemDeleteResponse,
     PotonganItemResponse,
 )
+from app.services.audit import extract_client_ip
 from app.services.berjangka import (
     calculate_end_period,
     generate_for_period,
@@ -80,7 +81,7 @@ NIP_PATTERN = re.compile(r"^\d{8,30}$")
 # ---------------------------------------------------------------------------
 
 def _client_ip(request: Request) -> str | None:
-    return request.client.host if request.client else None
+    return extract_client_ip(request)
 
 
 def _resolve_opd(

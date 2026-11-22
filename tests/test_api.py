@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 
 from app.auth import AuthContext, get_auth_context, get_current_user
 from app.models import (
@@ -499,4 +499,27 @@ def test_endpoint_available_periods_and_dashboard_recap(api_app, db_session, see
         assert recap["total_months"] == 2
         assert recap["oldest_period"] == "2025-01"
         assert recap["newest_period"] == "2026-10"
+
+
+def test_audit_log_captures_client_ip_from_headers(api_app, db_session, seeded, bendahara_profile):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=bendahara_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.get(
+            "/api/v1/dashboard/summary?period=2026-10",
+            headers={"X-Forwarded-For": "192.168.1.100, 10.0.0.1"},
+        )
+        assert res.status_code == 200
+
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "READ_DASHBOARD_SUMMARY")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.ip_address == "192.168.1.100"
 
