@@ -2719,7 +2719,7 @@
     if (!preview || !printRoot) return;
 
     const employees = getPrintEmployees();
-    const pages = chunk(employees, 5);
+    const pages = chunk(employees, 3);
 
     if (!employees.length) {
       preview.innerHTML = `
@@ -2733,7 +2733,7 @@
       preview.innerHTML = pages.map((page, pageIndex) => `
         <section class="paper">
           <div class="paper-label">Halaman ${pageIndex + 1} dari ${pages.length} • F4 215 × 330 mm</div>
-          ${page.map((employee, index) => renderSlip(employee, pageIndex * 5 + index)).join('')}
+          ${page.map((employee, index) => renderSlip(employee, pageIndex * 3 + index)).join('')}
         </section>`).join('') + `
         <div class="print-help">Pratinjau diperkecil. Klik <strong>Cetak</strong> untuk output F4 215 × 330 mm.</div>`;
 
@@ -2752,7 +2752,7 @@
         : '0 pegawai • 0 halaman';
     }
     const pageCount = $('#print-page-count');
-    if (pageCount) pageCount.textContent = '5 slip / halaman';
+    if (pageCount) pageCount.textContent = '3 slip / halaman';
 
     const useSelected = $('#print-use-selected');
     if (useSelected) useSelected.checked = state.printUseSelected;
@@ -2882,6 +2882,14 @@
         <div class="slip-foot">
           <span>Total Potongan: <strong>Rp ${formatAmount(employee.totalPotongan)}</strong></span>
           <span class="net">DITERIMA BERSIH: <strong>Rp ${formatAmount(employee.thp)}</strong></span>
+        </div>
+        <div class="slip-sign">
+          <div class="slip-sign-box">
+            <div class="sign-title">Bendahara Pengeluaran,</div>
+            <div class="sign-space"></div>
+            <div class="sign-name">( ............................................................ )</div>
+            <div class="sign-nip">NIP. .........................................................</div>
+          </div>
         </div>
       </article>`;
   }

@@ -11,7 +11,7 @@ Aplikasi Penggajian dan Cetak Slip Gaji ASN untuk Bendahara OPD di lingkungan Pe
 
 ## 3. Formatting & Print Rules
 - Format kertas slip cetak wajib mengikuti spesifikasi F4 ($215\,\text{mm} \times 330\,\text{mm}$).
-- 1 lembar F4 memuat 4 hingga 5 slip (tinggi komponen dibatasi $\le 60\,\text{mm}$).
+- 1 lembar F4 memuat 3 slip dilengkapi blok tanda tangan bendahara (tinggi per slip $\approx 102\,\text{mm}$).
 
 ## 4. Git & Workflow Rules
 - Setiap perubahan/tugas yang telah selesai diuji wajib langsung di-commit dan di-push ke remote GitHub branch `dev`.

@@ -1816,8 +1816,9 @@ code {
 
 .slip {
   position: relative;
-  height: 60mm;
-  padding: 2.2mm 0 1.8mm;
+  height: 102mm;
+  padding: 2.5mm 0 2mm;
+  box-sizing: border-box;
   overflow: hidden;
   border-bottom: 1px dashed #9aa8b2;
   break-inside: avoid;
@@ -1928,6 +1929,37 @@ code {
 
 .slip-foot .net { color: #0b5b31; font-size: 7.4pt; }
 .slip-foot strong { font-family: var(--font-mono); }
+
+.slip-sign {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 3.5mm;
+  padding-right: 5mm;
+}
+
+.slip-sign-box {
+  width: 65mm;
+  text-align: center;
+  font-size: 7.2pt;
+  color: #1e2a32;
+}
+
+.slip-sign-box .sign-title {
+  font-weight: 600;
+  margin-bottom: 13mm;
+}
+
+.slip-sign-box .sign-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.slip-sign-box .sign-nip {
+  font-size: 6.8pt;
+  color: #333;
+  margin-top: 0.8mm;
+  white-space: nowrap;
+}
 
 .print-help {
   margin-top: 10px;
@@ -2437,8 +2469,9 @@ code {
   }
 
   #print-root .slip {
-    height: 60mm;
-    padding: 2.2mm 0 1.8mm;
+    height: 102mm;
+    padding: 2.5mm 0 2mm;
+    box-sizing: border-box;
     border-bottom: 1px dashed #9aa8b2;
     page-break-inside: avoid;
     break-inside: avoid;

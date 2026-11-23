@@ -6,8 +6,8 @@
         @page { size: 215mm 330mm; margin: 8mm 10mm; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 10px; margin: 0; }
         .slip-container {
-            height: 60mm; width: 195mm; border: 1px dashed #777;
-            padding: 2mm; box-sizing: border-box; page-break-inside: avoid;
+            height: 100mm; width: 195mm; border: 1px dashed #777;
+            padding: 2.5mm; box-sizing: border-box; page-break-inside: avoid;
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm;
         }
         .header { grid-column: span 3; font-weight: bold; text-align: center; border-bottom: 1px solid #000; }
@@ -16,6 +16,11 @@
         .row { display: flex; justify-content: space-between; }
         .footer { grid-column: span 3; font-weight: bold; border-top: 1px solid #000; display: flex; justify-content: space-between; }
         .numeric { text-align: right; font-family: 'Courier New', monospace; }
+        .sign-block { grid-column: span 3; display: flex; justify-content: flex-end; margin-top: 2.5mm; }
+        .sign-box { text-align: center; width: 65mm; font-size: 9.5px; }
+        .sign-space { height: 13mm; }
+        .sign-name { font-weight: bold; }
+        .sign-nip { font-size: 8.5px; }
         .page-break { page-break-after: always; }
     </style>
 </head>
@@ -28,7 +33,7 @@
         function renderSlips(dataList, period) {
             const root = document.getElementById('slip-root');
             dataList.forEach((data, index) => {
-                if (index > 0 && index % 5 === 0) root.innerHTML += '<div class="page-break"></div>';
+                if (index > 0 && index % 3 === 0) root.innerHTML += '<div class="page-break"></div>';
                 
                 let internalHtml = data.rincian_potongan_internal.map(i => `
                     <div class="row"><span>${i.pos_nama} ${i.cicilan_info ? '('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>
@@ -58,6 +63,14 @@
                         <div class="footer">
                             <span>TOTAL POTONGAN: ${formatRupiah(data.total_potongan)}</span>
                             <span>DITERIMA BERSIH (THP): ${formatRupiah(data.take_home_pay)}</span>
+                        </div>
+                        <div class="sign-block">
+                            <div class="sign-box">
+                                <div>Bendahara Pengeluaran,</div>
+                                <div class="sign-space"></div>
+                                <div class="sign-name">( ............................................................ )</div>
+                                <div class="sign-nip">NIP. .........................................................</div>
+                            </div>
                         </div>
                     </div>
                 `;
