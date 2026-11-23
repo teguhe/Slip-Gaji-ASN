@@ -1840,7 +1840,7 @@
       tbody.innerHTML = `
         <tr>
           <td colspan="12" class="table-empty">
-            ${query ? 'Tidak ada pegawai yang cocok dengan kata kunci pencarian.' : 'Tidak ada data gaji untuk periode ini. <button type="button" class="default" data-view-link="import" style="margin-left: 8px;"><svg class="icon"><use href="#icon-upload"></use></svg> Import Data Gaji</button>'}
+            ${query ? 'Tidak ada pegawai yang cocok dengan kata kunci pencarian.' : 'Tidak ada data gaji untuk periode ini.'}
           </td>
         </tr>
       `;
