@@ -68,7 +68,7 @@
     opdOptions: [],
     profileChangeMode: false,
     printUseSelected: true,
-    printZoom: storageGet('simgaji.printZoom', '0.78', localStorage),
+    printZoom: storageGet('simgaji.printZoom', 'fit', localStorage) || 'fit',
     pendingConnection: false,
     masterOpdList: [],
     masterOpdFilter: '',
@@ -1086,13 +1086,24 @@
     const lockBanner = $('#tenant-locked-banner');
     if (lockBanner) lockBanner.hidden = !isLocked;
 
-    // Signature settings in profile modal
+    // Signature settings in profile modal & signature modal
+    const sigJab = profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
+    const sigNama = profile?.nama_bendahara || storageGet('simgaji.nama_bendahara', localStorage) || '';
+    const sigNip = profile?.nip_bendahara || storageGet('simgaji.nip_bendahara', localStorage) || '';
+
     const inputJabatan = $('#profile-settings-jabatan');
-    if (inputJabatan) inputJabatan.value = profile?.jabatan || 'Bendahara Pengeluaran';
+    if (inputJabatan) inputJabatan.value = sigJab;
     const inputNama = $('#profile-settings-nama');
-    if (inputNama) inputNama.value = profile?.nama_bendahara || '';
+    if (inputNama) inputNama.value = sigNama;
     const inputNip = $('#profile-settings-nip');
-    if (inputNip) inputNip.value = profile?.nip_bendahara || '';
+    if (inputNip) inputNip.value = sigNip;
+
+    const modalJabatan = $('#sig-modal-jabatan');
+    if (modalJabatan) modalJabatan.value = sigJab;
+    const modalNama = $('#sig-modal-nama');
+    if (modalNama) modalNama.value = sigNama;
+    const modalNip = $('#sig-modal-nip');
+    if (modalNip) modalNip.value = sigNip;
 
     // OPD selection box: only super admin can manually switch active OPD here
     const showOpdBox = superAdmin && state.profileChangeMode;
@@ -1186,11 +1197,91 @@
     }
   }
 
-  async function saveProfileSettings() {
-    if (state.mode !== 'api' || !state.token) {
-      toast('Mode Offline', 'Pengaturan hanya dapat disimpan saat terhubung ke API.', 'warning');
-      return;
+  function openSignatureModal() {
+    const currentJabatan = state.profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
+    const currentNama = state.profile?.nama_bendahara || storageGet('simgaji.nama_bendahara', localStorage) || '';
+    const currentNip = state.profile?.nip_bendahara || storageGet('simgaji.nip_bendahara', localStorage) || '';
+
+    const jabatanInput = $('#sig-modal-jabatan');
+    if (jabatanInput) jabatanInput.value = currentJabatan;
+    const namaInput = $('#sig-modal-nama');
+    if (namaInput) namaInput.value = currentNama;
+    const nipInput = $('#sig-modal-nip');
+    if (nipInput) nipInput.value = currentNip;
+
+    const error = $('#sig-modal-error');
+    if (error) error.hidden = true;
+
+    openModal('signature-settings');
+    setTimeout(() => {
+      if (!currentNama && namaInput) namaInput.focus();
+      else if (jabatanInput) jabatanInput.focus();
+    }, 60);
+  }
+
+  async function saveSignatureModal() {
+    const btn = $('#btn-save-signature-modal');
+    const jabatanInput = $('#sig-modal-jabatan');
+    const namaInput = $('#sig-modal-nama');
+    const nipInput = $('#sig-modal-nip');
+
+    const jabatan = (jabatanInput ? jabatanInput.value : '').trim() || 'Bendahara Pengeluaran';
+    const nama_bendahara = (namaInput ? namaInput.value : '').trim() || null;
+    const nip_bendahara = (nipInput ? nipInput.value : '').trim() || null;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
     }
+
+    if (!state.profile) state.profile = {};
+    state.profile.jabatan = jabatan;
+    state.profile.nama_bendahara = nama_bendahara;
+    state.profile.nip_bendahara = nip_bendahara;
+
+    storageSet('simgaji.jabatan', jabatan, localStorage);
+    if (nama_bendahara) storageSet('simgaji.nama_bendahara', nama_bendahara, localStorage);
+    else storageRemove('simgaji.nama_bendahara', localStorage);
+    if (nip_bendahara) storageSet('simgaji.nip_bendahara', nip_bendahara, localStorage);
+    else storageRemove('simgaji.nip_bendahara', localStorage);
+
+    const pJab = $('#profile-settings-jabatan');
+    if (pJab) pJab.value = jabatan;
+    const pNama = $('#profile-settings-nama');
+    if (pNama) pNama.value = nama_bendahara || '';
+    const pNip = $('#profile-settings-nip');
+    if (pNip) pNip.value = nip_bendahara || '';
+
+    if (state.mode === 'api' && state.token) {
+      try {
+        const updated = await apiRequest('/api/v1/auth/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jabatan,
+            nama_bendahara,
+            nip_bendahara,
+          }),
+        });
+        state.profile.jabatan = updated.jabatan;
+        state.profile.nama_bendahara = updated.nama_bendahara;
+        state.profile.nip_bendahara = updated.nip_bendahara;
+      } catch (err) {
+        console.warn('Gagal sinkronisasi pengaturan ke backend:', err);
+      }
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Simpan & Terapkan';
+    }
+
+    closeModal();
+    toast('Tanda Tangan Disimpan', 'Data penandatangan bendahara berhasil disimpan dan diterapkan ke slip cetak.', 'success');
+    renderPrintPreview();
+  }
+
+  async function saveProfileSettings() {
     const btn = $('#btn-save-profile-settings');
     const jabatanInput = $('#profile-settings-jabatan');
     const namaInput = $('#profile-settings-nama');
@@ -1204,31 +1295,51 @@
       btn.disabled = true;
       btn.textContent = 'Menyimpan...';
     }
-    try {
-      const updated = await apiRequest('/api/v1/auth/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jabatan,
-          nama_bendahara,
-          nip_bendahara,
-        }),
-      });
-      if (state.profile) {
+
+    if (!state.profile) state.profile = {};
+    state.profile.jabatan = jabatan;
+    state.profile.nama_bendahara = nama_bendahara;
+    state.profile.nip_bendahara = nip_bendahara;
+
+    storageSet('simgaji.jabatan', jabatan, localStorage);
+    if (nama_bendahara) storageSet('simgaji.nama_bendahara', nama_bendahara, localStorage);
+    else storageRemove('simgaji.nama_bendahara', localStorage);
+    if (nip_bendahara) storageSet('simgaji.nip_bendahara', nip_bendahara, localStorage);
+    else storageRemove('simgaji.nip_bendahara', localStorage);
+
+    const sigJab = $('#sig-modal-jabatan');
+    if (sigJab) sigJab.value = jabatan;
+    const sigNama = $('#sig-modal-nama');
+    if (sigNama) sigNama.value = nama_bendahara || '';
+    const sigNip = $('#sig-modal-nip');
+    if (sigNip) sigNip.value = nip_bendahara || '';
+
+    if (state.mode === 'api' && state.token) {
+      try {
+        const updated = await apiRequest('/api/v1/auth/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jabatan,
+            nama_bendahara,
+            nip_bendahara,
+          }),
+        });
         state.profile.jabatan = updated.jabatan;
         state.profile.nama_bendahara = updated.nama_bendahara;
         state.profile.nip_bendahara = updated.nip_bendahara;
-      }
-      toast('Pengaturan Tersimpan', 'Informasi penandatangan slip bendahara berhasil disimpan.', 'success');
-      renderPrintPreview();
-    } catch (err) {
-      toast('Gagal Menyimpan', err.message || 'Terjadi kesalahan saat menyimpan pengaturan.', 'error');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Simpan Tanda Tangan';
+      } catch (err) {
+        console.warn('Gagal sinkronisasi pengaturan ke backend:', err);
       }
     }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Simpan Tanda Tangan';
+    }
+
+    toast('Pengaturan Tersimpan', 'Informasi penandatangan slip bendahara berhasil disimpan.', 'success');
+    renderPrintPreview();
   }
 
   async function addOpd() {
@@ -2723,9 +2834,10 @@
   function getEffectivePrintZoom(val) {
     if (val === 'fit') {
       const viewport = $('#print-paper-viewport') || $('.paper-viewport');
-      if (viewport) {
-        const availableWidth = viewport.clientWidth - 45;
-        return Math.min(1.5, Math.max(0.4, Number((availableWidth / 820).toFixed(2))));
+      if (viewport && viewport.clientWidth > 0) {
+        const availableWidth = viewport.clientWidth - 35;
+        const fitRatio = availableWidth / 815;
+        return Math.min(1.5, Math.max(0.35, Number(fitRatio.toFixed(2))));
       }
       return 0.78;
     }
@@ -2734,13 +2846,24 @@
   }
 
   function applyPrintZoom(val) {
-    state.printZoom = val || '0.78';
+    state.printZoom = val || 'fit';
     const effective = getEffectivePrintZoom(state.printZoom);
     const preview = $('#preview-pages');
     if (preview) {
       preview.style.setProperty('--print-zoom', String(effective));
       $$('.paper', preview).forEach((p) => {
         p.style.zoom = String(effective);
+        const isZoomSupported = ('zoom' in p.style) && (p.style.zoom === String(effective));
+        if (!isZoomSupported) {
+          p.style.transform = `scale(${effective})`;
+          p.style.transformOrigin = 'top center';
+          const baseHeightPx = 330 * 3.7795;
+          const heightDiff = (effective - 1) * baseHeightPx;
+          p.style.marginBottom = `${Math.round(heightDiff + 18)}px`;
+        } else {
+          p.style.transform = '';
+          p.style.marginBottom = '';
+        }
       });
     }
     const select = $('#print-zoom-select');
@@ -2754,16 +2877,16 @@
   }
 
   function stepPrintZoom(direction) {
-    const currentVal = state.printZoom || storageGet('simgaji.printZoom', '0.78', localStorage);
-    const currentNum = currentVal === 'fit' ? getEffectivePrintZoom('fit') : Number(currentVal);
+    const currentVal = state.printZoom || 'fit';
+    const currentNum = getEffectivePrintZoom(currentVal);
 
+    let next;
     if (direction > 0) {
-      const next = PRINT_ZOOM_STEPS.find((s) => s > currentNum + 0.02) || PRINT_ZOOM_STEPS[PRINT_ZOOM_STEPS.length - 1];
-      applyPrintZoom(String(next));
+      next = PRINT_ZOOM_STEPS.find((s) => s > currentNum + 0.03) || PRINT_ZOOM_STEPS[PRINT_ZOOM_STEPS.length - 1];
     } else {
-      const prev = [...PRINT_ZOOM_STEPS].reverse().find((s) => s < currentNum - 0.02) || PRINT_ZOOM_STEPS[0];
-      applyPrintZoom(String(prev));
+      next = [...PRINT_ZOOM_STEPS].reverse().find((s) => s < currentNum - 0.03) || PRINT_ZOOM_STEPS[0];
     }
+    applyPrintZoom(String(next));
   }
 
   function renderPrintPreview() {
@@ -2796,7 +2919,7 @@
         </div>`).join('');
     }
 
-    applyPrintZoom(state.printZoom || '0.78');
+    applyPrintZoom(state.printZoom || 'fit');
 
     const info = $('#print-selection-info');
     if (info) {
@@ -2904,12 +3027,16 @@
       ]);
     }
 
-    const signTitle = escapeHtml(state.profile?.jabatan || 'Bendahara Pengeluaran') + ',';
-    const signName = state.profile?.nama_bendahara
-      ? escapeHtml(state.profile.nama_bendahara)
+    const curJabatan = state.profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
+    const curNama = state.profile?.nama_bendahara || storageGet('simgaji.nama_bendahara', localStorage) || null;
+    const curNip = state.profile?.nip_bendahara || storageGet('simgaji.nip_bendahara', localStorage) || null;
+
+    const signTitle = escapeHtml(curJabatan) + ',';
+    const signName = curNama
+      ? escapeHtml(curNama)
       : '( ............................................................ )';
-    const signNip = state.profile?.nip_bendahara
-      ? `NIP. ${escapeHtml(state.profile.nip_bendahara)}`
+    const signNip = curNip
+      ? `NIP. ${escapeHtml(curNip)}`
       : 'NIP. .........................................................';
 
     return `
@@ -3730,13 +3857,16 @@
   async function doPrint(dataList, period) {
     const win = window.open('', '_blank', 'width=800,height=600');
     const template = await (await fetch('/template_slip_f4.html')).text();
+    const curJab = state.profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
+    const curNama = state.profile?.nama_bendahara || storageGet('simgaji.nama_bendahara', localStorage) || null;
+    const curNip = state.profile?.nip_bendahara || storageGet('simgaji.nip_bendahara', localStorage) || null;
     win.document.write(template);
     win.document.close();
     win.onload = () => {
         win.renderSlips(dataList, period, {
-          jabatan: state.profile?.jabatan,
-          nama_bendahara: state.profile?.nama_bendahara,
-          nip_bendahara: state.profile?.nip_bendahara,
+          jabatan: curJab,
+          nama_bendahara: curNama,
+          nip_bendahara: curNip,
         });
         win.print();
     };
@@ -3785,7 +3915,10 @@
     const orb = $('#start-orb');
     if (orb) orb.setAttribute('aria-expanded', 'false');
 
-    if (next === 'print') renderPrintPreview();
+    if (next === 'print') {
+      renderPrintPreview();
+      setTimeout(() => applyPrintZoom(state.printZoom || 'fit'), 40);
+    }
     if (next === 'potongan') renderPotongan();
     if (next === 'dashboard') renderDashboard(computeTotals());
     if (next === 'master-gaji') loadMasterGaji();
@@ -3984,7 +4117,22 @@
         else if (dialog === 'pos') openPosDialog();
         else if (dialog === 'manual-import') openManualImport();
         else if (dialog === 'browse-pegawai') openBrowsePegawaiModal();
+        else if (dialog === 'signature-settings') openSignatureModal();
         else openModal(dialog);
+        return;
+      }
+
+      const btnZoomInDelegated = event.target.closest('#btn-zoom-in');
+      if (btnZoomInDelegated) {
+        event.preventDefault();
+        stepPrintZoom(1);
+        return;
+      }
+
+      const btnZoomOutDelegated = event.target.closest('#btn-zoom-out');
+      if (btnZoomOutDelegated) {
+        event.preventDefault();
+        stepPrintZoom(-1);
         return;
       }
 
@@ -4529,22 +4677,22 @@
     if (profileLogout) profileLogout.addEventListener('click', logout);
     const saveSettingsButton = $('#btn-save-profile-settings');
     if (saveSettingsButton) saveSettingsButton.addEventListener('click', saveProfileSettings);
+    const saveSigModalBtn = $('#btn-save-signature-modal');
+    if (saveSigModalBtn) saveSigModalBtn.addEventListener('click', saveSignatureModal);
     const openSettingsPrintBtn = $('#btn-open-settings-print');
     if (openSettingsPrintBtn) {
-      openSettingsPrintBtn.addEventListener('click', () => {
-        openProfileDialog();
-        const input = $('#profile-settings-jabatan');
-        if (input) setTimeout(() => input.focus(), 120);
+      openSettingsPrintBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openSignatureModal();
       });
     }
     const startProfileSettings = $('#start-profile-settings');
     if (startProfileSettings) {
-      startProfileSettings.addEventListener('click', () => {
+      startProfileSettings.addEventListener('click', (e) => {
+        e.preventDefault();
         const menu = $('#start-menu');
         if (menu) menu.hidden = true;
-        openProfileDialog();
-        const input = $('#profile-settings-jabatan');
-        if (input) setTimeout(() => input.focus(), 120);
+        openSignatureModal();
       });
     }
 

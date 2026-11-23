@@ -1058,7 +1058,7 @@
                 <p class="subtle">215 × 330 mm • 3 slip per lembar • dilengkapi tanda tangan bendahara</p>
               </div>
               <div class="head-actions">
-                <button type="button" id="btn-open-settings-print" title="Atur data penandatangan slip bendahara">
+                <button type="button" id="btn-open-settings-print" data-open-modal="signature-settings" title="Atur data penandatangan slip bendahara">
                   <svg class="icon"><use href="#icon-users"></use></svg>
                   Atur Penandatangan
                 </button>
@@ -1094,10 +1094,10 @@
                       <span class="subtle-label">Zoom:</span>
                       <button type="button" class="btn-zoom-step" id="btn-zoom-out" title="Perkecil (Zoom Out)" aria-label="Perkecil">−</button>
                       <select id="print-zoom-select" class="filter-select zoom-select" aria-label="Pilih Skala Zoom">
-                        <option value="fit">Fit Lebar</option>
+                        <option value="fit" selected>Fit Lebar</option>
                         <option value="0.5">50%</option>
                         <option value="0.65">65%</option>
-                        <option value="0.78" selected>78% (Standar)</option>
+                        <option value="0.78">78% (Standar)</option>
                         <option value="0.9">90%</option>
                         <option value="1">100% (Asli)</option>
                         <option value="1.25">125%</option>
@@ -1353,12 +1353,16 @@
           </div>
         </div>
         <div class="about-grid">
+          <div style="grid-column: span 2; background: #eaf3fa; padding: 6px 8px; border-radius: 2px; border: 1px solid #c2daf0;">
+            <span style="font-size: 8.5px; color: #587993; font-weight: 500;">PENGEMBANG / AUTHOR</span>
+            <strong style="font-size: 11px; color: #104a7b; margin-top: 2px;">Teguh Prasetyo, S.Kom., M.Si.</strong>
+          </div>
           <div><span>Backend</span><strong>FastAPI + PostgreSQL</strong></div>
           <div><span>Autentikasi</span><strong>Firebase Auth</strong></div>
           <div><span>Layout cetak</span><strong>F4 215 × 330 mm</strong></div>
           <div><span>Komponen UI</span><strong>7.css + Aero Glass</strong></div>
         </div>
-        <p class="about-note">Aplikasi terintegrasi dengan Firebase Auth dan basis data PostgreSQL untuk menjamin isolasi data OPD dan akurasi slip gaji ASN.</p>
+        <p class="about-note">Dikembangkan oleh <strong>Teguh Prasetyo, S.Kom., M.Si.</strong> Aplikasi terintegrasi dengan Firebase Auth dan basis data PostgreSQL untuk menjamin isolasi data OPD dan akurasi slip gaji ASN.</p>
         <div class="dialog-actions">
           <button type="button" class="default" data-close-modal>OK</button>
         </div>
@@ -1669,6 +1673,41 @@
           <button type="button" id="btn-profile-change-opd" hidden>Ganti OPD</button>
           <button type="button" id="btn-profile-logout" hidden>Logout</button>
           <button type="button" data-close-modal>Tutup</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MODAL PENGATURAN PENANDATANGAN SLIP ================= -->
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="signature-settings-title" data-modal="signature-settings" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="signature-settings-title">Pengaturan Penandatangan Slip Gaji</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <p class="subtle" style="margin-top: 0; margin-bottom: 10px; font-size: 11px; color: #40607a; line-height: 1.4;">
+          Atur informasi pejabat penandatangan slip gaji. Data ini otomatis dicetak pada blok tanda tangan di pojok kanan bawah setiap slip cetak F4.
+        </p>
+        <div class="profile-settings-grid">
+          <label class="field">
+            <span>Jabatan Penandatangan</span>
+            <input type="text" id="sig-modal-jabatan" placeholder="Bendahara Pengeluaran" maxlength="100">
+          </label>
+          <label class="field">
+            <span>Nama Lengkap &amp; Gelar Bendahara</span>
+            <input type="text" id="sig-modal-nama" placeholder="Contoh: Teguh Prasetyo, S.Kom., M.Si." maxlength="255">
+          </label>
+          <label class="field">
+            <span>NIP Penandatangan</span>
+            <input type="text" id="sig-modal-nip" placeholder="Contoh: 19850101 201001 1 001" maxlength="50">
+          </label>
+        </div>
+        <p class="form-error" id="sig-modal-error" hidden style="margin-top: 8px;"></p>
+        <div class="dialog-actions" style="margin-top: 14px;">
+          <button type="button" class="default" id="btn-save-signature-modal">Simpan &amp; Terapkan</button>
+          <button type="button" data-close-modal>Batal</button>
         </div>
       </div>
     </div>
