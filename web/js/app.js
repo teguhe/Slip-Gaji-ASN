@@ -565,23 +565,145 @@
     return findEmployee(state.potonganNip) || state.employees[0] || null;
   }
 
+  function selectPotonganEmployee(nip) {
+    if (!nip) return;
+    state.potonganNip = nip;
+    const hiddenNip = $('#potongan-nip');
+    if (hiddenNip) hiddenNip.value = nip;
+
+    const emp = findEmployee(nip);
+    const searchInput = $('#potongan-search-input');
+    const clearBtn = $('#btn-potongan-clear');
+    if (searchInput) {
+      searchInput.value = emp ? `${emp.nip} — ${emp.nama}` : nip;
+    }
+    if (clearBtn) {
+      clearBtn.hidden = !searchInput || !searchInput.value;
+    }
+    const dropdown = $('#potongan-search-dropdown');
+    if (dropdown) dropdown.hidden = true;
+
+    updatePotonganEmployee(nip);
+    if (state.mode === 'api') {
+      loadEmployeePotongan(nip, state.period);
+    }
+  }
+
+  function renderPotonganSearchDropdown(query = '') {
+    const dropdown = $('#potongan-search-dropdown');
+    if (!dropdown) return;
+    const q = (query || '').trim().toLowerCase();
+    const list = state.employees || [];
+    const filtered = q
+      ? list.filter((emp) => (emp.nip || '').toLowerCase().includes(q) || (emp.nama || '').toLowerCase().includes(q)).slice(0, 15)
+      : list.slice(0, 15);
+
+    if (!filtered.length) {
+      dropdown.innerHTML = '<div class="picker-dropdown-empty">Tidak ada ASN yang cocok.</div>';
+      dropdown.hidden = false;
+      return;
+    }
+
+    dropdown.innerHTML = filtered.map((emp) => `
+      <div class="picker-dropdown-item ${emp.nip === state.potonganNip ? 'active' : ''}" data-nip="${escapeHtml(emp.nip)}">
+        <div class="pdi-nip">${escapeHtml(emp.nip)}</div>
+        <div class="pdi-name">
+          <strong>${escapeHtml(emp.nama)}</strong>
+          <span class="pdi-sub">${escapeHtml(emp.kdpangkat || '')}</span>
+        </div>
+      </div>
+    `).join('');
+    dropdown.hidden = false;
+  }
+
+  function openBrowsePegawaiModal() {
+    renderBrowsePegawaiTable('');
+    const searchInput = $('#browse-pegawai-search');
+    if (searchInput) searchInput.value = '';
+    openModal('browse-pegawai');
+    if (searchInput) {
+      window.setTimeout(() => searchInput.focus(), 50);
+    }
+  }
+
+  function renderBrowsePegawaiTable(query = '') {
+    const tbody = $('#tbody-browse-pegawai');
+    const countBadge = $('#browse-pegawai-count');
+    if (!tbody) return;
+
+    const q = (query || '').trim().toLowerCase();
+    const list = state.employees || [];
+    const filtered = list.filter((emp) => {
+      if (!q) return true;
+      return (
+        (emp.nip || '').toLowerCase().includes(q) ||
+        (emp.nama || '').toLowerCase().includes(q) ||
+        (emp.kdpangkat || '').toLowerCase().includes(q) ||
+        (emp.norek || '').toLowerCase().includes(q)
+      );
+    });
+
+    if (countBadge) {
+      countBadge.textContent = `${filtered.length} dari ${list.length} pegawai`;
+    }
+
+    if (!filtered.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-empty">
+            ${q ? 'Tidak ada ASN yang cocok dengan pencarian.' : 'Belum ada data pegawai untuk OPD ini.'}
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((emp, idx) => {
+      const isCurrent = emp.nip === state.potonganNip;
+      return `
+        <tr class="browse-pegawai-row ${isCurrent ? 'selected-row' : ''}" data-nip="${escapeHtml(emp.nip)}" style="cursor: pointer;">
+          <td style="text-align: center;">${idx + 1}</td>
+          <td><code class="mono">${escapeHtml(emp.nip)}</code></td>
+          <td><strong>${escapeHtml(emp.nama)}</strong></td>
+          <td style="text-align: center;">${escapeHtml(emp.kdpangkat || '—')}</td>
+          <td>${escapeHtml(emp.norek || '—')}</td>
+          <td style="text-align: center;">
+            <button type="button" class="${isCurrent ? '' : 'default'} btn-select-emp" data-nip="${escapeHtml(emp.nip)}">
+              ${isCurrent ? 'Terpilih' : 'Pilih'}
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
   function renderPotongan() {
-    const select = $('#potongan-nip');
-    if (!select) return;
-
-    const current = state.potonganNip || select.value || (state.employees[0] ? state.employees[0].nip : '');
-    select.innerHTML = state.employees.map((employee) => (
-      `<option value="${escapeHtml(employee.nip)}">${escapeHtml(employee.nip)} — ${escapeHtml(employee.nama)}</option>`
-    )).join('');
-
+    const current = state.potonganNip || (state.employees[0] ? state.employees[0].nip : '');
     if (state.employees.some((employee) => employee.nip === current)) {
-      select.value = current;
       state.potonganNip = current;
     } else if (state.employees[0]) {
-      select.value = state.employees[0].nip;
       state.potonganNip = state.employees[0].nip;
     } else {
       state.potonganNip = '';
+    }
+
+    const hiddenNip = $('#potongan-nip');
+    if (hiddenNip) hiddenNip.value = state.potonganNip;
+
+    const searchInput = $('#potongan-search-input');
+    const clearBtn = $('#btn-potongan-clear');
+    const emp = findEmployee(state.potonganNip);
+    if (searchInput) {
+      if (emp) {
+        searchInput.value = `${emp.nip} — ${emp.nama}`;
+        searchInput.placeholder = 'Ketik NIP atau Nama ASN…';
+      } else {
+        searchInput.value = '';
+        searchInput.placeholder = state.employees.length ? 'Pilih pegawai ASN…' : 'Belum ada data pegawai';
+      }
+    }
+    if (clearBtn) {
+      clearBtn.hidden = !searchInput || !searchInput.value;
     }
 
     updatePotonganEmployee(state.potonganNip);
@@ -3737,6 +3859,7 @@
         if (dialog === 'loan') openLoanDialog();
         else if (dialog === 'pos') openPosDialog();
         else if (dialog === 'manual-import') openManualImport();
+        else if (dialog === 'browse-pegawai') openBrowsePegawaiModal();
         else openModal(dialog);
         return;
       }
@@ -3904,15 +4027,151 @@
       });
     });
 
-    // Form potongan
+    // Form potongan — pencarian & pemilihan ASN
+    const btnBrowsePegawai = $('#btn-browse-potongan-pegawai');
+    if (btnBrowsePegawai) {
+      btnBrowsePegawai.addEventListener('click', (e) => {
+        e.preventDefault();
+        openBrowsePegawaiModal();
+      });
+    }
+
+    const browseSearch = $('#browse-pegawai-search');
+    if (browseSearch) {
+      browseSearch.addEventListener('input', (e) => {
+        renderBrowsePegawaiTable(e.target.value);
+      });
+      browseSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const firstRowBtn = $('#tbody-browse-pegawai .btn-select-emp');
+          if (firstRowBtn && firstRowBtn.dataset.nip) {
+            selectPotonganEmployee(firstRowBtn.dataset.nip);
+            closeModal();
+          }
+        }
+      });
+    }
+
+    const tableBrowse = $('#table-browse-pegawai');
+    if (tableBrowse) {
+      tableBrowse.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-select-emp');
+        const row = e.target.closest('.browse-pegawai-row');
+        const nip = (btn && btn.dataset.nip) || (row && row.dataset.nip);
+        if (nip) {
+          selectPotonganEmployee(nip);
+          closeModal();
+        }
+      });
+      tableBrowse.addEventListener('dblclick', (e) => {
+        const row = e.target.closest('.browse-pegawai-row');
+        if (row && row.dataset.nip) {
+          selectPotonganEmployee(row.dataset.nip);
+          closeModal();
+        }
+      });
+    }
+
+    const searchInput = $('#potongan-search-input');
+    const dropdown = $('#potongan-search-dropdown');
+    const clearBtn = $('#btn-potongan-clear');
+
+    if (searchInput) {
+      searchInput.addEventListener('focus', (e) => {
+        e.target.select();
+        if (clearBtn) clearBtn.hidden = !e.target.value;
+        renderPotonganSearchDropdown(e.target.value);
+      });
+
+      searchInput.addEventListener('input', (e) => {
+        if (clearBtn) clearBtn.hidden = !e.target.value;
+        renderPotonganSearchDropdown(e.target.value);
+      });
+
+      searchInput.addEventListener('keydown', (e) => {
+        if (!dropdown || dropdown.hidden) {
+          if (e.key === 'ArrowDown') {
+            renderPotonganSearchDropdown(searchInput.value);
+            return;
+          }
+        }
+        const items = dropdown ? Array.from(dropdown.querySelectorAll('.picker-dropdown-item')) : [];
+        const activeIdx = items.findIndex((it) => it.classList.contains('active'));
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIdx = (activeIdx + 1) % items.length;
+          items.forEach((it, i) => it.classList.toggle('active', i === nextIdx));
+          if (items[nextIdx]) items[nextIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prevIdx = (activeIdx - 1 + items.length) % items.length;
+          items.forEach((it, i) => it.classList.toggle('active', i === prevIdx));
+          if (items[prevIdx]) items[prevIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const selectedItem = items[activeIdx >= 0 ? activeIdx : 0];
+          if (selectedItem && selectedItem.dataset.nip) {
+            selectPotonganEmployee(selectedItem.dataset.nip);
+          } else {
+            const val = searchInput.value.trim().toLowerCase();
+            const found = (state.employees || []).find((emp) => emp.nip === val || (emp.nama || '').toLowerCase() === val);
+            if (found) selectPotonganEmployee(found.nip);
+          }
+          if (dropdown) dropdown.hidden = true;
+        } else if (e.key === 'Escape') {
+          if (dropdown) dropdown.hidden = true;
+        }
+      });
+
+      searchInput.addEventListener('blur', () => {
+        window.setTimeout(() => {
+          if (dropdown) dropdown.hidden = true;
+          const emp = findEmployee(state.potonganNip);
+          if (emp) {
+            searchInput.value = `${emp.nip} — ${emp.nama}`;
+            if (clearBtn) clearBtn.hidden = false;
+          } else if (!state.employees.length) {
+            searchInput.value = '';
+            if (clearBtn) clearBtn.hidden = true;
+          }
+        }, 220);
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (searchInput) {
+          searchInput.value = '';
+          searchInput.focus();
+        }
+        clearBtn.hidden = true;
+        renderPotonganSearchDropdown('');
+      });
+    }
+
+    if (dropdown) {
+      dropdown.addEventListener('click', (e) => {
+        const item = e.target.closest('.picker-dropdown-item');
+        if (item && item.dataset.nip) {
+          selectPotonganEmployee(item.dataset.nip);
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#potongan-combobox-wrap')) {
+        const dd = $('#potongan-search-dropdown');
+        if (dd) dd.hidden = true;
+      }
+    });
+
     const potonganNip = $('#potongan-nip');
     if (potonganNip) {
       potonganNip.addEventListener('change', () => {
-        state.potonganNip = potonganNip.value;
-        updatePotonganEmployee(state.potonganNip);
-        if (state.mode === 'api') {
-          loadEmployeePotongan(state.potonganNip, state.period);
-        }
+        selectPotonganEmployee(potonganNip.value);
       });
     }
     const formBulanan = $('#form-bulanan');

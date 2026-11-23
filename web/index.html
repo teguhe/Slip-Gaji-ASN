@@ -890,10 +890,24 @@
 
             <section class="panel employee-picker">
               <div class="picker-grid">
-                <label class="field">
-                  <span>Pegawai</span>
-                  <select id="potongan-nip"></select>
-                </label>
+                <div class="field picker-search-field">
+                  <span>Pilih Pegawai (NIP / Nama)</span>
+                  <div class="picker-input-group">
+                    <div class="picker-combobox-wrap" id="potongan-combobox-wrap">
+                      <div class="search-box picker-search-box">
+                        <svg class="icon"><use href="#icon-search"></use></svg>
+                        <input type="search" id="potongan-search-input" placeholder="Cari NIP atau Nama ASN…" autocomplete="off" aria-label="Cari NIP atau Nama ASN">
+                        <button type="button" id="btn-potongan-clear" class="btn-input-clear" title="Hapus pencarian" aria-label="Hapus pencarian" hidden>&times;</button>
+                      </div>
+                      <div class="picker-dropdown" id="potongan-search-dropdown" hidden></div>
+                    </div>
+                    <button type="button" class="default btn-browse-employee" id="btn-browse-potongan-pegawai" title="Buka daftar pencarian seluruh pegawai">
+                      <svg class="icon"><use href="#icon-users"></use></svg>
+                      Cari…
+                    </button>
+                  </div>
+                  <input type="hidden" id="potongan-nip" value="">
+                </div>
                 <div class="field readonly-field">
                   <span>Nama</span>
                   <strong id="potongan-nama">—</strong>
@@ -1350,6 +1364,50 @@
         </div>
       </div>
     </div>
+    <!-- Modal: Pilih Pegawai Potongan -->
+    <div class="window glass active modal-window modal-wide" role="dialog" aria-modal="true"
+         aria-labelledby="browse-pegawai-title" data-modal="browse-pegawai" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="browse-pegawai-title">Pilih Pegawai ASN — Potongan</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-users"></use></svg></span>
+          <p>Cari dan pilih pegawai ASN berdasarkan NIP, Nama, atau Pangkat untuk menampilkan dan mengelola potongan gaji.</p>
+        </div>
+        <div class="browse-pegawai-toolbar">
+          <div class="search-box" style="flex: 1;">
+            <svg class="icon"><use href="#icon-search"></use></svg>
+            <input type="search" id="browse-pegawai-search" placeholder="Ketik NIP, Nama ASN, atau Pangkat…" aria-label="Cari Pegawai" style="width: 100%;">
+          </div>
+          <span class="pill-soft" id="browse-pegawai-count">0 pegawai</span>
+        </div>
+        <div class="table-responsive" style="max-height: 360px; overflow-y: auto; margin-top: 8px; border: 1px solid #9db8cc;">
+          <table class="listview master-table" id="table-browse-pegawai">
+            <thead>
+              <tr>
+                <th style="width: 45px; text-align: center;">No.</th>
+                <th style="width: 155px;">NIP</th>
+                <th>Nama Pegawai</th>
+                <th style="width: 80px; text-align: center;">Pkt/Gol</th>
+                <th style="width: 120px;">No. Rekening</th>
+                <th style="width: 75px; text-align: center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-browse-pegawai">
+              <tr><td colspan="6" class="table-empty">Memuat daftar pegawai…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="dialog-actions" style="margin-top: 10px;">
+          <button type="button" data-close-modal>Tutup</button>
+        </div>
+      </div>
+    </div>
+
     <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
          aria-labelledby="loan-title" data-modal="loan" hidden>
       <div class="title-bar">
