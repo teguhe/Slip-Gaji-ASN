@@ -82,6 +82,8 @@
     masterGajiList: [],
     masterGajiFilter: '',
     penyesuaianList: [],
+    rekapBulanan: null,
+    potonganTab: 'rekap-bulanan',
     monitoringLogs: [],
     monitoringFilterAction: '',
     monitoringSearch: '',
@@ -332,6 +334,7 @@
     renderLoansTable();
     renderPotongan();
     renderPosTable();
+    renderRekapBulanan();
     renderPrintPreview();
     updateProfileUI();
   }
@@ -914,6 +917,164 @@
     if (empty) empty.hidden = rows.length > 0;
     const count = $('#pos-list-count');
     if (count) count.textContent = `${rows.length} pos • ${rows.filter((pos) => pos.is_active).length} aktif`;
+  }
+
+  function renderRekapBulanan() {
+    const body = $('#rekap-bulanan-table-body');
+    if (!body) return;
+
+    const periodText = periodLabel(state.period);
+    const labelPeriod = $('#rekap-bulanan-period-label');
+    if (labelPeriod) labelPeriod.textContent = periodText;
+    const subPeriod = $('#rekap-bulanan-period-sub');
+    if (subPeriod) subPeriod.textContent = `Periode ${periodText}`;
+
+    const rekap = state.rekapBulanan;
+    if (!rekap || !Array.isArray(rekap.items)) {
+      const bulananPos = state.posList.filter((p) => p.kategori === 'bulanan');
+      const totalPosEl = $('#rekap-bulanan-total-pos');
+      if (totalPosEl) totalPosEl.textContent = `${bulananPos.length} Pos`;
+      const totalPegawaiEl = $('#rekap-bulanan-total-pegawai');
+      if (totalPegawaiEl) totalPegawaiEl.textContent = `0 ASN`;
+      const totalNominalEl = $('#rekap-bulanan-total-nominal');
+      if (totalNominalEl) totalNominalEl.textContent = `Rp 0`;
+
+      body.innerHTML = bulananPos.map((pos) => `
+        <tr>
+          <td><strong>${escapeHtml(pos.nama_pos)}</strong></td>
+          <td><span class="status-pill neutral">bulanan</span></td>
+          <td style="text-align: center;"><span class="badge">0 ASN</span></td>
+          <td class="money-col mono">Rp 0</td>
+          <td style="text-align: center;">${pos.is_active ? '<span class="status-pill">Aktif</span>' : '<span class="status-pill error">Nonaktif</span>'}</td>
+          <td style="text-align: center;">
+            <div class="pos-rekap-actions">
+              <button type="button" class="pos-rekap-btn primary" data-open-pos-detail="${escapeHtml(pos.id)}" data-pos-nama="${escapeHtml(pos.nama_pos)}" title="Lihat rincian pegawai terpotong">
+                Rincian
+              </button>
+              <button type="button" class="pos-rekap-btn" data-import-pos="${escapeHtml(pos.id)}" title="Import Excel khusus pos ini">
+                Import
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      const empty = $('#rekap-bulanan-empty');
+      if (empty) empty.hidden = bulananPos.length > 0;
+      return;
+    }
+
+    const totalPosEl = $('#rekap-bulanan-total-pos');
+    if (totalPosEl) totalPosEl.textContent = `${rekap.total_pos || 0} Pos`;
+    const totalPegawaiEl = $('#rekap-bulanan-total-pegawai');
+    if (totalPegawaiEl) totalPegawaiEl.textContent = `${rekap.total_pegawai || 0} ASN`;
+    const totalNominalEl = $('#rekap-bulanan-total-nominal');
+    if (totalNominalEl) totalNominalEl.textContent = formatRupiah(rekap.total_nominal || 0, 0);
+
+    const items = rekap.items || [];
+    body.innerHTML = items.map((item) => `
+      <tr>
+        <td><strong>${escapeHtml(item.nama_pos)}</strong></td>
+        <td><span class="status-pill neutral">bulanan</span></td>
+        <td style="text-align: center;">
+          <span class="badge ${item.jumlah_pegawai > 0 ? 'tone-blue' : ''}">${item.jumlah_pegawai} ASN</span>
+        </td>
+        <td class="money-col mono"><strong>${formatRupiah(item.total_nominal, 0)}</strong></td>
+        <td style="text-align: center;">${item.is_active ? '<span class="status-pill">Aktif</span>' : '<span class="status-pill error">Nonaktif</span>'}</td>
+        <td style="text-align: center;">
+          <div class="pos-rekap-actions">
+            <button type="button" class="pos-rekap-btn primary" data-open-pos-detail="${escapeHtml(item.pos_id)}" data-pos-nama="${escapeHtml(item.nama_pos)}" title="Lihat rincian pegawai terpotong">
+              Rincian (${item.jumlah_pegawai})
+            </button>
+            <button type="button" class="pos-rekap-btn" data-import-pos="${escapeHtml(item.pos_id)}" title="Import Excel khusus pos ini">
+              Import
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    const empty = $('#rekap-bulanan-empty');
+    if (empty) empty.hidden = items.length > 0;
+  }
+
+  let activeDetailPos = null;
+
+  async function openRekapPosDetail(posId, namaPos) {
+    activeDetailPos = { id: posId, nama: namaPos };
+    const heading = $('#rekap-pos-detail-heading');
+    if (heading) heading.textContent = namaPos;
+    const meta = $('#rekap-pos-detail-meta');
+    if (meta) meta.textContent = `Memuat rincian pegawai periode ${periodLabel(state.period)}...`;
+    const body = $('#rekap-pos-detail-table-body');
+    if (body) body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:12px; color:#688195;">Memuat data...</td></tr>';
+    const empty = $('#rekap-pos-detail-empty');
+    if (empty) empty.hidden = true;
+    const totalEl = $('#rekap-pos-detail-total');
+    if (totalEl) totalEl.textContent = 'Total: —';
+
+    openModal('rekap-pos-detail');
+
+    if (!state.token) return;
+
+    try {
+      const data = await apiRequest(`/api/v1/potongan/rekap-bulanan/${encodeURIComponent(posId)}?period=${encodeURIComponent(state.period)}`);
+      if (meta) meta.textContent = `${data.total_pegawai} Pegawai Terpotong • Periode ${periodLabel(state.period)}`;
+      if (totalEl) totalEl.textContent = `Total: ${formatRupiah(data.total_nominal, 0)}`;
+
+      const items = data.items || [];
+      if (!items.length) {
+        if (body) body.innerHTML = '';
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      if (body) {
+        body.innerHTML = items.map((item) => `
+          <tr>
+            <td class="mono">${escapeHtml(item.nip)}</td>
+            <td><strong>${escapeHtml(item.nama)}</strong></td>
+            <td class="money-col mono">${formatRupiah(item.nominal, 0)}</td>
+            <td style="text-align:center;">
+              <button type="button" class="pos-btn" data-delete-detail-item="${escapeHtml(item.id)}" title="Hapus potongan pegawai ini">
+                Hapus
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+      if (empty) empty.hidden = true;
+    } catch (err) {
+      if (meta) meta.textContent = `Gagal memuat: ${err.message}`;
+      toast('Gagal memuat detail', err.message, 'error');
+    }
+  }
+
+  async function deleteDetailItem(itemId) {
+    if (!confirm('Apakah Anda yakin ingin menghapus potongan ini?')) return;
+    if (!state.token) return;
+
+    try {
+      await apiRequest(`/api/v1/potongan/item/${encodeURIComponent(itemId)}`, {
+        method: 'DELETE',
+      });
+      toast('Potongan Dihapus', 'Data potongan berhasil dihapus.', 'info');
+
+      // Refresh detail modal
+      if (activeDetailPos) {
+        await openRekapPosDetail(activeDetailPos.id, activeDetailPos.nama);
+      }
+      // Refresh rekap bulanan & data potongan
+      await loadPotonganReferenceData();
+    } catch (err) {
+      toast('Gagal menghapus', err.message, 'error');
+    }
+  }
+
+  function openImportForPos(posId) {
+    openManualImport();
+    const posSelect = $('#manual-pos');
+    if (posSelect) posSelect.value = String(posId);
   }
 
   function fillPosSelect(selector, kategori) {
@@ -2351,12 +2512,17 @@
 
     try {
       const query = new URLSearchParams({ period: state.period });
-      const [posData, loanData] = await Promise.all([
+      const [posData, loanData, rekapData] = await Promise.all([
         apiRequest('/api/v1/potongan/pos'),
         apiRequest(`/api/v1/potongan/berjangka?${query.toString()}`),
+        apiRequest(`/api/v1/potongan/rekap-bulanan?${query.toString()}`).catch((e) => {
+          console.warn('Gagal memuat rekap bulanan:', e);
+          return null;
+        }),
       ]);
       state.posList = (posData || []).map(mapApiPos);
       state.loans = (loanData || []).map(mapApiLoan);
+      state.rekapBulanan = rekapData;
       renderAll();
       if (state.potonganNip) {
         await loadEmployeePotongan(state.potonganNip, state.period);
@@ -4059,15 +4225,20 @@
   /* ============================== TABS ============================== */
 
   function setTab(tab) {
-    const target = tab === 'berjangka' ? 'berjangka' : 'bulanan';
-    $$('[role="tab"]').forEach((button) => {
+    const validTabs = ['rekap-bulanan', 'berjangka', 'input-bulanan'];
+    const target = validTabs.includes(tab) ? tab : 'rekap-bulanan';
+    const shell = $('#potongan-tabs');
+    if (!shell) return;
+
+    shell.querySelectorAll('button[role="tab"]').forEach((button) => {
       const selected = button.dataset.tab === target;
       button.setAttribute('aria-selected', String(selected));
       button.tabIndex = selected ? 0 : -1;
     });
-    $$('[role="tabpanel"]').forEach((panel) => {
+    shell.querySelectorAll('[role="tabpanel"]').forEach((panel) => {
       panel.hidden = panel.id !== `tab-panel-${target}`;
     });
+    state.potonganTab = target;
   }
 
   /* ============================== EVENTS ============================== */
@@ -4196,6 +4367,9 @@
             if (state.view === 'master-gaji') {
               void loadMasterGaji();
             }
+            if (state.view === 'potongan') {
+              void loadPotonganReferenceData();
+            }
             toast('Periode diperbarui', periodLabel(state.period), 'info');
           }).catch((caught) => {
             toast('Gagal memuat periode', caught.message || 'Periksa koneksi.', 'error');
@@ -4286,22 +4460,63 @@
     }
 
     // Tabs potongan
-    $$('[role="tab"]').forEach((button) => {
-      button.addEventListener('click', () => setTab(button.dataset.tab));
-      button.addEventListener('keydown', (event) => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        const tabs = $$('[role="tab"]');
-        const index = tabs.indexOf(button);
-        let nextIndex = index;
-        if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
-        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
-        if (event.key === 'Home') nextIndex = 0;
-        if (event.key === 'End') nextIndex = tabs.length - 1;
-        tabs[nextIndex].focus();
-        setTab(tabs[nextIndex].dataset.tab);
+    const potonganTabs = $('#potongan-tabs');
+    if (potonganTabs) {
+      potonganTabs.querySelectorAll('button[role="tab"]').forEach((button) => {
+        button.addEventListener('click', () => setTab(button.dataset.tab));
+        button.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const tabs = Array.from(potonganTabs.querySelectorAll('button[role="tab"]'));
+          const index = tabs.indexOf(button);
+          let nextIndex = index;
+          if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+          if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+          if (event.key === 'Home') nextIndex = 0;
+          if (event.key === 'End') nextIndex = tabs.length - 1;
+          tabs[nextIndex].focus();
+          setTab(tabs[nextIndex].dataset.tab);
+        });
       });
-    });
+    }
+
+    const btnRefreshRekapBulanan = $('#btn-refresh-rekap-bulanan');
+    if (btnRefreshRekapBulanan) {
+      btnRefreshRekapBulanan.addEventListener('click', async () => {
+        btnRefreshRekapBulanan.disabled = true;
+        await loadPotonganReferenceData();
+        btnRefreshRekapBulanan.disabled = false;
+        toast('Rekap Disegarkan', 'Data rekap potongan bulanan berhasil diperbarui.', 'info');
+      });
+    }
+
+    const tableRekapBulanan = $('#table-rekap-bulanan');
+    if (tableRekapBulanan) {
+      tableRekapBulanan.addEventListener('click', (e) => {
+        const detailBtn = e.target.closest('[data-open-pos-detail]');
+        if (detailBtn) {
+          e.preventDefault();
+          openRekapPosDetail(detailBtn.dataset.openPosDetail, detailBtn.dataset.posNama || 'Pos Potongan');
+          return;
+        }
+        const importBtn = e.target.closest('[data-import-pos]');
+        if (importBtn) {
+          e.preventDefault();
+          openImportForPos(importBtn.dataset.importPos);
+        }
+      });
+    }
+
+    const tableRekapPosDetail = $('#table-rekap-pos-detail');
+    if (tableRekapPosDetail) {
+      tableRekapPosDetail.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('[data-delete-detail-item]');
+        if (delBtn) {
+          e.preventDefault();
+          deleteDetailItem(delBtn.dataset.deleteDetailItem);
+        }
+      });
+    }
 
     // Form potongan — pencarian & pemilihan ASN
     const btnBrowsePegawai = $('#btn-browse-potongan-pegawai');

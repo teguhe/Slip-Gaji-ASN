@@ -2919,6 +2919,43 @@ code {
   outline: 1px solid #7eb4ea;
 }
 
+.pos-rekap-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pos-rekap-btn {
+  min-width: 0;
+  height: 22px;
+  padding: 0 7px;
+  color: #274b67;
+  font-size: 9.5px;
+  background: linear-gradient(#fff, #edf6fc);
+  border: 1px solid #a9c3d6;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pos-rekap-btn:hover {
+  color: #0b5f96;
+  border-color: #5e9ec9;
+  box-shadow: 0 0 6px rgba(70, 160, 230, 0.4);
+}
+
+.pos-rekap-btn.primary {
+  color: #0d4b75;
+  font-weight: 600;
+  background: linear-gradient(#f0f8ff, #d8ebfa);
+  border-color: #88b7d9;
+}
+
 .pos-form fieldset { margin: 0; }
 .pos-form .field { margin-bottom: 8px; }
 .pos-form .form-actions {

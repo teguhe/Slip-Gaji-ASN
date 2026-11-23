@@ -505,3 +505,48 @@ def test_potongan_item_crud_and_isolation(
     ).all()
     assert len(audits) == 3
 
+
+def test_rekap_potongan_bulanan_endpoint(
+    api_app,
+    db_session,
+    seeded,
+    bendahara_profile,
+):
+    _import_payroll(db_session, bendahara_profile, period=date(2026, 10, 1))
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+
+    with TestClient(api_app) as client:
+        # Buat 2 pos bulanan
+        pos1 = _pos(client, "Iuran KORPRI Rekap", "bulanan")
+        pos2 = _pos(client, "Zakat Rekap", "bulanan")
+
+        # Import item ke pos1
+        excel1 = make_potongan_excel([{"nip": NIP, "nominal": "50000"}])
+        res1 = client.post(
+            "/api/v1/potongan/import-excel",
+            files={"file": ("korpri.xlsx", excel1, EXCEL_MIME)},
+            data={"pos_id": str(pos1["id"]), "period": "2026-10"},
+        )
+        assert res1.status_code == 200
+
+        # Ambil rekap bulanan
+        rekap_res = client.get("/api/v1/potongan/rekap-bulanan?period=2026-10")
+        assert rekap_res.status_code == 200, rekap_res.text
+        data = rekap_res.json()
+        assert data["period"] == "2026-10"
+        assert data["opd_nama"] == seeded.opd_name
+        assert data["total_pegawai"] >= 1
+        assert Decimal(str(data["total_nominal"])) >= Decimal("50000.00")
+
+        # Cek detail pos1
+        detail_res = client.get(f"/api/v1/potongan/rekap-bulanan/{pos1['id']}?period=2026-10")
+        assert detail_res.status_code == 200, detail_res.text
+        detail = detail_res.json()
+        assert detail["pos_id"] == pos1["id"]
+        assert detail["nama_pos"] == "Iuran KORPRI Rekap"
+        assert detail["total_pegawai"] == 1
+        assert Decimal(str(detail["total_nominal"])) == Decimal("50000.00")
+        assert len(detail["items"]) == 1
+        assert detail["items"][0]["nip"] == NIP
+
+

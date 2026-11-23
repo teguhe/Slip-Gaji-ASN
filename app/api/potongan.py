@@ -45,12 +45,16 @@ from app.schemas import (
     GenerateBerjangkaRequest,
     GenerateBerjangkaResponse,
     ManualPotonganImportResponse,
+    PosBulananDetailItem,
+    PosBulananDetailResponse,
+    PosBulananRekapItem,
     PosPotonganCreate,
     PosPotonganResponse,
     PosPotonganUpdate,
     PotonganItemCreate,
     PotonganItemDeleteResponse,
     PotonganItemResponse,
+    RekapBulananResponse,
 )
 from app.services.audit import extract_client_ip
 from app.services.berjangka import (
@@ -1092,4 +1096,147 @@ def delete_potongan_item(
         status="success",
         message="Item potongan manual berhasil dihapus.",
         deleted_id=str(uid),
+    )
+
+
+@router.get("/rekap-bulanan", response_model=RekapBulananResponse)
+def get_rekap_bulanan(
+    period: str = Query(..., description="Periode YYYY-MM"),
+    opd_id: int | None = Query(None, description="Khusus super admin"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> RekapBulananResponse:
+    opd = _resolve_opd(db, current_user, opd_id)
+    period_date = _validate_period(period)
+    next_month = add_months(period_date, 1)
+
+    pos_list = db.scalars(
+        select(RefPosPotongan)
+        .where(
+            RefPosPotongan.opd_id == opd.id,
+            RefPosPotongan.kategori == "bulanan",
+        )
+        .order_by(RefPosPotongan.nama_pos)
+    ).all()
+
+    items: list[PosBulananRekapItem] = []
+    grand_total = Decimal("0.00")
+    pos_ids = [p.id for p in pos_list]
+
+    if pos_ids:
+        agg_stmt = (
+            select(
+                PayrollPotonganItem.pos_id,
+                func.count(func.distinct(PayrollPotonganItem.nip)).label("cnt"),
+                func.coalesce(func.sum(PayrollPotonganItem.nominal), 0).label("total"),
+            )
+            .where(
+                PayrollPotonganItem.period >= period_date,
+                PayrollPotonganItem.period < next_month,
+                PayrollPotonganItem.berjangka_id.is_(None),
+                PayrollPotonganItem.pos_id.in_(pos_ids),
+            )
+            .group_by(PayrollPotonganItem.pos_id)
+        )
+        agg_map = {row.pos_id: (row.cnt, row.total) for row in db.execute(agg_stmt).all()}
+
+        total_pegawai = (
+            db.scalar(
+                select(func.count(func.distinct(PayrollPotonganItem.nip))).where(
+                    PayrollPotonganItem.period >= period_date,
+                    PayrollPotonganItem.period < next_month,
+                    PayrollPotonganItem.berjangka_id.is_(None),
+                    PayrollPotonganItem.pos_id.in_(pos_ids),
+                )
+            )
+            or 0
+        )
+    else:
+        agg_map = {}
+        total_pegawai = 0
+
+    for pos in pos_list:
+        cnt, total = agg_map.get(pos.id, (0, Decimal("0.00")))
+        total_dec = Decimal(str(total)).quantize(CENT)
+        grand_total += total_dec
+        items.append(
+            PosBulananRekapItem(
+                pos_id=pos.id,
+                nama_pos=pos.nama_pos,
+                kategori=pos.kategori,
+                is_active=bool(pos.is_active),
+                jumlah_pegawai=cnt,
+                total_nominal=total_dec,
+            )
+        )
+
+    return RekapBulananResponse(
+        period=period_str(period_date),
+        opd_id=opd.id,
+        opd_nama=opd.nmskpd.strip(),
+        total_pos=len(items),
+        total_pegawai=total_pegawai,
+        total_nominal=grand_total.quantize(CENT),
+        items=items,
+    )
+
+
+@router.get("/rekap-bulanan/{pos_id}", response_model=PosBulananDetailResponse)
+def get_rekap_bulanan_detail(
+    pos_id: int,
+    period: str = Query(..., description="Periode YYYY-MM"),
+    opd_id: int | None = Query(None, description="Khusus super admin"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> PosBulananDetailResponse:
+    opd = _resolve_opd(db, current_user, opd_id)
+    period_date = _validate_period(period)
+    next_month = add_months(period_date, 1)
+    pos = _pos_or_404(db, pos_id, opd)
+
+    stmt = (
+        select(
+            PayrollPotonganItem.id,
+            PayrollPotonganItem.nip,
+            func.coalesce(PayrollMonthly.nama, "—").label("nama"),
+            PayrollPotonganItem.nominal,
+            PayrollPotonganItem.created_at,
+        )
+        .outerjoin(
+            PayrollMonthly,
+            (PayrollMonthly.nip == PayrollPotonganItem.nip)
+            & (PayrollMonthly.tglgaji >= period_date)
+            & (PayrollMonthly.tglgaji < next_month)
+            & _opd_clause(opd),
+        )
+        .where(
+            PayrollPotonganItem.pos_id == pos.id,
+            PayrollPotonganItem.period >= period_date,
+            PayrollPotonganItem.period < next_month,
+            PayrollPotonganItem.berjangka_id.is_(None),
+        )
+        .order_by(PayrollPotonganItem.nominal.desc(), PayrollPotonganItem.nip)
+    )
+    rows = db.execute(stmt).all()
+
+    total_nominal = sum((Decimal(str(r.nominal)) for r in rows), Decimal("0.00")).quantize(CENT)
+    detail_items = [
+        PosBulananDetailItem(
+            id=str(r.id),
+            nip=r.nip,
+            nama=r.nama,
+            nominal=Decimal(str(r.nominal)).quantize(CENT),
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+    return PosBulananDetailResponse(
+        pos_id=pos.id,
+        nama_pos=pos.nama_pos,
+        period=period_str(period_date),
+        opd_nama=opd.nmskpd.strip(),
+        total_pegawai=len(detail_items),
+        total_nominal=total_nominal,
+        items=detail_items,
     )

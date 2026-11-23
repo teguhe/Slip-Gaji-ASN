@@ -919,86 +919,128 @@
               </div>
             </section>
 
-            <section class="panel loan-panel">
-              <div class="panel-head">
-                <div>
-                  <h2>Rekap Potongan Berjangka</h2>
-                  <p class="panel-sub" id="loan-count">—</p>
-                </div>
-                <div class="panel-tools">
-                  <span class="pill-soft" id="loan-period">Oktober 2026</span>
-                  <button type="button" id="btn-generate-berjangka" title="Realisasikan cicilan untuk periode terpilih">
-                    <svg class="icon"><use href="#icon-refresh"></use></svg>
-                    Realisasi Periode
-                  </button>
-                </div>
-              </div>
-              <div class="table-wrap">
-                <table class="listview loan-table">
-                  <thead>
-                    <tr>
-                      <th>NIP / Nama</th>
-                      <th>Pos Potongan</th>
-                      <th class="money-col">Nominal/Bulan</th>
-                      <th>Mulai</th>
-                      <th>Tenor</th>
-                      <th>Progres</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="loan-table-body"></tbody>
-                </table>
-                <div class="empty-state compact" id="loan-empty" hidden>
+            <div class="tabs-shell" id="potongan-tabs">
+              <menu role="tablist" aria-label="Manajemen Potongan">
+                <button type="button" role="tab" id="tab-btn-rekap-bulanan" data-tab="rekap-bulanan"
+                        aria-selected="true" aria-controls="tab-panel-rekap-bulanan" tabindex="0">
                   <svg class="icon"><use href="#icon-receipt"></use></svg>
-                  <strong>Belum ada pinjaman berjangka</strong>
-                  <span>Daftarkan pinjaman baru untuk memulai cicilan tenor.</span>
-                </div>
-              </div>
-            </section>
-
-            <div class="tabs-shell">
-              <menu role="tablist" aria-label="Jenis potongan">
-                <button type="button" role="tab" id="tab-btn-bulanan" data-tab="bulanan"
-                        aria-selected="true" aria-controls="tab-panel-bulanan" tabindex="0">Potongan Bulanan</button>
+                  Rekap Potongan Bulanan
+                </button>
                 <button type="button" role="tab" id="tab-btn-berjangka" data-tab="berjangka"
-                        aria-selected="false" aria-controls="tab-panel-berjangka" tabindex="-1">Potongan Berjangka</button>
+                        aria-selected="false" aria-controls="tab-panel-berjangka" tabindex="-1">
+                  <svg class="icon"><use href="#icon-calendar"></use></svg>
+                  Potongan Berjangka
+                </button>
+                <button type="button" role="tab" id="tab-btn-input-bulanan" data-tab="input-bulanan"
+                        aria-selected="false" aria-controls="tab-panel-input-bulanan" tabindex="-1">
+                  <svg class="icon"><use href="#icon-edit"></use></svg>
+                  Input Cepat Perorangan
+                </button>
               </menu>
 
-              <div role="tabpanel" id="tab-panel-bulanan" aria-labelledby="tab-btn-bulanan">
-                <form id="form-bulanan" novalidate>
-                  <div class="form-grid">
-                    <label class="field">
-                      <span>Pos potongan</span>
-                      <select id="bulanan-pos">
-                        <option value="Iuran KORPRI" data-nama="Iuran KORPRI">Iuran KORPRI</option>
-                        <option value="Dharma Wanita" data-nama="Dharma Wanita">Dharma Wanita</option>
-                        <option value="Infaq / Zakat" data-nama="Infaq / Zakat">Infaq / Zakat</option>
-                        <option value="Koperasi Dimas" data-nama="Koperasi Dimas">Koperasi Dimas</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span>Nominal (Rp)</span>
-                      <input type="text" id="bulanan-nominal" inputmode="decimal" placeholder="Contoh: 50.000" autocomplete="off">
-                    </label>
-                    <label class="field">
-                      <span>Periode</span>
-                      <select id="bulanan-period"></select>
-                    </label>
-                    <label class="field field-wide">
-                      <span>Keterangan <em>(opsional)</em></span>
-                      <input type="text" id="bulanan-keterangan" placeholder="Contoh: iuran bulan Oktober" autocomplete="off">
-                    </label>
+              <!-- TAB 1: REKAP POTONGAN BULANAN (PER POS POTONGAN) -->
+              <div role="tabpanel" id="tab-panel-rekap-bulanan" aria-labelledby="tab-btn-rekap-bulanan">
+                <div class="recap-grid" style="margin-bottom: 12px;">
+                  <article class="recap-card">
+                    <span class="recap-label">Pos Bulanan Terdaftar</span>
+                    <strong class="recap-value" id="rekap-bulanan-total-pos">0 Pos</strong>
+                    <span class="recap-sub" id="rekap-bulanan-pos-sub">Pos potongan bulanan</span>
+                  </article>
+                  <article class="recap-card">
+                    <span class="recap-label">Pegawai Terpotong</span>
+                    <strong class="recap-value mono" id="rekap-bulanan-total-pegawai">0 ASN</strong>
+                    <span class="recap-sub">Pegawai dengan potongan bulan ini</span>
+                  </article>
+                  <article class="recap-card">
+                    <span class="recap-label">Total Nominal Potongan</span>
+                    <strong class="recap-value mono" id="rekap-bulanan-total-nominal">Rp 0</strong>
+                    <span class="recap-sub" id="rekap-bulanan-period-sub">Periode berjalan</span>
+                  </article>
+                </div>
+
+                <section class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Rekap Potongan Bulanan per Pos</h2>
+                      <p class="panel-sub">Daftar akumulasi potongan bulanan OPD per pos potongan periode <span id="rekap-bulanan-period-label">Oktober 2026</span></p>
+                    </div>
+                    <div class="panel-tools">
+                      <button type="button" id="btn-refresh-rekap-bulanan" title="Segarkan Rekap Bulanan">
+                        <svg class="icon"><use href="#icon-refresh"></use></svg>
+                        Segarkan
+                      </button>
+                      <button type="button" data-open-modal="manual-import" title="Import Potongan via Excel">
+                        <svg class="icon"><use href="#icon-upload"></use></svg>
+                        Import Excel
+                      </button>
+                    </div>
                   </div>
-                  <p class="form-note">Input cepat ini menyimpan data potongan pegawai ke basis data.</p>
-                  <p class="form-error" id="bulanan-error" hidden></p>
-                  <div class="form-actions">
-                    <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Simpan Potongan</button>
-                    <button type="reset">Reset</button>
+                  <div class="table-wrap">
+                    <table class="listview" id="table-rekap-bulanan">
+                      <thead>
+                        <tr>
+                          <th>Pos Potongan</th>
+                          <th>Kategori</th>
+                          <th style="text-align: center; width: 110px;">Jumlah ASN</th>
+                          <th class="money-col">Total Potongan (Rp)</th>
+                          <th style="text-align: center; width: 90px;">Status Pos</th>
+                          <th style="width: 155px; text-align: center;">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="rekap-bulanan-table-body"></tbody>
+                    </table>
+                    <div class="empty-state compact" id="rekap-bulanan-empty" hidden>
+                      <svg class="icon"><use href="#icon-receipt"></use></svg>
+                      <strong>Belum ada pos potongan bulanan</strong>
+                      <span>Kelola pos potongan atau impor potongan via Excel.</span>
+                    </div>
                   </div>
-                </form>
+                </section>
               </div>
 
+              <!-- TAB 2: POTONGAN BERJANGKA (PINJAMAN DENGAN TENOR) -->
               <div role="tabpanel" id="tab-panel-berjangka" aria-labelledby="tab-btn-berjangka" hidden>
+                <section class="panel loan-panel" style="margin-bottom: 12px;">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Rekap Potongan Berjangka</h2>
+                      <p class="panel-sub" id="loan-count">—</p>
+                    </div>
+                    <div class="panel-tools">
+                      <span class="pill-soft" id="loan-period">Oktober 2026</span>
+                      <button type="button" id="btn-generate-berjangka" title="Realisasikan cicilan untuk periode terpilih">
+                        <svg class="icon"><use href="#icon-refresh"></use></svg>
+                        Realisasi Periode
+                      </button>
+                      <button type="button" class="default" data-open-modal="loan" title="Daftarkan pinjaman berjangka baru">
+                        <svg class="icon"><use href="#icon-plus"></use></svg>
+                        Pinjaman Baru
+                      </button>
+                    </div>
+                  </div>
+                  <div class="table-wrap">
+                    <table class="listview loan-table">
+                      <thead>
+                        <tr>
+                          <th>NIP / Nama</th>
+                          <th>Pos Potongan</th>
+                          <th class="money-col">Nominal/Bulan</th>
+                          <th>Mulai</th>
+                          <th>Tenor</th>
+                          <th>Progres</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="loan-table-body"></tbody>
+                    </table>
+                    <div class="empty-state compact" id="loan-empty" hidden>
+                      <svg class="icon"><use href="#icon-receipt"></use></svg>
+                      <strong>Belum ada pinjaman berjangka</strong>
+                      <span>Daftarkan pinjaman baru untuk memulai cicilan tenor.</span>
+                    </div>
+                  </div>
+                </section>
+
                 <div class="loan-launcher">
                   <span class="loan-launcher-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
                   <div class="loan-launcher-copy">
@@ -1015,6 +1057,36 @@
                   <div><span>Realisasi</span><strong>Otomatis saat payroll diproses</strong></div>
                   <div><span>Format progres</span><strong>“Cicilan 14 dari 36”</strong></div>
                 </div>
+              </div>
+
+              <!-- TAB 3: INPUT CEPAT PERORANGAN -->
+              <div role="tabpanel" id="tab-panel-input-bulanan" aria-labelledby="tab-btn-input-bulanan" hidden>
+                <form id="form-bulanan" novalidate>
+                  <div class="form-grid">
+                    <label class="field">
+                      <span>Pos potongan</span>
+                      <select id="bulanan-pos"></select>
+                    </label>
+                    <label class="field">
+                      <span>Nominal (Rp)</span>
+                      <input type="text" id="bulanan-nominal" inputmode="decimal" placeholder="Contoh: 50.000" autocomplete="off">
+                    </label>
+                    <label class="field">
+                      <span>Periode</span>
+                      <select id="bulanan-period"></select>
+                    </label>
+                    <label class="field field-wide">
+                      <span>Keterangan <em>(opsional)</em></span>
+                      <input type="text" id="bulanan-keterangan" placeholder="Contoh: iuran bulan Oktober" autocomplete="off">
+                    </label>
+                  </div>
+                  <p class="form-note">Input cepat ini menyimpan data potongan pegawai yang dipilih di pemilih pegawai di atas ke basis data.</p>
+                  <p class="form-error" id="bulanan-error" hidden></p>
+                  <div class="form-actions">
+                    <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Simpan Potongan</button>
+                    <button type="reset">Reset</button>
+                  </div>
+                </form>
               </div>
             </div>
 
@@ -1602,6 +1674,48 @@
         <div class="dialog-actions">
           <button type="button" class="default" id="btn-run-manual-import">Import</button>
           <button type="button" data-close-modal>Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Rincian Pegawai Terpotong per Pos Potongan Bulanan -->
+    <div class="window glass active modal-window modal-wide" role="dialog" aria-modal="true"
+         aria-labelledby="rekap-pos-detail-title" data-modal="rekap-pos-detail" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="rekap-pos-detail-title">Rincian ASN per Pos Potongan</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
+          <div>
+            <h3 id="rekap-pos-detail-heading" style="margin:0 0 3px; font-size:13px; color:#183b56;">Pos Potongan Bulanan</h3>
+            <p id="rekap-pos-detail-meta" style="margin:0; font-size:10px; color:#688195;">—</p>
+          </div>
+        </div>
+        <div class="table-wrap" style="max-height: 320px; overflow-y: auto; margin-top: 8px;">
+          <table class="listview" id="table-rekap-pos-detail">
+            <thead>
+              <tr>
+                <th style="width: 170px;">NIP</th>
+                <th>Nama ASN</th>
+                <th class="money-col" style="width: 140px;">Nominal (Rp)</th>
+                <th style="width: 70px; text-align: center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="rekap-pos-detail-table-body"></tbody>
+          </table>
+          <div class="empty-state compact" id="rekap-pos-detail-empty" hidden>
+            <svg class="icon"><use href="#icon-receipt"></use></svg>
+            <strong>Tidak ada pegawai terpotong</strong>
+            <span>Belum ada ASN yang memiliki potongan pada pos ini untuk periode berjalan.</span>
+          </div>
+        </div>
+        <div class="dialog-actions" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <strong id="rekap-pos-detail-total" style="font-size: 11px; color: #164e78;">Total: Rp 0</strong>
+          <button type="button" data-close-modal>Tutup</button>
         </div>
       </div>
     </div>

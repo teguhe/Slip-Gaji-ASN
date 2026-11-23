@@ -207,6 +207,43 @@ class PotonganItemDeleteResponse(BaseModel):
     deleted_id: str
 
 
+class PosBulananRekapItem(BaseModel):
+    pos_id: int
+    nama_pos: str
+    kategori: str
+    is_active: bool
+    jumlah_pegawai: int
+    total_nominal: Decimal
+
+
+class RekapBulananResponse(BaseModel):
+    period: str
+    opd_id: int
+    opd_nama: str
+    total_pos: int
+    total_pegawai: int
+    total_nominal: Decimal
+    items: list[PosBulananRekapItem]
+
+
+class PosBulananDetailItem(BaseModel):
+    id: str
+    nip: str
+    nama: str
+    nominal: Decimal
+    created_at: datetime | None = None
+
+
+class PosBulananDetailResponse(BaseModel):
+    pos_id: int
+    nama_pos: str
+    period: str
+    opd_nama: str
+    total_pegawai: int
+    total_nominal: Decimal
+    items: list[PosBulananDetailItem]
+
+
 class AuthMeResponse(BaseModel):
     email: str
     display_name: str | None = None
