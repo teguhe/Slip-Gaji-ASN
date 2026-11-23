@@ -1731,18 +1731,6 @@
       opdLabel.textContent = `OPD: ${state.opd || 'Semua OPD'} • Periode: ${periodLabel(state.period)}`;
     }
 
-    const allPeriods = getAllPeriods();
-    const periodOptions = allPeriods.map((p) => `<option value="${p}">${periodLabel(p)}</option>`).join('');
-    ['#master-gaji-period-select', '#excel-gaji-period-select'].forEach((sel) => {
-      const select = $(sel);
-      if (select) {
-        if (!select.options.length) {
-          select.innerHTML = periodOptions;
-        }
-        select.value = state.period;
-      }
-    });
-
     const activeTab = state.masterGajiTab || 'gaji-stats';
     if (activeTab === 'gaji-stats') {
       await loadMasterGajiStats();
@@ -1948,12 +1936,11 @@
     const nominalInput = $('#penyesuaian-nominal');
     const statusInput = $('#penyesuaian-status');
     const ketInput = $('#penyesuaian-keterangan');
-    const masterPeriodSelect = $('#master-gaji-period-select');
     const saveBtn = $('#btn-save-penyesuaian');
 
     const nip = nipInput ? nipInput.value.trim() : '';
     const nama = namaInput ? namaInput.value.trim() : '';
-    const currentPeriod = (masterPeriodSelect && masterPeriodSelect.value) ? masterPeriodSelect.value : state.period;
+    const currentPeriod = state.period;
     const jenis = jenisInput ? jenisInput.value : 'Tunda Bayar';
     const nominal = nominalInput ? Number(nominalInput.value) : 0;
     const penStatus = statusInput ? statusInput.value : 'ditunda';
@@ -3706,7 +3693,7 @@
     const options = all.map((period) => (
       `<option value="${period}">${periodLabel(period)}</option>`
     )).join('');
-    ['#period-select', '#master-gaji-period-select', '#excel-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
       const select = $(selector);
       if (select) {
         select.innerHTML = options;
@@ -3794,15 +3781,21 @@
       periodSelect.addEventListener('change', () => {
         state.period = periodSelect.value;
         state.selected = new Set();
-        ['#master-gaji-period-select', '#excel-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+        ['#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
           const el = $(selector);
           if (el) el.value = state.period;
         });
         renderAll();
+        if (state.view === 'master-gaji') {
+          void loadMasterGaji();
+        }
         if (state.token) {
           loadApiData(state.token).then((data) => {
             applyApiData(data, state.token);
             renderAll();
+            if (state.view === 'master-gaji') {
+              void loadMasterGaji();
+            }
             toast('Periode diperbarui', periodLabel(state.period), 'info');
           }).catch((caught) => {
             toast('Gagal memuat periode', caught.message || 'Periksa koneksi.', 'error');
@@ -4287,30 +4280,6 @@
     const refreshMasterGajiBtn = $('#btn-refresh-master-gaji');
     if (refreshMasterGajiBtn) refreshMasterGajiBtn.addEventListener('click', loadMasterGaji);
 
-    const masterGajiPeriodSelect = $('#master-gaji-period-select');
-    if (masterGajiPeriodSelect) {
-      masterGajiPeriodSelect.addEventListener('change', (e) => {
-        state.period = e.target.value;
-        ['#period-select', '#excel-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
-          const el = $(selector);
-          if (el) el.value = state.period;
-        });
-        void loadMasterGaji();
-      });
-    }
-
-    const excelGajiPeriodSelect = $('#excel-gaji-period-select');
-    if (excelGajiPeriodSelect) {
-      excelGajiPeriodSelect.addEventListener('change', (e) => {
-        state.period = e.target.value;
-        ['#period-select', '#master-gaji-period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
-          const el = $(selector);
-          if (el) el.value = state.period;
-        });
-        void loadMasterGaji();
-      });
-    }
-
     const masterGajiTabs = $('#master-gaji-tabs');
     if (masterGajiTabs) {
       masterGajiTabs.addEventListener('click', (e) => {
@@ -4372,8 +4341,7 @@
     if (btnResetPenyesuaian) {
       btnResetPenyesuaian.addEventListener('click', () => {
         setTimeout(() => {
-          const masterPeriodSelect = $('#master-gaji-period-select');
-          const currentPeriod = (masterPeriodSelect && masterPeriodSelect.value) ? masterPeriodSelect.value : state.period;
+          const currentPeriod = state.period;
           const periodInput = $('#penyesuaian-period');
           if (periodInput) periodInput.value = currentPeriod;
           const namaInput = $('#penyesuaian-nama');
