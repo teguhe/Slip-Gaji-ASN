@@ -1714,6 +1714,63 @@ code {
 
 .check-inline { display: inline-flex; align-items: center; gap: 5px; color: #4f6d81; font-size: 10.5px; }
 
+.print-zoom-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f0f7fb;
+  border: 1px solid #b6ccdb;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.print-zoom-control .subtle-label {
+  font-size: 10px;
+  color: #4f6d81;
+  font-weight: 500;
+  margin-right: 2px;
+}
+
+.btn-zoom-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1;
+  color: #2b5069;
+  background: linear-gradient(180deg, #ffffff, #e4eff7);
+  border: 1px solid #9db8cc;
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-zoom-step:hover {
+  background: linear-gradient(180deg, #fbfdff, #d2e7f7);
+  border-color: #6398bf;
+  color: #104a7b;
+}
+
+.btn-zoom-step:active {
+  background: #cce2f3;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.zoom-select {
+  height: 20px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  color: #25445a;
+  background: #fff;
+  border: 1px solid #9db8cc;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
 .paper-viewport {
   min-height: 430px;
   max-height: calc(100vh - 300px);
@@ -1742,8 +1799,9 @@ code {
   color: #111;
   background: #fff;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.36), 0 2px 4px rgba(0, 0, 0, 0.18);
-  zoom: 0.78;
+  zoom: var(--print-zoom, 0.78);
   transform-origin: top center;
+  transition: zoom 120ms ease;
 }
 
 .paper-label {

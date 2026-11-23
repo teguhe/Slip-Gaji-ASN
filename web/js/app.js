@@ -68,6 +68,7 @@
     opdOptions: [],
     profileChangeMode: false,
     printUseSelected: true,
+    printZoom: storageGet('simgaji.printZoom', '0.78', localStorage),
     pendingConnection: false,
     masterOpdList: [],
     masterOpdFilter: '',
@@ -2664,6 +2665,54 @@
     return state.employees;
   }
 
+  const PRINT_ZOOM_STEPS = [0.5, 0.65, 0.78, 0.9, 1.0, 1.25, 1.5];
+
+  function getEffectivePrintZoom(val) {
+    if (val === 'fit') {
+      const viewport = $('#print-paper-viewport') || $('.paper-viewport');
+      if (viewport) {
+        const availableWidth = viewport.clientWidth - 45;
+        return Math.min(1.5, Math.max(0.4, Number((availableWidth / 820).toFixed(2))));
+      }
+      return 0.78;
+    }
+    const num = Number(val);
+    return Number.isFinite(num) && num > 0 ? num : 0.78;
+  }
+
+  function applyPrintZoom(val) {
+    state.printZoom = val || '0.78';
+    const effective = getEffectivePrintZoom(state.printZoom);
+    const preview = $('#preview-pages');
+    if (preview) {
+      preview.style.setProperty('--print-zoom', String(effective));
+      $$('.paper', preview).forEach((p) => {
+        p.style.zoom = String(effective);
+      });
+    }
+    const select = $('#print-zoom-select');
+    if (select) {
+      const match = Array.from(select.options).some((o) => o.value === String(val));
+      if (match) {
+        select.value = String(val);
+      }
+    }
+    storageSet('simgaji.printZoom', String(val), localStorage);
+  }
+
+  function stepPrintZoom(direction) {
+    const currentVal = state.printZoom || storageGet('simgaji.printZoom', '0.78', localStorage);
+    const currentNum = currentVal === 'fit' ? getEffectivePrintZoom('fit') : Number(currentVal);
+
+    if (direction > 0) {
+      const next = PRINT_ZOOM_STEPS.find((s) => s > currentNum + 0.02) || PRINT_ZOOM_STEPS[PRINT_ZOOM_STEPS.length - 1];
+      applyPrintZoom(String(next));
+    } else {
+      const prev = [...PRINT_ZOOM_STEPS].reverse().find((s) => s < currentNum - 0.02) || PRINT_ZOOM_STEPS[0];
+      applyPrintZoom(String(prev));
+    }
+  }
+
   function renderPrintPreview() {
     const preview = $('#preview-pages');
     const printRoot = $('#print-root');
@@ -2693,6 +2742,8 @@
           ${page.map((employee, index) => renderSlip(employee, index)).join('')}
         </div>`).join('');
     }
+
+    applyPrintZoom(state.printZoom || '0.78');
 
     const info = $('#print-selection-info');
     if (info) {
@@ -4280,6 +4331,40 @@
         renderPrintPreview();
       });
     }
+
+    // Print Zoom Controls
+    const zoomSelect = $('#print-zoom-select');
+    if (zoomSelect) {
+      zoomSelect.addEventListener('change', () => {
+        applyPrintZoom(zoomSelect.value);
+      });
+    }
+    const btnZoomIn = $('#btn-zoom-in');
+    if (btnZoomIn) {
+      btnZoomIn.addEventListener('click', () => {
+        stepPrintZoom(1);
+      });
+    }
+    const btnZoomOut = $('#btn-zoom-out');
+    if (btnZoomOut) {
+      btnZoomOut.addEventListener('click', () => {
+        stepPrintZoom(-1);
+      });
+    }
+    const paperViewport = $('#print-paper-viewport') || $('.paper-viewport');
+    if (paperViewport) {
+      paperViewport.addEventListener('wheel', (e) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          stepPrintZoom(e.deltaY < 0 ? 1 : -1);
+        }
+      }, { passive: false });
+    }
+    window.addEventListener('resize', () => {
+      if (state.view === 'print' && state.printZoom === 'fit') {
+        applyPrintZoom('fit');
+      }
+    });
 
     const printListbox = $('#print-employee-listbox');
     if (printListbox) {

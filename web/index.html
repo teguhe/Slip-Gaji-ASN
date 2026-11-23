@@ -1086,6 +1086,21 @@
                     <span class="print-page-count" id="print-page-count">5 slip / halaman</span>
                   </div>
                   <div class="print-toolbar-right">
+                    <div class="print-zoom-control">
+                      <span class="subtle-label">Zoom:</span>
+                      <button type="button" class="btn-zoom-step" id="btn-zoom-out" title="Perkecil (Zoom Out)" aria-label="Perkecil">−</button>
+                      <select id="print-zoom-select" class="filter-select zoom-select" aria-label="Pilih Skala Zoom">
+                        <option value="fit">Fit Lebar</option>
+                        <option value="0.5">50%</option>
+                        <option value="0.65">65%</option>
+                        <option value="0.78" selected>78% (Standar)</option>
+                        <option value="0.9">90%</option>
+                        <option value="1">100% (Asli)</option>
+                        <option value="1.25">125%</option>
+                        <option value="1.5">150%</option>
+                      </select>
+                      <button type="button" class="btn-zoom-step" id="btn-zoom-in" title="Perbesar (Zoom In)" aria-label="Perbesar">+</button>
+                    </div>
                     <div class="check-inline">
                       <input type="checkbox" id="print-use-selected" checked>
                       <label for="print-use-selected">Gunakan pilihan</label>
@@ -1094,7 +1109,7 @@
                   </div>
                 </div>
 
-                <div class="paper-viewport">
+                <div class="paper-viewport" id="print-paper-viewport">
                   <div id="preview-pages"></div>
                 </div>
               </div>
