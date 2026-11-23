@@ -111,3 +111,63 @@ def test_super_admin_can_change_active_opd(api_app, db_session, seeded):
         )
     )
     assert audit is not None
+
+
+def test_get_and_update_settings(api_app, db_session, seeded):
+    user = _new_user(
+        db_session,
+        "bendahara_setting@example.com",
+        role="bendahara_opd",
+        opd_id=seeded.opd_id,
+    )
+    profile = UserProfile(
+        email=user.email,
+        role="bendahara_opd",
+        opd_id=seeded.opd_id,
+        opd_name=seeded.opd_name,
+        display_name=user.display_name,
+    )
+    api_app.dependency_overrides[get_current_user] = lambda: profile
+
+    with TestClient(api_app) as client:
+        # 1. GET settings default
+        res = client.get("/api/v1/auth/settings")
+        assert res.status_code == 200
+        assert res.json()["jabatan"] == "Bendahara Pengeluaran"
+
+        # 2. PUT settings
+        payload = {
+            "jabatan": "Plt. Bendahara Pengeluaran",
+            "nama_bendahara": "Siti Nurhaliza, S.E.",
+            "nip_bendahara": "19850515 201001 2 005",
+        }
+        update_res = client.put("/api/v1/auth/settings", json=payload)
+        assert update_res.status_code == 200
+        data = update_res.json()
+        assert data["jabatan"] == "Plt. Bendahara Pengeluaran"
+        assert data["nama_bendahara"] == "Siti Nurhaliza, S.E."
+        assert data["nip_bendahara"] == "19850515 201001 2 005"
+
+        # 3. GET /me juga mencakup field pengaturan yang tersimpan
+        me_res = client.get("/api/v1/auth/me")
+        assert me_res.status_code == 200
+        me_data = me_res.json()
+        assert me_data["jabatan"] == "Plt. Bendahara Pengeluaran"
+        assert me_data["nama_bendahara"] == "Siti Nurhaliza, S.E."
+        assert me_data["nip_bendahara"] == "19850515 201001 2 005"
+
+        # 4. PUT settings dengan nilai kosong akan mereset nama/nip ke None dan jabatan ke default
+        reset_res = client.put(
+            "/api/v1/auth/settings",
+            json={"jabatan": "   ", "nama_bendahara": "   ", "nip_bendahara": ""},
+        )
+        assert reset_res.status_code == 200
+        reset_data = reset_res.json()
+        assert reset_data["jabatan"] == "Bendahara Pengeluaran"
+        assert reset_data["nama_bendahara"] is None
+        assert reset_data["nip_bendahara"] is None
+
+    db_session.refresh(user)
+    assert user.jabatan == "Bendahara Pengeluaran"
+    assert user.nama_bendahara is None
+    assert user.nip_bendahara is None

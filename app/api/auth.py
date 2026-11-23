@@ -9,7 +9,14 @@ from sqlalchemy.orm import Session
 from app.auth import UserProfile, get_current_user
 from app.db import get_db
 from app.models import AppUser, RefOpd
-from app.schemas import AuthMeResponse, CreateOpdRequest, OpdOptionResponse, SetOpdRequest
+from app.schemas import (
+    AuthMeResponse,
+    CreateOpdRequest,
+    OpdOptionResponse,
+    SetOpdRequest,
+    SettingsResponse,
+    UpdateSettingsRequest,
+)
 from app.services.audit import extract_client_ip, write_audit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -25,6 +32,9 @@ def _me_response(profile: UserProfile, *, auth_method: str = "firebase") -> Auth
         opd_name=profile.opd_name,
         needs_opd=(profile.role != "super_admin") and not (profile.opd_id and profile.opd_name),
         auth_method=auth_method,
+        jabatan=profile.jabatan or "Bendahara Pengeluaran",
+        nama_bendahara=profile.nama_bendahara,
+        nip_bendahara=profile.nip_bendahara,
     )
 
 
@@ -45,9 +55,76 @@ def _load_app_user(db: Session, email: str) -> AppUser:
 
 @router.get("/me", response_model=AuthMeResponse)
 def get_me(
+    db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> AuthMeResponse:
+    user = db.scalar(
+        select(AppUser)
+        .where(func.lower(func.trim(AppUser.email)) == current_user.email.strip().lower())
+        .order_by(AppUser.created_at)
+        .limit(1)
+    )
+    if user:
+        return AuthMeResponse(
+            email=current_user.email,
+            display_name=user.display_name or current_user.display_name,
+            role=current_user.role,
+            is_super_admin=current_user.role == "super_admin",
+            opd_id=current_user.opd_id,
+            opd_name=current_user.opd_name,
+            needs_opd=(current_user.role != "super_admin") and not (current_user.opd_id and current_user.opd_name),
+            auth_method="firebase",
+            jabatan=user.jabatan or "Bendahara Pengeluaran",
+            nama_bendahara=user.nama_bendahara,
+            nip_bendahara=user.nip_bendahara,
+        )
     return _me_response(current_user)
+
+
+@router.get("/settings", response_model=SettingsResponse)
+def get_user_settings(
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> SettingsResponse:
+    user = _load_app_user(db, current_user.email)
+    return SettingsResponse(
+        jabatan=user.jabatan or "Bendahara Pengeluaran",
+        nama_bendahara=user.nama_bendahara or user.display_name,
+        nip_bendahara=user.nip_bendahara,
+    )
+
+
+@router.put("/settings", response_model=SettingsResponse)
+def update_user_settings(
+    payload: UpdateSettingsRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> SettingsResponse:
+    user = _load_app_user(db, current_user.email)
+    user.jabatan = (payload.jabatan or "Bendahara Pengeluaran").strip() or "Bendahara Pengeluaran"
+    user.nama_bendahara = payload.nama_bendahara.strip() if payload.nama_bendahara and payload.nama_bendahara.strip() else None
+    user.nip_bendahara = payload.nip_bendahara.strip() if payload.nip_bendahara and payload.nip_bendahara.strip() else None
+    db.flush()
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="UPDATE_SETTINGS",
+        table_name="app_users",
+        record_id=str(user.id),
+        details={
+            "jabatan": user.jabatan,
+            "nama_bendahara": user.nama_bendahara,
+            "nip_bendahara": user.nip_bendahara,
+        },
+        ip_address=extract_client_ip(request),
+    )
+    db.commit()
+    return SettingsResponse(
+        jabatan=user.jabatan,
+        nama_bendahara=user.nama_bendahara,
+        nip_bendahara=user.nip_bendahara,
+    )
 
 
 @router.get("/opd-options", response_model=list[OpdOptionResponse])

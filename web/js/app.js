@@ -1086,6 +1086,14 @@
     const lockBanner = $('#tenant-locked-banner');
     if (lockBanner) lockBanner.hidden = !isLocked;
 
+    // Signature settings in profile modal
+    const inputJabatan = $('#profile-settings-jabatan');
+    if (inputJabatan) inputJabatan.value = profile?.jabatan || 'Bendahara Pengeluaran';
+    const inputNama = $('#profile-settings-nama');
+    if (inputNama) inputNama.value = profile?.nama_bendahara || '';
+    const inputNip = $('#profile-settings-nip');
+    if (inputNip) inputNip.value = profile?.nip_bendahara || '';
+
     // OPD selection box: only super admin can manually switch active OPD here
     const showOpdBox = superAdmin && state.profileChangeMode;
     const opdBox = $('#profile-opd-box');
@@ -1175,6 +1183,51 @@
       }
     } finally {
       if (button) button.disabled = false;
+    }
+  }
+
+  async function saveProfileSettings() {
+    if (state.mode !== 'api' || !state.token) {
+      toast('Mode Offline', 'Pengaturan hanya dapat disimpan saat terhubung ke API.', 'warning');
+      return;
+    }
+    const btn = $('#btn-save-profile-settings');
+    const jabatanInput = $('#profile-settings-jabatan');
+    const namaInput = $('#profile-settings-nama');
+    const nipInput = $('#profile-settings-nip');
+
+    const jabatan = (jabatanInput ? jabatanInput.value : '').trim() || 'Bendahara Pengeluaran';
+    const nama_bendahara = (namaInput ? namaInput.value : '').trim() || null;
+    const nip_bendahara = (nipInput ? nipInput.value : '').trim() || null;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+    }
+    try {
+      const updated = await apiRequest('/api/v1/auth/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jabatan,
+          nama_bendahara,
+          nip_bendahara,
+        }),
+      });
+      if (state.profile) {
+        state.profile.jabatan = updated.jabatan;
+        state.profile.nama_bendahara = updated.nama_bendahara;
+        state.profile.nip_bendahara = updated.nip_bendahara;
+      }
+      toast('Pengaturan Tersimpan', 'Informasi penandatangan slip bendahara berhasil disimpan.', 'success');
+      renderPrintPreview();
+    } catch (err) {
+      toast('Gagal Menyimpan', err.message || 'Terjadi kesalahan saat menyimpan pengaturan.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Simpan Tanda Tangan';
+      }
     }
   }
 
@@ -2851,6 +2904,14 @@
       ]);
     }
 
+    const signTitle = escapeHtml(state.profile?.jabatan || 'Bendahara Pengeluaran') + ',';
+    const signName = state.profile?.nama_bendahara
+      ? escapeHtml(state.profile.nama_bendahara)
+      : '( ............................................................ )';
+    const signNip = state.profile?.nip_bendahara
+      ? `NIP. ${escapeHtml(state.profile.nip_bendahara)}`
+      : 'NIP. .........................................................';
+
     return `
       <article class="slip">
         <div class="slip-head">
@@ -2885,10 +2946,10 @@
         </div>
         <div class="slip-sign">
           <div class="slip-sign-box">
-            <div class="sign-title">Bendahara Pengeluaran,</div>
+            <div class="sign-title">${signTitle}</div>
             <div class="sign-space"></div>
-            <div class="sign-name">( ............................................................ )</div>
-            <div class="sign-nip">NIP. .........................................................</div>
+            <div class="sign-name">${signName}</div>
+            <div class="sign-nip">${signNip}</div>
           </div>
         </div>
       </article>`;
@@ -3672,7 +3733,11 @@
     win.document.write(template);
     win.document.close();
     win.onload = () => {
-        win.renderSlips(dataList, period);
+        win.renderSlips(dataList, period, {
+          jabatan: state.profile?.jabatan,
+          nama_bendahara: state.profile?.nama_bendahara,
+          nip_bendahara: state.profile?.nip_bendahara,
+        });
         win.print();
     };
   }
@@ -4462,6 +4527,26 @@
     }
     const profileLogout = $('#btn-profile-logout');
     if (profileLogout) profileLogout.addEventListener('click', logout);
+    const saveSettingsButton = $('#btn-save-profile-settings');
+    if (saveSettingsButton) saveSettingsButton.addEventListener('click', saveProfileSettings);
+    const openSettingsPrintBtn = $('#btn-open-settings-print');
+    if (openSettingsPrintBtn) {
+      openSettingsPrintBtn.addEventListener('click', () => {
+        openProfileDialog();
+        const input = $('#profile-settings-jabatan');
+        if (input) setTimeout(() => input.focus(), 120);
+      });
+    }
+    const startProfileSettings = $('#start-profile-settings');
+    if (startProfileSettings) {
+      startProfileSettings.addEventListener('click', () => {
+        const menu = $('#start-menu');
+        if (menu) menu.hidden = true;
+        openProfileDialog();
+        const input = $('#profile-settings-jabatan');
+        if (input) setTimeout(() => input.focus(), 120);
+      });
+    }
 
     const btnPrintSelected = $('#btn-print-selected');
     if (btnPrintSelected) btnPrintSelected.addEventListener('click', async () => {

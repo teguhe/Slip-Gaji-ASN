@@ -79,6 +79,11 @@ def _prepare_database() -> None:
                         CREATE INDEX IF NOT EXISTS idx_penyesuaian_nip_period ON payroll_penyesuaian(nip, period);
                         CREATE INDEX IF NOT EXISTS idx_penyesuaian_opd ON payroll_penyesuaian(opd_id);
                     """)
+            connection.exec_driver_sql("""
+                ALTER TABLE app_users ADD COLUMN IF NOT EXISTS jabatan VARCHAR(100) DEFAULT 'Bendahara Pengeluaran';
+                ALTER TABLE app_users ADD COLUMN IF NOT EXISTS nama_bendahara VARCHAR(255);
+                ALTER TABLE app_users ADD COLUMN IF NOT EXISTS nip_bendahara VARCHAR(50);
+            """)
     finally:
         engine.dispose()
 

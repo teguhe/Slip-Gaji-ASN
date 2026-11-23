@@ -216,6 +216,22 @@ class AuthMeResponse(BaseModel):
     opd_name: str | None = None
     needs_opd: bool = False
     auth_method: str = "firebase"
+    jabatan: str | None = "Bendahara Pengeluaran"
+    nama_bendahara: str | None = None
+    nip_bendahara: str | None = None
+
+
+class UpdateSettingsRequest(BaseModel):
+    jabatan: str | None = Field(default="Bendahara Pengeluaran", max_length=100)
+    nama_bendahara: str | None = Field(default=None, max_length=255)
+    nip_bendahara: str | None = Field(default=None, max_length=50)
+
+
+class SettingsResponse(BaseModel):
+    status: Literal["success"] = "success"
+    jabatan: str | None = "Bendahara Pengeluaran"
+    nama_bendahara: str | None = None
+    nip_bendahara: str | None = None
 
 
 class CreateOpdRequest(BaseModel):

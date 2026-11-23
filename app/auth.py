@@ -42,6 +42,9 @@ class UserProfile:
     opd_id: Optional[int] = None
     opd_name: Optional[str] = None
     display_name: Optional[str] = None
+    jabatan: Optional[str] = "Bendahara Pengeluaran"
+    nama_bendahara: Optional[str] = None
+    nip_bendahara: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -190,6 +193,9 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
             opd_id=user.opd_id,
             opd_name=opd.nmskpd if opd else None,
             display_name=user.display_name or display_name,
+            jabatan=getattr(user, "jabatan", None) or "Bendahara Pengeluaran",
+            nama_bendahara=getattr(user, "nama_bendahara", None),
+            nip_bendahara=getattr(user, "nip_bendahara", None),
         )
 
     if user is None:
@@ -200,6 +206,7 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
             display_name=display_name,
             role="bendahara_opd",
             opd_id=None,
+            jabatan="Bendahara Pengeluaran",
             is_active=True,
         )
         db.add(user)
@@ -232,6 +239,9 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
         opd_id=user.opd_id,
         opd_name=opd.nmskpd if opd else None,
         display_name=user.display_name or display_name,
+        jabatan=getattr(user, "jabatan", None) or "Bendahara Pengeluaran",
+        nama_bendahara=getattr(user, "nama_bendahara", None),
+        nip_bendahara=getattr(user, "nip_bendahara", None),
     )
 
 

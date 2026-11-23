@@ -3122,6 +3122,57 @@ code {
 .profile-opd-box .field { margin-bottom: 4px; }
 .profile-opd-box .hint { margin-bottom: 7px; }
 
+.profile-settings-box {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f4f8fb;
+  border: 1px solid #c5deed;
+  border-radius: 2px;
+}
+
+.profile-settings-box .section-title {
+  font-weight: 600;
+  font-size: 11px;
+  color: #173b57;
+  margin-bottom: 7px;
+}
+
+.profile-settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-settings-grid .field {
+  margin-bottom: 2px;
+}
+
+.profile-settings-grid .field span {
+  display: block;
+  font-size: 8.5pt;
+  color: #27485f;
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.profile-settings-grid input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.profile-settings-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.profile-settings-actions .hint {
+  font-size: 8pt;
+  color: #688195;
+  margin: 0;
+}
+
 @media (max-width: 760px) {
   .status-account-field { display: none; }
   .profile-detail-grid { grid-template-columns: 1fr; }

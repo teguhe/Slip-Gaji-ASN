@@ -30,8 +30,11 @@
         function formatRupiah(num) {
             return new Intl.NumberFormat('id-ID').format(num);
         }
-        function renderSlips(dataList, period) {
+        function renderSlips(dataList, period, signerInfo) {
             const root = document.getElementById('slip-root');
+            const signTitle = (signerInfo && signerInfo.jabatan ? signerInfo.jabatan : 'Bendahara Pengeluaran') + ',';
+            const signName = (signerInfo && signerInfo.nama_bendahara) ? signerInfo.nama_bendahara : '( ............................................................ )';
+            const signNip = (signerInfo && signerInfo.nip_bendahara) ? ('NIP. ' + signerInfo.nip_bendahara) : 'NIP. .........................................................';
             dataList.forEach((data, index) => {
                 if (index > 0 && index % 3 === 0) root.innerHTML += '<div class="page-break"></div>';
                 
@@ -66,10 +69,10 @@
                         </div>
                         <div class="sign-block">
                             <div class="sign-box">
-                                <div>Bendahara Pengeluaran,</div>
+                                <div>${signTitle}</div>
                                 <div class="sign-space"></div>
-                                <div class="sign-name">( ............................................................ )</div>
-                                <div class="sign-nip">NIP. .........................................................</div>
+                                <div class="sign-name">${signName}</div>
+                                <div class="sign-nip">${signNip}</div>
                             </div>
                         </div>
                     </div>

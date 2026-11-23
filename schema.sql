@@ -19,6 +19,9 @@ CREATE TABLE app_users (
     display_name VARCHAR(255),
     role user_role NOT NULL DEFAULT 'bendahara_opd',
     opd_id INT REFERENCES ref_opd(id) ON DELETE SET NULL,
+    jabatan VARCHAR(100) DEFAULT 'Bendahara Pengeluaran',
+    nama_bendahara VARCHAR(255),
+    nip_bendahara VARCHAR(50),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

@@ -68,6 +68,11 @@ class AppUser(Base):
     opd_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("ref_opd.id", ondelete="SET NULL")
     )
+    jabatan: Mapped[str | None] = mapped_column(
+        String(100), server_default=text("'Bendahara Pengeluaran'")
+    )
+    nama_bendahara: Mapped[str | None] = mapped_column(String(255))
+    nip_bendahara: Mapped[str | None] = mapped_column(String(50))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("TRUE"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
