@@ -884,21 +884,31 @@
     const body = $('#pos-table-body');
     if (!body) return;
 
+    const editingId = $('#pos-edit-id')?.value || '';
+
     const rows = [...state.posList].sort((a, b) => (
       String(a.kategori).localeCompare(String(b.kategori))
       || String(a.nama_pos).localeCompare(String(b.nama_pos))
     ));
-    body.innerHTML = rows.map((pos) => `
-      <tr>
+    body.innerHTML = rows.map((pos) => {
+      const isEditing = editingId && String(pos.id) === String(editingId);
+      return `
+      <tr class="${isEditing ? 'is-editing' : ''}" data-pos-row="${escapeHtml(pos.id)}">
         <td><strong>${escapeHtml(pos.nama_pos)}</strong></td>
         <td><span class="status-pill neutral">${escapeHtml(pos.kategori)}</span></td>
         <td>${pos.is_active ? '<span class="status-pill">Aktif</span>' : '<span class="status-pill error">Nonaktif</span>'}</td>
         <td>
-          <button type="button" class="pos-toggle" data-pos-toggle="${escapeHtml(pos.id)}">
-            ${pos.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-          </button>
+          <div class="pos-actions">
+            <button type="button" class="pos-btn edit" data-pos-edit="${escapeHtml(pos.id)}" title="Edit pos potongan">
+              Edit
+            </button>
+            <button type="button" class="pos-btn toggle" data-pos-toggle="${escapeHtml(pos.id)}" title="${pos.is_active ? 'Nonaktifkan pos' : 'Aktifkan pos'}">
+              ${pos.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+            </button>
+          </div>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     const empty = $('#pos-empty');
     if (empty) empty.hidden = rows.length > 0;
@@ -2516,25 +2526,78 @@
       toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
       return;
     }
-    renderPosTable();
-    const form = $('#form-pos');
-    if (form) form.reset();
-    const error = $('#pos-error');
-    if (error) error.hidden = true;
+    cancelEditPos();
     openModal('pos');
+  }
+
+  function editPos(posId) {
+    const pos = findPos(posId);
+    if (!pos) return;
+
+    const editIdInput = $('#pos-edit-id');
+    const namaInput = $('#pos-nama');
+    const kategoriInput = $('#pos-kategori');
+    const legend = $('#pos-form-legend');
+    const submitLabel = $('#pos-submit-label');
+    const submitIcon = $('#pos-submit-icon');
+    const cancelBtn = $('#btn-pos-cancel');
+    const error = $('#pos-error');
+
+    if (editIdInput) editIdInput.value = pos.id;
+    if (namaInput) {
+      namaInput.value = pos.nama_pos;
+      namaInput.focus();
+      namaInput.select();
+    }
+    if (kategoriInput) kategoriInput.value = pos.kategori;
+    if (legend) legend.textContent = `Edit Pos Potongan`;
+    if (submitLabel) submitLabel.textContent = 'Simpan';
+    if (submitIcon) submitIcon.setAttribute('href', '#icon-check');
+    if (cancelBtn) cancelBtn.hidden = false;
+    if (error) error.hidden = true;
+
+    renderPosTable();
+  }
+
+  function cancelEditPos() {
+    const editIdInput = $('#pos-edit-id');
+    const form = $('#form-pos');
+    const legend = $('#pos-form-legend');
+    const submitLabel = $('#pos-submit-label');
+    const submitIcon = $('#pos-submit-icon');
+    const cancelBtn = $('#btn-pos-cancel');
+    const error = $('#pos-error');
+
+    if (editIdInput) editIdInput.value = '';
+    if (form) form.reset();
+    if (legend) legend.textContent = 'Tambah Pos';
+    if (submitLabel) submitLabel.textContent = 'Tambah';
+    if (submitIcon) submitIcon.setAttribute('href', '#icon-plus');
+    if (cancelBtn) cancelBtn.hidden = true;
+    if (error) error.hidden = true;
+
+    renderPosTable();
   }
 
   async function submitPos(event) {
     event.preventDefault();
     const error = $('#pos-error');
     if (error) error.hidden = true;
+
+    const editingId = ($('#pos-edit-id')?.value || '').trim();
     const nama = $('#pos-nama').value.trim();
     const kategori = $('#pos-kategori').value;
+
     if (!nama) {
       showInlineError('pos', 'Nama pos potongan wajib diisi.');
       return;
     }
-    if (state.posList.some((pos) => pos.nama_pos.trim().toLowerCase() === nama.toLowerCase())) {
+
+    const isDuplicate = state.posList.some((pos) => {
+      if (editingId && String(pos.id) === String(editingId)) return false;
+      return pos.nama_pos.trim().toLowerCase() === nama.toLowerCase();
+    });
+    if (isDuplicate) {
       showInlineError('pos', 'Nama pos potongan sudah ada pada OPD ini.');
       return;
     }
@@ -2544,20 +2607,36 @@
       return;
     }
 
-    const button = $('#form-pos button[type="submit"]');
+    const button = $('#btn-pos-submit') || $('#form-pos button[type="submit"]');
     if (button) button.disabled = true;
+
     try {
-      const saved = await apiRequest('/api/v1/potongan/pos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nama_pos: nama, kategori }),
-      });
-      state.posList.push(mapApiPos(saved));
-      addActivity('potongan', 'Pos potongan ditambahkan', `${nama} • ${kategori}`, 'amber');
-      renderAll();
-      const form = $('#form-pos');
-      if (form) form.reset();
-      toast('Pos ditambahkan', `${nama} (${kategori}) tersimpan.`, 'success');
+      if (editingId) {
+        // Mode Update / Edit
+        const saved = await apiRequest(`/api/v1/potongan/pos/${encodeURIComponent(editingId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nama_pos: nama, kategori }),
+        });
+        const index = state.posList.findIndex((item) => String(item.id) === String(editingId));
+        if (index >= 0) state.posList[index] = mapApiPos(saved);
+        addActivity('potongan', 'Pos potongan diperbarui', `${nama} • ${kategori}`, 'cyan');
+        cancelEditPos();
+        renderAll();
+        toast('Pos Diperbarui', `${nama} (${kategori}) berhasil diperbarui.`, 'success');
+      } else {
+        // Mode Tambah Baru
+        const saved = await apiRequest('/api/v1/potongan/pos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nama_pos: nama, kategori }),
+        });
+        state.posList.push(mapApiPos(saved));
+        addActivity('potongan', 'Pos potongan ditambahkan', `${nama} • ${kategori}`, 'amber');
+        cancelEditPos();
+        renderAll();
+        toast('Pos Ditambahkan', `${nama} (${kategori}) tersimpan.`, 'success');
+      }
       await loadPotonganReferenceData();
     } catch (caught) {
       showInlineError('pos', caught.message);
@@ -4412,13 +4491,27 @@
 
     const formPos = $('#form-pos');
     if (formPos) formPos.addEventListener('submit', submitPos);
+    const cancelPosBtn = $('#btn-pos-cancel');
+    if (cancelPosBtn) cancelPosBtn.addEventListener('click', cancelEditPos);
     const posTableBody = $('#pos-table-body');
     if (posTableBody) {
       posTableBody.addEventListener('click', (event) => {
+        const editBtn = event.target.closest('[data-pos-edit]');
+        if (editBtn) {
+          event.preventDefault();
+          editPos(editBtn.dataset.posEdit);
+          return;
+        }
         const toggle = event.target.closest('[data-pos-toggle]');
         if (toggle) {
           event.preventDefault();
           togglePos(toggle.dataset.posToggle);
+        }
+      });
+      posTableBody.addEventListener('dblclick', (event) => {
+        const row = event.target.closest('[data-pos-row]');
+        if (row && row.dataset.posRow) {
+          editPos(row.dataset.posRow);
         }
       });
     }

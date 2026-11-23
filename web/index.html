@@ -1516,7 +1516,8 @@
           </div>
           <form id="form-pos" class="pos-form" novalidate>
             <fieldset>
-              <legend>Tambah Pos</legend>
+              <legend id="pos-form-legend">Tambah Pos</legend>
+              <input type="hidden" id="pos-edit-id" value="">
               <label class="field">
                 <span>Nama pos</span>
                 <input type="text" id="pos-nama" maxlength="150" placeholder="Contoh: Infaq / Zakat" autocomplete="off">
@@ -1529,7 +1530,11 @@
                 </select>
               </label>
               <div class="form-actions">
-                <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Tambah</button>
+                <button type="submit" class="default" id="btn-pos-submit">
+                  <svg class="icon"><use id="pos-submit-icon" href="#icon-plus"></use></svg>
+                  <span id="pos-submit-label">Tambah</span>
+                </button>
+                <button type="button" id="btn-pos-cancel" hidden>Batal</button>
               </div>
             </fieldset>
             <p class="form-error" id="pos-error" hidden></p>

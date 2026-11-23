@@ -2874,10 +2874,17 @@ code {
 }
 
 .pos-table th:nth-child(1) { width: auto; }
-.pos-table th:nth-child(2) { width: 82px; }
-.pos-table th:nth-child(3) { width: 66px; }
-.pos-table th:nth-child(4) { width: 86px; }
+.pos-table th:nth-child(2) { width: 78px; }
+.pos-table th:nth-child(3) { width: 62px; }
+.pos-table th:nth-child(4) { width: 122px; }
 
+.pos-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pos-btn,
 .pos-toggle {
   min-width: 0;
   height: 20px;
@@ -2888,17 +2895,38 @@ code {
   border: 1px solid #a9c3d6;
   border-radius: 2px;
   box-shadow: inset 0 1px 0 #fff;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
+.pos-btn:hover,
 .pos-toggle:hover {
   color: #0b5f96;
   border-color: #5e9ec9;
   box-shadow: 0 0 6px rgba(70, 160, 230, 0.4);
 }
 
+.pos-btn.edit {
+  color: #17527c;
+  font-weight: 600;
+}
+
+.pos-table tr.is-editing td {
+  background-color: #e3f0fb !important;
+}
+
+.pos-table tr.is-editing {
+  outline: 1px solid #7eb4ea;
+}
+
 .pos-form fieldset { margin: 0; }
 .pos-form .field { margin-bottom: 8px; }
-.pos-form .form-actions { margin-top: 9px; }
+.pos-form .form-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 9px;
+}
 
 .manual-import-grid {
   display: grid;
