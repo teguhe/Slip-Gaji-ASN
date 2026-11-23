@@ -1086,17 +1086,10 @@
     const lockBanner = $('#tenant-locked-banner');
     if (lockBanner) lockBanner.hidden = !isLocked;
 
-    // Signature settings in profile modal & signature modal
+    // Signature settings in signature modal
     const sigJab = profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
     const sigNama = profile?.nama_bendahara || storageGet('simgaji.nama_bendahara', localStorage) || '';
     const sigNip = profile?.nip_bendahara || storageGet('simgaji.nip_bendahara', localStorage) || '';
-
-    const inputJabatan = $('#profile-settings-jabatan');
-    if (inputJabatan) inputJabatan.value = sigJab;
-    const inputNama = $('#profile-settings-nama');
-    if (inputNama) inputNama.value = sigNama;
-    const inputNip = $('#profile-settings-nip');
-    if (inputNip) inputNip.value = sigNip;
 
     const modalJabatan = $('#sig-modal-jabatan');
     if (modalJabatan) modalJabatan.value = sigJab;
@@ -1245,13 +1238,6 @@
     if (nip_bendahara) storageSet('simgaji.nip_bendahara', nip_bendahara, localStorage);
     else storageRemove('simgaji.nip_bendahara', localStorage);
 
-    const pJab = $('#profile-settings-jabatan');
-    if (pJab) pJab.value = jabatan;
-    const pNama = $('#profile-settings-nama');
-    if (pNama) pNama.value = nama_bendahara || '';
-    const pNip = $('#profile-settings-nip');
-    if (pNip) pNip.value = nip_bendahara || '';
-
     if (state.mode === 'api' && state.token) {
       try {
         const updated = await apiRequest('/api/v1/auth/settings', {
@@ -1278,67 +1264,6 @@
 
     closeModal();
     toast('Tanda Tangan Disimpan', 'Data penandatangan bendahara berhasil disimpan dan diterapkan ke slip cetak.', 'success');
-    renderPrintPreview();
-  }
-
-  async function saveProfileSettings() {
-    const btn = $('#btn-save-profile-settings');
-    const jabatanInput = $('#profile-settings-jabatan');
-    const namaInput = $('#profile-settings-nama');
-    const nipInput = $('#profile-settings-nip');
-
-    const jabatan = (jabatanInput ? jabatanInput.value : '').trim() || 'Bendahara Pengeluaran';
-    const nama_bendahara = (namaInput ? namaInput.value : '').trim() || null;
-    const nip_bendahara = (nipInput ? nipInput.value : '').trim() || null;
-
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Menyimpan...';
-    }
-
-    if (!state.profile) state.profile = {};
-    state.profile.jabatan = jabatan;
-    state.profile.nama_bendahara = nama_bendahara;
-    state.profile.nip_bendahara = nip_bendahara;
-
-    storageSet('simgaji.jabatan', jabatan, localStorage);
-    if (nama_bendahara) storageSet('simgaji.nama_bendahara', nama_bendahara, localStorage);
-    else storageRemove('simgaji.nama_bendahara', localStorage);
-    if (nip_bendahara) storageSet('simgaji.nip_bendahara', nip_bendahara, localStorage);
-    else storageRemove('simgaji.nip_bendahara', localStorage);
-
-    const sigJab = $('#sig-modal-jabatan');
-    if (sigJab) sigJab.value = jabatan;
-    const sigNama = $('#sig-modal-nama');
-    if (sigNama) sigNama.value = nama_bendahara || '';
-    const sigNip = $('#sig-modal-nip');
-    if (sigNip) sigNip.value = nip_bendahara || '';
-
-    if (state.mode === 'api' && state.token) {
-      try {
-        const updated = await apiRequest('/api/v1/auth/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jabatan,
-            nama_bendahara,
-            nip_bendahara,
-          }),
-        });
-        state.profile.jabatan = updated.jabatan;
-        state.profile.nama_bendahara = updated.nama_bendahara;
-        state.profile.nip_bendahara = updated.nip_bendahara;
-      } catch (err) {
-        console.warn('Gagal sinkronisasi pengaturan ke backend:', err);
-      }
-    }
-
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'Simpan Tanda Tangan';
-    }
-
-    toast('Pengaturan Tersimpan', 'Informasi penandatangan slip bendahara berhasil disimpan.', 'success');
     renderPrintPreview();
   }
 
@@ -4675,8 +4600,6 @@
     }
     const profileLogout = $('#btn-profile-logout');
     if (profileLogout) profileLogout.addEventListener('click', logout);
-    const saveSettingsButton = $('#btn-save-profile-settings');
-    if (saveSettingsButton) saveSettingsButton.addEventListener('click', saveProfileSettings);
     const saveSigModalBtn = $('#btn-save-signature-modal');
     if (saveSigModalBtn) saveSigModalBtn.addEventListener('click', saveSignatureModal);
     const openSettingsPrintBtn = $('#btn-open-settings-print');
