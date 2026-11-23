@@ -71,6 +71,9 @@
       <symbol id="icon-arrow-right" viewBox="0 0 24 24">
         <path d="M4 12h15M14 7l5 5-5 5"/>
       </symbol>
+      <symbol id="icon-arrow-left" viewBox="0 0 24 24">
+        <path d="M20 12H5M10 7l-5 5 5 5"/>
+      </symbol>
       <symbol id="icon-building" viewBox="0 0 24 24">
         <rect x="4" y="2" width="16" height="20" rx="2"/>
         <path d="M9 22v-4h6v4M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>
@@ -229,10 +232,6 @@
               <svg class="icon"><use href="#icon-file"></use></svg>
               <span class="side-nav-label">Master Gaji</span>
             </button>
-            <button type="button" class="side-nav-item" data-view-link="import" title="Import SIMGAJI" aria-label="Import SIMGAJI">
-              <svg class="icon"><use href="#icon-upload"></use></svg>
-              <span class="side-nav-label">Import SIMGAJI</span>
-            </button>
             <button type="button" class="side-nav-item" data-view-link="potongan" title="Potongan" aria-label="Potongan">
               <svg class="icon"><use href="#icon-receipt"></use></svg>
               <span class="side-nav-label">Potongan</span>
@@ -306,6 +305,10 @@
                   <h2>Rekap Ketersediaan Data Penggajian</h2>
                   <p class="panel-sub">Informasi ketersediaan arsip data gaji bulanan pada database</p>
                 </div>
+                <button type="button" class="default" data-view-link="import" title="Import Data Gaji SIMGAJI">
+                  <svg class="icon"><use href="#icon-upload"></use></svg>
+                  Import Data Gaji
+                </button>
               </div>
               <div class="recap-grid">
                 <article class="recap-card">
@@ -413,7 +416,11 @@
                 <p class="subtle" id="master-gaji-opd-label">Statistik data gaji, arsip data impor bulanan, dan input penyesuaian gaji OPD.</p>
               </div>
               <div class="head-actions">
-                <button type="button" class="default" id="btn-refresh-master-gaji" title="Segarkan Data Gaji">
+                <button type="button" class="default" data-view-link="import" title="Import Data Gaji SIMGAJI">
+                  <svg class="icon"><use href="#icon-upload"></use></svg>
+                  Import Data Gaji
+                </button>
+                <button type="button" id="btn-refresh-master-gaji" title="Segarkan Data Gaji">
                   <svg class="icon"><use href="#icon-refresh"></use></svg>
                   Segarkan
                 </button>
@@ -738,6 +745,10 @@
                 <p class="subtle">43 kolom wajib + kolom <code>nmskpd</code> untuk verifikasi OPD.</p>
               </div>
               <div class="head-actions">
+                <button type="button" class="default" data-view-link="master-gaji" title="Kembali ke Master Gaji">
+                  <svg class="icon"><use href="#icon-arrow-left"></use></svg>
+                  Kembali ke Master Gaji
+                </button>
                 <span class="pill-soft">Hanya .xls / .xlsx</span>
               </div>
             </header>
@@ -815,6 +826,7 @@
                   </div>
                   <div class="result-actions">
                     <button type="button" class="default" id="btn-result-dashboard">Lihat Dashboard</button>
+                    <button type="button" class="default" data-view-link="master-gaji" id="btn-result-master">Buka Master Gaji</button>
                     <button type="button" id="btn-result-again">Import Lagi</button>
                   </div>
                 </div>
@@ -1213,7 +1225,6 @@
       <div class="start-menu-list">
         <button type="button" data-view-link="dashboard"><svg class="icon"><use href="#icon-dashboard"></use></svg> Dashboard</button>
         <button type="button" data-view-link="master-gaji"><svg class="icon"><use href="#icon-file"></use></svg> Master Gaji</button>
-        <button type="button" data-view-link="import"><svg class="icon"><use href="#icon-upload"></use></svg> Import SIMGAJI</button>
         <button type="button" data-view-link="potongan"><svg class="icon"><use href="#icon-receipt"></use></svg> Potongan</button>
         <button type="button" data-view-link="print"><svg class="icon"><use href="#icon-printer"></use></svg> Cetak Slip</button>
         <button type="button" data-view-link="monitoring"><svg class="icon"><use href="#icon-activity"></use></svg> Monitoring Aktivitas</button>

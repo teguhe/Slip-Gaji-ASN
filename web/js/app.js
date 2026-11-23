@@ -1840,7 +1840,7 @@
       tbody.innerHTML = `
         <tr>
           <td colspan="12" class="table-empty">
-            ${query ? 'Tidak ada pegawai yang cocok dengan kata kunci pencarian.' : 'Tidak ada data gaji untuk periode ini. Silakan import file SIMGAJI PNS.'}
+            ${query ? 'Tidak ada pegawai yang cocok dengan kata kunci pencarian.' : 'Tidak ada data gaji untuk periode ini. <button type="button" class="default" data-view-link="import" style="margin-left: 8px;"><svg class="icon"><use href="#icon-upload"></use></svg> Import Data Gaji</button>'}
           </td>
         </tr>
       `;
@@ -3519,9 +3519,10 @@
       section.classList.toggle('active', active);
     });
 
+    const activeNavKey = next === 'import' ? 'master-gaji' : next;
     $$('[data-view-link]').forEach((button) => {
       const isSide = button.classList.contains('side-nav-item');
-      const active = button.dataset.viewLink === next;
+      const active = button.dataset.viewLink === activeNavKey;
       if (isSide) {
         button.classList.toggle('active', active);
         if (active) button.setAttribute('aria-current', 'page');
@@ -3530,7 +3531,7 @@
     });
 
     const crumb = $('#toolbar-crumb');
-    if (crumb) crumb.textContent = VIEW_TITLES[next];
+    if (crumb) crumb.textContent = next === 'import' ? 'Master Gaji • Import SIMGAJI' : VIEW_TITLES[next];
     const content = $('#app-content');
     if (content) content.scrollTop = 0;
     const startMenu = $('#start-menu');
