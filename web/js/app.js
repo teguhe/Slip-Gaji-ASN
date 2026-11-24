@@ -3403,10 +3403,11 @@
       opdLabel.textContent = `OPD: ${state.opd || 'Semua OPD'} • Periode: ${periodLabel(state.period)}`;
     }
 
+    // Selalu muat statistik ringkasan dan komposisi potongan untuk card di atas tab
+    await loadMasterGajiStats();
+
     const activeTab = state.masterGajiTab || 'gaji-stats';
-    if (activeTab === 'gaji-stats') {
-      await loadMasterGajiStats();
-    } else if (activeTab === 'gaji-excel') {
+    if (activeTab === 'gaji-excel') {
       await loadMasterGajiList();
     } else if (activeTab === 'gaji-penyesuaian') {
       await loadPenyesuaianList();

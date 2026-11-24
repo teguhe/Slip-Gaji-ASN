@@ -438,28 +438,16 @@
               </div>
             </header>
 
-            <div class="tabs-shell" id="master-gaji-tabs">
-              <menu role="tablist" aria-label="Navigasi Master Gaji">
-                <button type="button" role="tab" id="tab-btn-gaji-stats" data-tab="gaji-stats"
-                        aria-selected="true" aria-controls="tab-panel-gaji-stats" tabindex="0">
-                  <svg class="icon"><use href="#icon-dashboard"></use></svg>
-                  Statistik
-                </button>
-                <button type="button" role="tab" id="tab-btn-gaji-excel" data-tab="gaji-excel"
-                        aria-selected="false" aria-controls="tab-panel-gaji-excel" tabindex="-1">
-                  <svg class="icon"><use href="#icon-file"></use></svg>
-                  Monitoring
-                </button>
-                <button type="button" role="tab" id="tab-btn-gaji-penyesuaian" data-tab="gaji-penyesuaian"
-                        aria-selected="false" aria-controls="tab-panel-gaji-penyesuaian" tabindex="-1">
-                  <svg class="icon"><use href="#icon-edit"></use></svg>
-                  Penyesuaian
-                </button>
-              </menu>
-
-              <!-- TAB 1: STATISTIK -->
-              <div role="tabpanel" id="tab-panel-gaji-stats" aria-labelledby="tab-btn-gaji-stats">
-                <div class="metric-grid" style="margin-bottom: 16px;">
+            <!-- Card Ringkasan Gaji & Komposisi Potongan -->
+            <section class="panel master-overview-panel" id="master-gaji-overview-card" style="margin-bottom: 16px;">
+              <div class="panel-head">
+                <div>
+                  <h2>Ringkasan Akumulasi Gaji &amp; Komposisi Potongan</h2>
+                  <p class="panel-sub">Total ASN terdaftar, penghasilan kotor, potongan, netto ditransfer, dan perbandingan potongan periode ini</p>
+                </div>
+              </div>
+              <div class="master-overview-body" style="padding: 12px 14px 14px;">
+                <div class="metric-grid" style="margin-bottom: 12px;">
                   <article class="metric-card tone-blue">
                     <div class="metric-top">
                       <span class="metric-icon"><svg class="icon"><use href="#icon-user"></use></svg></span>
@@ -494,7 +482,7 @@
                   </article>
                 </div>
 
-                <section class="panel compose-panel" style="margin-bottom: 16px;">
+                <div class="panel compose-panel" style="margin-bottom: 0;">
                   <div class="panel-head">
                     <div>
                       <h2>Komposisi Potongan</h2>
@@ -516,8 +504,31 @@
                     <svg class="icon"><use href="#icon-info"></use></svg>
                     <span>Potongan internal mencakup iuran, koperasi, dan cicilan berjangka.</span>
                   </div>
-                </section>
+                </div>
+              </div>
+            </section>
 
+            <div class="tabs-shell" id="master-gaji-tabs">
+              <menu role="tablist" aria-label="Navigasi Master Gaji">
+                <button type="button" role="tab" id="tab-btn-gaji-stats" data-tab="gaji-stats"
+                        aria-selected="true" aria-controls="tab-panel-gaji-stats" tabindex="0">
+                  <svg class="icon"><use href="#icon-dashboard"></use></svg>
+                  Statistik
+                </button>
+                <button type="button" role="tab" id="tab-btn-gaji-excel" data-tab="gaji-excel"
+                        aria-selected="false" aria-controls="tab-panel-gaji-excel" tabindex="-1">
+                  <svg class="icon"><use href="#icon-file"></use></svg>
+                  Monitoring
+                </button>
+                <button type="button" role="tab" id="tab-btn-gaji-penyesuaian" data-tab="gaji-penyesuaian"
+                        aria-selected="false" aria-controls="tab-panel-gaji-penyesuaian" tabindex="-1">
+                  <svg class="icon"><use href="#icon-edit"></use></svg>
+                  Penyesuaian
+                </button>
+              </menu>
+
+              <!-- TAB 1: STATISTIK -->
+              <div role="tabpanel" id="tab-panel-gaji-stats" aria-labelledby="tab-btn-gaji-stats">
                 <div class="stats-detail-grid">
                   <section class="panel">
                     <div class="panel-head">
