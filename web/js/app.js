@@ -3108,6 +3108,7 @@
       const dashboard = await loadApiData(state.token);
       applyApiData(dashboard, state.token);
       await loadEmployeePotongan(state.potonganNip, state.period);
+      await loadPotonganReferenceData();
     } catch (caught) {
       const errors = caught.body && caught.body.detail && Array.isArray(caught.body.detail.errors)
         ? caught.body.detail.errors
@@ -3143,6 +3144,7 @@
       const dashboard = await loadApiData(state.token);
       applyApiData(dashboard, state.token);
       await loadEmployeePotongan(state.potonganNip, state.period);
+      await loadPotonganReferenceData();
     } catch (caught) {
       toast('Realisasi gagal', caught.message, 'error');
     } finally {
@@ -3859,6 +3861,7 @@
       renderAll();
       resetBulananForm();
       toast('Potongan disimpan', `${pos} ${formatRupiah(nominal, 0)} tersimpan ke server.`, 'success');
+      void loadPotonganReferenceData();
     })
     .catch((error) => {
       showFormError('bulanan', error.message || 'Gagal menyimpan ke server');
@@ -3892,6 +3895,7 @@
         addActivity('potongan', 'Potongan dihapus dari database', `${employee.nama} • ${removed.pos}`, 'amber');
         renderAll();
         toast('Potongan dihapus', `${removed.pos} berhasil dihapus dari database.`, 'info');
+        void loadPotonganReferenceData();
       })
       .catch((error) => {
         toast('Gagal Menghapus', error.message || 'Terjadi kesalahan saat menghapus.', 'error');

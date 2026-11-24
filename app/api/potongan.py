@@ -1139,6 +1139,7 @@ def get_rekap_bulanan(
                 PayrollPotonganItem.period < next_month,
                 PayrollPotonganItem.berjangka_id.is_(None),
                 PayrollPotonganItem.pos_id.in_(pos_ids),
+                PayrollPotonganItem.nominal > 0,
             )
             .group_by(PayrollPotonganItem.pos_id)
         )
@@ -1151,6 +1152,7 @@ def get_rekap_bulanan(
                     PayrollPotonganItem.period < next_month,
                     PayrollPotonganItem.berjangka_id.is_(None),
                     PayrollPotonganItem.pos_id.in_(pos_ids),
+                    PayrollPotonganItem.nominal > 0,
                 )
             )
             or 0
