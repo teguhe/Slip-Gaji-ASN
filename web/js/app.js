@@ -366,9 +366,6 @@
 
     const chip = $('#data-mode-chip');
     if (chip) chip.classList.add('is-api');
-
-    const navCount = $('#nav-count');
-    if (navCount) navCount.textContent = String(state.employees.length);
   }
 
   function renderDashboard(totals) {
