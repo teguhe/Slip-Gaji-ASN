@@ -1037,9 +1037,14 @@
             <td><strong>${escapeHtml(item.nama)}</strong></td>
             <td class="money-col mono">${formatRupiah(item.nominal, 0)}</td>
             <td style="text-align:center;">
-              <button type="button" class="pos-btn" data-delete-detail-item="${escapeHtml(item.id)}" title="Hapus potongan pegawai ini">
-                Hapus
-              </button>
+              <div style="display:inline-flex; gap:4px; align-items:center;">
+                <button type="button" class="pos-btn" data-jump-asn="${escapeHtml(item.nip)}" title="Buka di Potongan per ASN">
+                  Lihat ASN
+                </button>
+                <button type="button" class="pos-btn" data-delete-detail-item="${escapeHtml(item.id)}" title="Hapus potongan pegawai ini">
+                  Hapus
+                </button>
+              </div>
             </td>
           </tr>
         `).join('');
@@ -4057,7 +4062,8 @@
     dashboard: 'Dashboard',
     'master-gaji': 'Master Gaji',
     import: 'Import SIMGAJI',
-    potongan: 'Potongan',
+    potongan: 'Potongan Rekap',
+    'potongan-asn': 'Potongan per ASN',
     print: 'Cetak Slip',
     monitoring: 'Monitoring Aktivitas',
     'master-opd': 'Master OPD',
@@ -4098,7 +4104,17 @@
       renderPrintPreview();
       setTimeout(() => applyPrintZoom(state.printZoom || 'fit'), 40);
     }
-    if (next === 'potongan') renderPotongan();
+    if (next === 'potongan') {
+      renderRekapBulanan();
+      void loadRekapBulanan();
+      void loadLoans();
+    }
+    if (next === 'potongan-asn') {
+      renderPotongan();
+      if (state.potonganNip) {
+        void loadEmployeePotongan(state.potonganNip, state.period);
+      }
+    }
     if (next === 'dashboard') renderDashboard(computeTotals());
     if (next === 'master-gaji') loadMasterGaji();
     if (next === 'monitoring') loadMonitoringAudit();
@@ -4234,7 +4250,7 @@
   /* ============================== TABS ============================== */
 
   function setTab(tab) {
-    const validTabs = ['rekap-bulanan', 'berjangka', 'input-bulanan'];
+    const validTabs = ['rekap-bulanan', 'berjangka'];
     const target = validTabs.includes(tab) ? tab : 'rekap-bulanan';
     const shell = $('#potongan-tabs');
     if (!shell) return;
@@ -4248,6 +4264,13 @@
       panel.hidden = panel.id !== `tab-panel-${target}`;
     });
     state.potonganTab = target;
+    if (target === 'rekap-bulanan') {
+      renderRekapBulanan();
+      void loadRekapBulanan();
+    } else if (target === 'berjangka') {
+      renderLoansTable();
+      void loadLoans();
+    }
   }
 
   /* ============================== EVENTS ============================== */
@@ -4376,7 +4399,7 @@
             if (state.view === 'master-gaji') {
               void loadMasterGaji();
             }
-            if (state.view === 'potongan') {
+            if (state.view === 'potongan' || state.view === 'potongan-asn') {
               void loadPotonganReferenceData();
             }
             toast('Periode diperbarui', periodLabel(state.period), 'info');
@@ -4519,6 +4542,15 @@
     const tableRekapPosDetail = $('#table-rekap-pos-detail');
     if (tableRekapPosDetail) {
       tableRekapPosDetail.addEventListener('click', (e) => {
+        const jumpBtn = e.target.closest('[data-jump-asn]');
+        if (jumpBtn) {
+          e.preventDefault();
+          const nip = jumpBtn.dataset.jumpAsn;
+          selectPotonganEmployee(nip);
+          closeModal();
+          setView('potongan-asn');
+          return;
+        }
         const delBtn = e.target.closest('[data-delete-detail-item]');
         if (delBtn) {
           e.preventDefault();

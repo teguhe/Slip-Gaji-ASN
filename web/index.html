@@ -232,9 +232,13 @@
               <svg class="icon"><use href="#icon-file"></use></svg>
               <span class="side-nav-label">Master Gaji</span>
             </button>
-            <button type="button" class="side-nav-item" data-view-link="potongan" title="Potongan" aria-label="Potongan">
+            <button type="button" class="side-nav-item" data-view-link="potongan" title="Potongan Rekap" aria-label="Potongan Rekap">
               <svg class="icon"><use href="#icon-receipt"></use></svg>
-              <span class="side-nav-label">Potongan</span>
+              <span class="side-nav-label">Potongan Rekap</span>
+            </button>
+            <button type="button" class="side-nav-item" data-view-link="potongan-asn" title="Potongan per ASN" aria-label="Potongan per ASN">
+              <svg class="icon"><use href="#icon-users"></use></svg>
+              <span class="side-nav-label">Potongan per ASN</span>
             </button>
             <button type="button" class="side-nav-item" data-view-link="print" title="Cetak Slip" aria-label="Cetak Slip">
               <svg class="icon"><use href="#icon-printer"></use></svg>
@@ -855,13 +859,13 @@
             </section>
           </section>
 
-          <!-- ================= POTONGAN ================= -->
+          <!-- ================= POTONGAN REKAP ================= -->
           <section class="view" id="view-potongan" data-view="potongan" hidden>
             <header class="view-head">
               <div>
-                <p class="eyebrow">Phase 3 • Potongan Fleksibel</p>
-                <h1>Potongan Pegawai</h1>
-                <p class="subtle">Pos potongan, pinjaman berjangka, cicilan tenor, dan import manual.</p>
+                <p class="eyebrow">Rekapitulasi OPD</p>
+                <h1>Potongan Rekap</h1>
+                <p class="subtle">Rekapitulasi pos potongan bulanan dan pinjaman berjangka OPD.</p>
               </div>
               <div class="head-actions potongan-head-actions">
                 <button type="button" data-open-modal="pos" title="Kelola pos potongan">
@@ -884,41 +888,6 @@
               <span id="potongan-mode-note-text">Pos potongan dan pinjaman tersimpan di basis data PostgreSQL.</span>
             </div>
 
-            <section class="panel employee-picker">
-              <div class="picker-grid">
-                <div class="field picker-search-field">
-                  <span>Pilih Pegawai (NIP / Nama)</span>
-                  <div class="picker-input-group">
-                    <div class="picker-combobox-wrap" id="potongan-combobox-wrap">
-                      <div class="search-box picker-search-box">
-                        <svg class="icon"><use href="#icon-search"></use></svg>
-                        <input type="search" id="potongan-search-input" placeholder="Cari NIP atau Nama ASN…" autocomplete="off" aria-label="Cari NIP atau Nama ASN">
-                        <button type="button" id="btn-potongan-clear" class="btn-input-clear" title="Hapus pencarian" aria-label="Hapus pencarian" hidden>&times;</button>
-                      </div>
-                      <div class="picker-dropdown" id="potongan-search-dropdown" hidden></div>
-                    </div>
-                    <button type="button" class="default btn-browse-employee" id="btn-browse-potongan-pegawai" title="Buka daftar pencarian seluruh pegawai">
-                      <svg class="icon"><use href="#icon-users"></use></svg>
-                      Cari…
-                    </button>
-                  </div>
-                  <input type="hidden" id="potongan-nip" value="">
-                </div>
-                <div class="field readonly-field">
-                  <span>Nama</span>
-                  <strong id="potongan-nama">—</strong>
-                </div>
-                <div class="field readonly-field">
-                  <span>Pangkat / Golongan</span>
-                  <strong id="potongan-pangkat">—</strong>
-                </div>
-                <div class="field readonly-field">
-                  <span>Total potongan internal</span>
-                  <strong id="potongan-total-internal">Rp 0</strong>
-                </div>
-              </div>
-            </section>
-
             <div class="tabs-shell" id="potongan-tabs">
               <menu role="tablist" aria-label="Manajemen Potongan">
                 <button type="button" role="tab" id="tab-btn-rekap-bulanan" data-tab="rekap-bulanan"
@@ -930,11 +899,6 @@
                         aria-selected="false" aria-controls="tab-panel-berjangka" tabindex="-1">
                   <svg class="icon"><use href="#icon-calendar"></use></svg>
                   Potongan Berjangka
-                </button>
-                <button type="button" role="tab" id="tab-btn-input-bulanan" data-tab="input-bulanan"
-                        aria-selected="false" aria-controls="tab-panel-input-bulanan" tabindex="-1">
-                  <svg class="icon"><use href="#icon-edit"></use></svg>
-                  Input Cepat Perorangan
                 </button>
               </menu>
 
@@ -1058,12 +1022,112 @@
                   <div><span>Format progres</span><strong>“Cicilan 14 dari 36”</strong></div>
                 </div>
               </div>
+            </div>
 
-              <!-- TAB 3: INPUT CEPAT PERORANGAN -->
-              <div role="tabpanel" id="tab-panel-input-bulanan" aria-labelledby="tab-btn-input-bulanan" hidden>
-                <form id="form-bulanan" novalidate>
-                  <div class="form-grid">
-                    <label class="field">
+            <div style="margin-top: 14px;">
+              <aside class="panel">
+                <div class="panel-head"><div><h2>Panduan Singkat</h2><p class="panel-sub">Aturan potongan</p></div></div>
+                <div class="guide-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                  <div class="guide-item"><span class="guide-num">1</span><p><strong>Bulanan</strong> — import Excel berisi kolom <code>nip</code> dan <code>nominal</code>.</p></div>
+                  <div class="guide-item"><span class="guide-num">2</span><p><strong>Berjangka</strong> — mulai, tenor, dan periode akhir dihitung otomatis.</p></div>
+                  <div class="guide-item"><span class="guide-num">3</span><p><strong>Progres</strong> — realisasi menyimpan <code>cicilan_ke</code> seperti 14 dari 36.</p></div>
+                  <div class="guide-item"><span class="guide-num">4</span><p><strong>Presisi</strong> — semua nominal memakai <code>NUMERIC(15,2)</code>.</p></div>
+                  <div class="guide-item"><span class="guide-num">5</span><p><strong>Audit</strong> — pembuatan pos dan pinjaman dicatat di <code>audit_logs</code>.</p></div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ================= POTONGAN PER ASN ================= -->
+          <section class="view" id="view-potongan-asn" data-view="potongan-asn" hidden>
+            <header class="view-head">
+              <div>
+                <p class="eyebrow">Potongan Internal Pegawai</p>
+                <h1>Potongan per ASN</h1>
+                <p class="subtle">Kelola dan lihat rincian potongan bulanan serta pinjaman per pegawai ASN.</p>
+              </div>
+              <div class="head-actions">
+                <button type="button" class="default" data-open-modal="loan" title="Daftarkan pinjaman berjangka baru">
+                  <svg class="icon"><use href="#icon-plus"></use></svg>
+                  Pinjaman Baru
+                </button>
+                <button type="button" data-open-modal="pos" title="Kelola pos potongan OPD">
+                  <svg class="icon"><use href="#icon-receipt"></use></svg>
+                  Kelola Pos
+                </button>
+              </div>
+            </header>
+
+            <div class="info-strip">
+              <svg class="icon"><use href="#icon-info"></use></svg>
+              <span>Pilih pegawai ASN untuk melihat rincian potongan aktif dan menambahkan potongan perorangan periode berjalan.</span>
+            </div>
+
+            <!-- CARD PILIH PEGAWAI -->
+            <section class="panel employee-picker">
+              <div class="picker-grid">
+                <div class="field picker-search-field">
+                  <span>Pilih Pegawai (NIP / Nama)</span>
+                  <div class="picker-input-group">
+                    <div class="picker-combobox-wrap" id="potongan-combobox-wrap">
+                      <div class="search-box picker-search-box">
+                        <svg class="icon"><use href="#icon-search"></use></svg>
+                        <input type="search" id="potongan-search-input" placeholder="Cari NIP atau Nama ASN…" autocomplete="off" aria-label="Cari NIP atau Nama ASN">
+                        <button type="button" id="btn-potongan-clear" class="btn-input-clear" title="Hapus pencarian" aria-label="Hapus pencarian" hidden>&times;</button>
+                      </div>
+                      <div class="picker-dropdown" id="potongan-search-dropdown" hidden></div>
+                    </div>
+                    <button type="button" class="default btn-browse-employee" id="btn-browse-potongan-pegawai" title="Buka daftar pencarian seluruh pegawai">
+                      <svg class="icon"><use href="#icon-users"></use></svg>
+                      Cari…
+                    </button>
+                  </div>
+                  <input type="hidden" id="potongan-nip" value="">
+                </div>
+                <div class="field readonly-field">
+                  <span>Nama</span>
+                  <strong id="potongan-nama">—</strong>
+                </div>
+                <div class="field readonly-field">
+                  <span>Pangkat / Golongan</span>
+                  <strong id="potongan-pangkat">—</strong>
+                </div>
+                <div class="field readonly-field">
+                  <span>Total potongan internal</span>
+                  <strong id="potongan-total-internal">Rp 0</strong>
+                </div>
+              </div>
+            </section>
+
+            <div class="potongan-asn-grid">
+              <!-- CARD RINCIAN POTONGAN PEGAWAI -->
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Rincian Potongan Pegawai</h2>
+                    <p class="panel-sub" id="potongan-list-sub">—</p>
+                  </div>
+                  <span class="pill-soft" id="potongan-list-total">Rp 0</span>
+                </div>
+                <div class="deduction-list" id="potongan-list"></div>
+                <div class="empty-state compact" id="potongan-empty" hidden>
+                  <svg class="icon"><use href="#icon-receipt"></use></svg>
+                  <strong>Belum ada potongan internal</strong>
+                  <span>Tambahkan potongan bulanan atau pinjaman berjangka untuk pegawai ini.</span>
+                </div>
+              </section>
+
+              <!-- CARD FORM INPUT POTONGAN PEGAWAI -->
+              <section class="panel form-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Input Cepat Potongan ASN</h2>
+                    <p class="panel-sub">Simpan potongan bulanan untuk ASN terpilih</p>
+                  </div>
+                </div>
+                <form id="form-bulanan" novalidate style="padding: 10px 14px;">
+                  <div class="asn-form-grid">
+                    <label class="field col-span-2">
                       <span>Pos potongan</span>
                       <select id="bulanan-pos"></select>
                     </label>
@@ -1075,45 +1139,19 @@
                       <span>Periode</span>
                       <select id="bulanan-period"></select>
                     </label>
-                    <label class="field field-wide">
+                    <label class="field col-span-2">
                       <span>Keterangan <em>(opsional)</em></span>
                       <input type="text" id="bulanan-keterangan" placeholder="Contoh: iuran bulan Oktober" autocomplete="off">
                     </label>
                   </div>
-                  <p class="form-note">Input cepat ini menyimpan data potongan pegawai yang dipilih di pemilih pegawai di atas ke basis data.</p>
+                  <p class="form-note">Input potongan bulanan ini langsung tersimpan ke basis data untuk pegawai yang dipilih di atas.</p>
                   <p class="form-error" id="bulanan-error" hidden></p>
-                  <div class="form-actions">
+                  <div class="form-actions" style="margin-top: 10px;">
                     <button type="submit" class="default"><svg class="icon"><use href="#icon-plus"></use></svg> Simpan Potongan</button>
                     <button type="reset">Reset</button>
                   </div>
                 </form>
-              </div>
-            </div>
-
-            <div class="potongan-lower">
-              <section class="panel">
-                <div class="panel-head">
-                  <div><h2>Rincian Potongan Pegawai</h2><p class="panel-sub" id="potongan-list-sub">—</p></div>
-                  <span class="pill-soft" id="potongan-list-total">Rp 0</span>
-                </div>
-                <div class="deduction-list" id="potongan-list"></div>
-                <div class="empty-state compact" id="potongan-empty" hidden>
-                  <svg class="icon"><use href="#icon-receipt"></use></svg>
-                  <strong>Belum ada potongan internal</strong>
-                  <span>Tambahkan potongan bulanan atau berjangka.</span>
-                </div>
               </section>
-
-              <aside class="panel">
-                <div class="panel-head"><div><h2>Panduan Singkat</h2><p class="panel-sub">Aturan potongan</p></div></div>
-                <div class="guide-list">
-                  <div class="guide-item"><span class="guide-num">1</span><p><strong>Bulanan</strong> — import Excel berisi kolom <code>nip</code> dan <code>nominal</code>.</p></div>
-                  <div class="guide-item"><span class="guide-num">2</span><p><strong>Berjangka</strong> — mulai, tenor, dan periode akhir dihitung otomatis.</p></div>
-                  <div class="guide-item"><span class="guide-num">3</span><p><strong>Progres</strong> — realisasi menyimpan <code>cicilan_ke</code> seperti 14 dari 36.</p></div>
-                  <div class="guide-item"><span class="guide-num">4</span><p><strong>Presisi</strong> — semua nominal memakai <code>NUMERIC(15,2)</code>.</p></div>
-                  <div class="guide-item"><span class="guide-num">5</span><p><strong>Audit</strong> — pembuatan pos dan pinjaman dicatat di <code>audit_logs</code>.</p></div>
-                </div>
-              </aside>
             </div>
           </section>
 
@@ -1332,7 +1370,8 @@
       <div class="start-menu-list">
         <button type="button" data-view-link="dashboard"><svg class="icon"><use href="#icon-dashboard"></use></svg> Dashboard</button>
         <button type="button" data-view-link="master-gaji"><svg class="icon"><use href="#icon-file"></use></svg> Master Gaji</button>
-        <button type="button" data-view-link="potongan"><svg class="icon"><use href="#icon-receipt"></use></svg> Potongan</button>
+        <button type="button" data-view-link="potongan"><svg class="icon"><use href="#icon-receipt"></use></svg> Potongan Rekap</button>
+        <button type="button" data-view-link="potongan-asn"><svg class="icon"><use href="#icon-users"></use></svg> Potongan per ASN</button>
         <button type="button" data-view-link="print"><svg class="icon"><use href="#icon-printer"></use></svg> Cetak Slip</button>
         <button type="button" data-view-link="monitoring"><svg class="icon"><use href="#icon-activity"></use></svg> Monitoring Aktivitas</button>
         <div class="start-admin-group" id="start-admin-group" hidden>

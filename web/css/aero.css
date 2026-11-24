@@ -1613,6 +1613,37 @@ code {
   gap: 11px;
 }
 
+.potongan-asn-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 12px;
+}
+
+.asn-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.asn-form-grid .col-span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 1080px) {
+  .potongan-asn-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .asn-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .asn-form-grid .col-span-2 {
+    grid-column: span 1;
+  }
+}
+
 .deduction-list { display: flex; flex-direction: column; gap: 0; }
 
 .deduction-item {
