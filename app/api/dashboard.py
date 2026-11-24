@@ -12,9 +12,14 @@ from app.schemas import (
     DashboardPeriodRecap,
     DashboardSummaryResponse,
     DashboardTotals,
+    DashboardTrendItem,
 )
 from app.services.audit import extract_client_ip, write_audit
-from app.services.payroll_summary import load_payroll_period_recap, load_payroll_summary
+from app.services.payroll_summary import (
+    load_payroll_period_recap,
+    load_payroll_summary,
+    load_payroll_trend,
+)
 from app.services.periods import PeriodError, add_months, parse_period, period_str
 from app.services.tenancy import resolve_opd_filter
 
@@ -77,12 +82,14 @@ def get_dashboard_summary(
         filter_opd,
     )
     period_recap_data = load_payroll_period_recap(db, filter_opd)
+    trend_data = load_payroll_trend(db, filter_opd, limit=6)
     response = DashboardSummaryResponse(
         period=period_str(start_period),
         opd=filter_opd or "Semua OPD",
         employees=[DashboardEmployee(**row) for row in employee_rows],
         totals=DashboardTotals(**total_rows),
         period_recap=DashboardPeriodRecap(**period_recap_data),
+        trend=[DashboardTrendItem(**t) for t in trend_data],
     )
 
     write_audit(

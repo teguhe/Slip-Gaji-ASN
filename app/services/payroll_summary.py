@@ -171,3 +171,66 @@ def load_payroll_period_recap(
         "newest_period_label": format_period_label(newest),
         "available_periods": sorted_periods,
     }
+
+
+def load_payroll_trend(
+    db: Session,
+    opd_name: str | None = None,
+    limit: int = 6,
+) -> list[dict[str, Any]]:
+    """Mengembalikan data tren Take Home Pay per periode (maksimal limit periode terakhir, diurutkan kronologis ASC)."""
+    statement = (
+        select(
+            PayrollMonthly.tglgaji,
+            func.coalesce(func.sum(PayrollMonthly.kotor - PayrollMonthly.potongan), 0).label("thp_simgaji"),
+        )
+    )
+    if opd_name:
+        statement = statement.where(
+            func.lower(func.trim(PayrollMonthly.nmskpd)) == opd_name.strip().lower()
+        )
+    statement = (
+        statement.group_by(PayrollMonthly.tglgaji)
+        .order_by(PayrollMonthly.tglgaji.desc())
+        .limit(limit)
+    )
+    rows = db.execute(statement).all()
+    if not rows:
+        return []
+
+    sorted_rows = sorted(rows, key=lambda r: r.tglgaji)
+    dates = [r.tglgaji for r in sorted_rows]
+
+    internal_statement = (
+        select(
+            PayrollPotonganItem.period,
+            func.coalesce(func.sum(PayrollPotonganItem.nominal), 0).label("total_internal"),
+        )
+        .where(PayrollPotonganItem.period.in_(dates))
+    )
+    if opd_name:
+        internal_statement = internal_statement.join(
+            PayrollMonthly,
+            (PayrollMonthly.nip == PayrollPotonganItem.nip)
+            & (PayrollMonthly.tglgaji == PayrollPotonganItem.period),
+        ).where(
+            func.lower(func.trim(PayrollMonthly.nmskpd)) == opd_name.strip().lower()
+        )
+    internal_statement = internal_statement.group_by(PayrollPotonganItem.period)
+    internal_rows = db.execute(internal_statement).all()
+    internal_map = {r.period: Decimal(str(r.total_internal)) for r in internal_rows}
+
+    trend: list[dict[str, Any]] = []
+    for r in sorted_rows:
+        p_str = period_str(r.tglgaji)
+        thp_simgaji = Decimal(str(r.thp_simgaji))
+        pot_internal = internal_map.get(r.tglgaji, ZERO)
+        thp_final = max(ZERO, thp_simgaji - pot_internal)
+        trend.append(
+            {
+                "period": p_str,
+                "period_label": format_period_label(p_str),
+                "value": thp_final,
+            }
+        )
+    return trend

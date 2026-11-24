@@ -417,9 +417,27 @@
   }
 
   function renderDashboard(totals) {
+    updateDashboardGreeting();
     renderChart(totals);
     renderComposition(totals);
     renderPeriodRecap();
+  }
+
+  function updateDashboardGreeting() {
+    const nameEl = $('#dashboard-admin-name');
+    const metaEl = $('#dashboard-admin-meta');
+    if (!nameEl) return;
+    const name = state.profile?.display_name || state.profile?.nama_bendahara || state.profile?.email || 'Admin Bendahara';
+    nameEl.textContent = name;
+    if (metaEl) {
+      if (state.profile?.role === 'super_admin') {
+        metaEl.textContent = 'Super Administrator • Akses Seluruh OPD';
+      } else {
+        const opd = state.profile?.opd_name || state.opd || 'Bendahara OPD';
+        const jab = state.profile?.jabatan || 'Bendahara Pengeluaran';
+        metaEl.textContent = `${jab} • ${opd}`;
+      }
+    }
   }
 
   function renderPeriodRecap() {
@@ -437,16 +455,24 @@
     const container = $('#chart-bars');
     if (!container) return;
 
-    const values = state.trend.map((entry, index) => {
-      if (state.mode === 'api') {
-        return { ...entry, value: totals.thp * (0.91 + index * 0.017) };
-      }
-      return entry;
-    });
-    const maxValue = Math.max(
-      1,
-      ...values.map((entry) => Number(entry.value) || 0),
-    );
+    let items = (state.trend && state.trend.length > 0)
+      ? state.trend
+      : (totals && totals.thp > 0
+          ? [{ period: state.period, period_label: periodLabel(state.period), value: totals.thp }]
+          : []);
+
+    if (items.length === 0) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#8fa7b8;font-size:12px;font-style:italic;">Belum ada arsip data gaji untuk menampilkan tren.</div>';
+      return;
+    }
+
+    const values = items.map((entry) => ({
+      period: entry.period,
+      period_label: entry.period_label || periodLabel(entry.period),
+      value: Number(entry.value) || 0,
+    }));
+
+    const maxValue = Math.max(1, ...values.map((entry) => entry.value));
     const axisMax = Math.max(10_000_000, Math.ceil(maxValue / 10_000_000) * 10_000_000);
 
     const labels = $$('.chart-y span');
@@ -457,16 +483,36 @@
       labels[3].textContent = 'Rp 0';
     }
 
+    const captionNode = $('#chart-caption');
+    if (captionNode) {
+      if (values.length > 0) {
+        const first = values[0].period.slice(0, 4);
+        const last = values[values.length - 1].period.slice(0, 4);
+        captionNode.textContent = first === last ? first : `${first}–${last}`;
+      } else {
+        captionNode.textContent = new Date().getFullYear().toString();
+      }
+    }
+
     container.innerHTML = values.map((entry) => {
-      const value = Number(entry.value) || 0;
+      const value = entry.value;
       const height = Math.max(4, Math.min(100, (value / axisMax) * 100));
       const active = entry.period === state.period;
       return `
-        <div class="chart-bar${active ? ' active' : ''}" title="${escapeHtml(periodLabel(entry.period))}: ${escapeHtml(formatRupiah(value, 0))}">
+        <div class="chart-bar${active ? ' active' : ''}" data-period="${escapeHtml(entry.period)}" style="cursor:pointer;" title="${escapeHtml(entry.period_label)}: ${escapeHtml(formatRupiah(value, 0))}">
           <span class="chart-bar-fill" style="--h:${height.toFixed(2)}%"></span>
           <span class="chart-bar-label">${escapeHtml(periodShort(entry.period))}</span>
         </div>`;
     }).join('');
+
+    container.querySelectorAll('.chart-bar').forEach((bar) => {
+      bar.addEventListener('click', () => {
+        const p = bar.getAttribute('data-period');
+        if (p && p !== state.period) {
+          setPeriod(p);
+        }
+      });
+    });
   }
 
   function renderComposition(totals) {
@@ -1511,6 +1557,8 @@
     // Multi-tenant lock banner for users without assigned OPD
     const lockBanner = $('#tenant-locked-banner');
     if (lockBanner) lockBanner.hidden = !isLocked;
+
+    updateDashboardGreeting();
 
     // Signature settings in signature modal
     const sigJab = profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
@@ -4728,11 +4776,14 @@
 
         if (body.is_opd_match) {
           if (opdStatus) {
-            opdStatus.className = 'status-pill';
-            opdStatus.textContent = 'Cocok';
+            opdStatus.className = 'status-pill' + (body.warning ? ' warn' : '');
+            opdStatus.textContent = body.warning ? 'Sesuai (Multi-OPD)' : 'Cocok';
           }
-          setProgress(0, `File siap diimpor untuk Periode ${body.period_label}.`, `${body.total_rows} baris data terdeteksi. Klik “Mulai Import” untuk memproses.`);
+          const hint = body.warning || `${body.total_rows} baris data terdeteksi. Klik “Mulai Import” untuk memproses.`;
+          setProgress(0, `File siap diimpor untuk Periode ${body.period_label}.`, hint);
           if (importButton) importButton.disabled = false;
+          const errorBox = $('#import-error');
+          if (errorBox) errorBox.hidden = true;
         } else {
           if (opdStatus) {
             opdStatus.className = 'status-pill error';
@@ -5324,6 +5375,10 @@
         state.availablePeriods = data.period_recap.available_periods;
       }
       buildPeriodSelects();
+    }
+
+    if (Array.isArray(data.trend)) {
+      state.trend = data.trend;
     }
 
     storageSet('simgaji.mode', 'api', localStorage);

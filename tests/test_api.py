@@ -484,6 +484,7 @@ def test_get_payroll_includes_rincian_penyesuaian(
 def test_endpoint_inspect_excel(api_app, db_session, seeded, bendahara_profile):
     api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
     with TestClient(api_app) as client:
+        # 1. Single OPD matching
         res = client.post(
             "/api/v1/payroll/inspect-excel",
             files={"file": ("simgaji.xlsx", make_excel([make_row(tglgaji=date(2026, 10, 1))]), EXCEL_MIME)},
@@ -495,6 +496,33 @@ def test_endpoint_inspect_excel(api_app, db_session, seeded, bendahara_profile):
         assert "Oktober 2026" in data["period_label"]
         assert data["opd"] == seeded.opd_name
         assert data["is_opd_match"] is True
+
+        # 2. Multi-OPD file: contains another OPD first, but also contains user's OPD
+        row_other = make_row(tglgaji=date(2026, 10, 1), nmskpd="BADAN KEPEGAWAIAN DAN PENGEMBANGAN SDM", nip="199001012015011001")
+        row_user = make_row(tglgaji=date(2026, 10, 1), nmskpd=seeded.opd_name, nip="199001012015011002")
+        multi_content = make_excel([row_other, row_user])
+        res_multi = client.post(
+            "/api/v1/payroll/inspect-excel",
+            files={"file": ("multi_opd.xlsx", multi_content, EXCEL_MIME)},
+        )
+        assert res_multi.status_code == 200, res_multi.text
+        data_multi = res_multi.json()
+        assert data_multi["status"] == "success"
+        assert data_multi["is_opd_match"] is True
+        assert data_multi["opd"] == seeded.opd_name
+        assert "baris data OPD lain akan dilewati" in (data_multi["warning"] or "")
+
+        # 3. File with completely different OPD
+        diff_content = make_excel([row_other])
+        res_diff = client.post(
+            "/api/v1/payroll/inspect-excel",
+            files={"file": ("diff_opd.xlsx", diff_content, EXCEL_MIME)},
+        )
+        assert res_diff.status_code == 200, res_diff.text
+        data_diff = res_diff.json()
+        assert data_diff["status"] == "success"
+        assert data_diff["is_opd_match"] is False
+        assert "Tidak ditemukan data ASN untuk OPD akun Anda" in (data_diff["warning"] or "")
 
 
 def test_endpoint_available_periods_and_dashboard_recap(api_app, db_session, seeded, bendahara_profile):
@@ -536,6 +564,13 @@ def test_endpoint_available_periods_and_dashboard_recap(api_app, db_session, see
         assert recap["total_months"] == 2
         assert recap["oldest_period"] == "2025-01"
         assert recap["newest_period"] == "2026-10"
+
+        # Verify trend
+        assert "trend" in dash_data
+        assert len(dash_data["trend"]) == 2
+        assert dash_data["trend"][0]["period"] == "2025-01"
+        assert dash_data["trend"][1]["period"] == "2026-10"
+        assert Decimal(str(dash_data["trend"][1]["value"])) > Decimal("0")
 
 
 def test_audit_log_captures_client_ip_from_headers(api_app, db_session, seeded, bendahara_profile):

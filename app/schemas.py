@@ -123,12 +123,19 @@ class InspectExcelResponse(BaseModel):
     warning: str | None = None
 
 
+class DashboardTrendItem(BaseModel):
+    period: str
+    period_label: str
+    value: Decimal
+
+
 class DashboardSummaryResponse(BaseModel):
     period: str
     opd: str
     employees: list[DashboardEmployee]
     totals: DashboardTotals
     period_recap: DashboardPeriodRecap | None = None
+    trend: list[DashboardTrendItem] = Field(default_factory=list)
 
 
 

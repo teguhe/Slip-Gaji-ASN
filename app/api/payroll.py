@@ -30,6 +30,7 @@ from app.schemas import (
     DashboardPeriodRecap,
     DashboardSummaryResponse,
     DashboardTotals,
+    DashboardTrendItem,
     ImportExcelResponse,
     InspectExcelResponse,
     MasterGajiPayrollRow,
@@ -44,6 +45,7 @@ from app.services.payroll_summary import (
     format_period_label,
     load_payroll_period_recap,
     load_payroll_summary,
+    load_payroll_trend,
 )
 from app.services.periods import PeriodError, add_months, parse_period, period_str
 from app.services.simgaji_import import (
@@ -217,20 +219,45 @@ def inspect_excel(
     opd_vals = [
         str(v).strip() for v in df["nmskpd"].dropna().unique() if str(v).strip()
     ]
-    file_opd = opd_vals[0] if opd_vals else "—"
 
     is_match = True
     warning = None
     if current_user.role != "super_admin":
         if not current_user.opd_name:
             is_match = False
+            file_opd = opd_vals[0] if opd_vals else "—"
             warning = "Profil OPD akun login Anda belum diatur oleh Super Admin."
         else:
             user_opd_norm = normalize_opd_name(current_user.opd_name)
-            file_opd_norm = normalize_opd_name(file_opd)
-            is_match = (user_opd_norm == file_opd_norm)
-            if not is_match:
-                warning = f"OPD file ({file_opd}) tidak cocok dengan OPD akun Anda ({current_user.opd_name})."
+            matching_rows_mask = df["nmskpd"].map(normalize_opd_name) == user_opd_norm
+            matching_count = int(matching_rows_mask.sum())
+            if matching_count > 0:
+                is_match = True
+                matching_opds = [opd for opd in opd_vals if normalize_opd_name(opd) == user_opd_norm]
+                file_opd = matching_opds[0] if matching_opds else current_user.opd_name
+                if len(opd_vals) > 1:
+                    skipped_rows = len(df) - matching_count
+                    warning = (
+                        f"File memuat {len(opd_vals)} OPD. Ditemukan {matching_count} baris data ASN untuk OPD Anda ({file_opd}). "
+                        f"{skipped_rows} baris data OPD lain akan dilewati secara otomatis saat import."
+                    )
+            else:
+                is_match = False
+                file_opd = opd_vals[0] if opd_vals else "—"
+                daftar_opd = ", ".join(opd_vals[:3])
+                if len(opd_vals) > 3:
+                    daftar_opd += f" (+{len(opd_vals) - 3} lainnya)"
+                warning = (
+                    f"Tidak ditemukan data ASN untuk OPD akun Anda ({current_user.opd_name}) dalam file ini. "
+                    f"OPD terdeteksi pada file: {daftar_opd}."
+                )
+    else:
+        # Super admin
+        if len(opd_vals) > 1:
+            file_opd = f"Multi OPD ({len(opd_vals)} OPD terdeteksi)"
+            warning = f"File memuat {len(opd_vals)} OPD berbeda. Seluruh {len(df)} baris data akan diproses untuk Super Admin."
+        else:
+            file_opd = opd_vals[0] if opd_vals else "—"
 
     return InspectExcelResponse(
         status="success",
@@ -316,11 +343,15 @@ def get_opd_payroll_summary(
         add_months(start_period, 1),
         filter_opd,
     )
+    period_recap_data = load_payroll_period_recap(db, filter_opd)
+    trend_data = load_payroll_trend(db, filter_opd, limit=6)
     response = DashboardSummaryResponse(
         period=period_str(start_period),
         opd=filter_opd or "Semua OPD",
         employees=[DashboardEmployee(**row) for row in employee_rows],
         totals=DashboardTotals(**total_rows),
+        period_recap=DashboardPeriodRecap(**period_recap_data),
+        trend=[DashboardTrendItem(**t) for t in trend_data],
     )
 
     write_audit(
