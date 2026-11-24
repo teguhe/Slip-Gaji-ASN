@@ -3353,13 +3353,9 @@
     if (baseInternal > 0) internalRows.push(['Potongan Internal', baseInternal]);
 
     const items = employee.internalPotongan || [];
-    items.slice(0, 4).forEach((item) => {
+    items.forEach((item) => {
       internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
     });
-    if (items.length > 4) {
-      const rest = items.slice(4).reduce((sum, item) => sum + (Number(item.nominal) || 0), 0);
-      internalRows.push([`Lainnya (+${items.length - 4})`, rest]);
-    }
     if (!internalRows.length) {
       internalRows.push([
         Number(employee.potonganInternal) > 0 ? 'Potongan Internal' : 'Tidak ada potongan',
