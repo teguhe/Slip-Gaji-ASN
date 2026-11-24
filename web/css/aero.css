@@ -559,7 +559,7 @@ code {
 
 .paper-mini span {
   display: block;
-  width: 14px;
+  width: 9px;
   height: 100%;
   background: #eaf3fa;
   border: 1px dashed #9fc4de;
@@ -1832,7 +1832,7 @@ code {
   width: 330mm;
   height: 215mm;
   min-height: 215mm;
-  padding: 6mm 8mm;
+  padding: 6mm;
   box-sizing: border-box;
   color: #111;
   background: #fff;
@@ -1841,8 +1841,7 @@ code {
   transform-origin: top center;
   transition: zoom 120ms ease;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8mm;
+  grid-template-columns: 1fr 12mm 1fr 12mm 1fr;
 }
 
 .paper-label {
@@ -1851,13 +1850,44 @@ code {
 
 .print-page .paper-label { display: none; }
 
+.cut-separator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 12mm;
+  box-sizing: border-box;
+}
+
+.cut-separator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  border-left: 1px dashed #777;
+  transform: translateX(-50%);
+}
+
+.cut-scissors {
+  position: relative;
+  z-index: 2;
+  background: #fff;
+  padding: 3px 1px;
+  font-size: 11px;
+  color: #333;
+  line-height: 1;
+  user-select: none;
+}
+
 .slip {
   position: relative;
   height: 100%;
-  padding: 3.5mm;
+  padding: 1.5mm 0;
   box-sizing: border-box;
   overflow: hidden;
-  border: 1px dashed #9aa8b2;
   break-inside: avoid;
   page-break-inside: avoid;
   display: flex;
@@ -1956,6 +1986,25 @@ code {
 .slip-bio span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slip-bio b { font-weight: 700; }
 
+.slip-calc-block {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5mm 0;
+  border-top: 1px solid #c4ccd2;
+  margin-bottom: 1.5mm;
+}
+
+.slip-section-title {
+  margin-bottom: 0.6mm;
+  padding-bottom: 0.4mm;
+  color: #27343c;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-bottom: 0.5px solid #b8c2c9;
+  text-transform: uppercase;
+}
+
 .slip-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1999,6 +2048,14 @@ code {
   border-top: 0.5px dashed #aab5bd;
 }
 
+.slip-row.total.highlight {
+  color: #0b5b31;
+  border-top: 0.5px solid #79b08f;
+  border-bottom: 0.5px solid #79b08f;
+  padding: 0.6mm 0;
+  margin: 0.5mm 0;
+}
+
 .slip-row.total span:first-child { font-size: 6.8pt; }
 
 .slip-foot {
@@ -2028,9 +2085,9 @@ code {
 }
 
 .slip-sign-box {
-  width: 70mm;
+  width: 58mm;
   text-align: center;
-  font-size: 7.8pt;
+  font-size: 7.2pt;
   color: #1e2a32;
 }
 
@@ -2546,15 +2603,14 @@ code {
   #print-root .print-page {
     width: 330mm;
     height: 215mm;
-    padding: 6mm 8mm;
+    padding: 6mm;
     box-sizing: border-box;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
     background: #fff;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8mm;
+    grid-template-columns: 1fr 12mm 1fr 12mm 1fr;
   }
 
   #print-root .print-page:last-child {
@@ -2564,13 +2620,23 @@ code {
 
   #print-root .slip {
     height: 100%;
-    padding: 3.5mm;
+    padding: 1.5mm 0;
     box-sizing: border-box;
-    border: 1px dashed #9aa8b2;
     page-break-inside: avoid;
     break-inside: avoid;
     display: flex;
     flex-direction: column;
+  }
+
+  #print-root .cut-separator::before {
+    border-left: 1px dashed #555 !important;
+  }
+
+  #print-root .cut-scissors {
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   #print-root .slip-foot { background: #f2f5f7 !important; }

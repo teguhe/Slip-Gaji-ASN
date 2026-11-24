@@ -3218,13 +3218,24 @@
     applyPrintZoom(String(next));
   }
 
+  function renderPageSlots(pageEmployees, baseIndex) {
+    const slots = [];
+    pageEmployees.forEach((employee, idx) => {
+      if (idx > 0) {
+        slots.push('<div class="cut-separator"><span class="cut-scissors">✂</span></div>');
+      }
+      slots.push(renderSlip(employee, baseIndex + idx));
+    });
+    return slots.join('');
+  }
+
   function renderPrintPreview() {
     const preview = $('#preview-pages');
     const printRoot = $('#print-root');
     if (!preview || !printRoot) return;
 
     const employees = getPrintEmployees();
-    const pages = chunk(employees, 2);
+    const pages = chunk(employees, 3);
 
     if (!employees.length) {
       preview.innerHTML = `
@@ -3237,13 +3248,13 @@
     } else {
       preview.innerHTML = pages.map((page, pageIndex) => `
         <section class="paper">
-          ${page.map((employee, index) => renderSlip(employee, pageIndex * 2 + index)).join('')}
+          ${renderPageSlots(page, pageIndex * 3)}
         </section>`).join('') + `
         <div class="print-help">Pratinjau diperkecil. Klik <strong>Cetak</strong> untuk output F4 Landscape 330 × 215 mm.</div>`;
 
-      printRoot.innerHTML = pages.map((page) => `
+      printRoot.innerHTML = pages.map((page, pageIndex) => `
         <div class="print-page">
-          ${page.map((employee, index) => renderSlip(employee, index)).join('')}
+          ${renderPageSlots(page, pageIndex * 3)}
         </div>`).join('');
     }
 
@@ -3256,7 +3267,7 @@
         : '0 pegawai • 0 halaman';
     }
     const pageCount = $('#print-page-count');
-    if (pageCount) pageCount.textContent = '2 slip / halaman (kiri - kanan)';
+    if (pageCount) pageCount.textContent = '3 slip / halaman (F4 Landscape)';
 
     const useSelected = $('#print-use-selected');
     if (useSelected) useSelected.checked = state.printUseSelected;
@@ -3370,19 +3381,16 @@
             <div class="slip-meta-row"><span class="meta-lbl">No. Rekening</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.norek || '—')}</span></div>
           </div>
         </div>
-        <div class="slip-grid">
-          <div class="slip-col">
-            <div class="slip-col-title">PENGHASILAN</div>
-            ${slipRows(incomeRows)}
-            <div class="slip-row total"><span>Penghasilan Kotor</span><span>${formatAmount(kotor)}</span></div>
-            <div class="slip-row"><span>Potongan SIMGAJI</span><span>${formatAmount(simgaji)}</span></div>
-            <div class="slip-row total"><span>Gaji Bersih</span><span>${formatAmount(gajiBersih)}</span></div>
-          </div>
-          <div class="slip-col">
-            <div class="slip-col-title">POTONGAN LAINNYA</div>
-            ${slipRows(internalRows)}
-            <div class="slip-row total"><span>Total Potongan</span><span>${formatAmount(employee.potonganInternal)}</span></div>
-          </div>
+        <div class="slip-calc-block">
+          <div class="slip-section-title">PENGHASILAN</div>
+          ${slipRows(incomeRows)}
+          <div class="slip-row total"><span>Penghasilan Kotor</span><span>${formatAmount(kotor)}</span></div>
+          <div class="slip-row"><span>Potongan SIMGAJI</span><span>${formatAmount(simgaji)}</span></div>
+          <div class="slip-row total highlight"><span>Gaji Bersih</span><span>${formatAmount(gajiBersih)}</span></div>
+
+          <div class="slip-section-title" style="margin-top: 1.5mm;">POTONGAN LAINNYA</div>
+          ${slipRows(internalRows)}
+          <div class="slip-row total"><span>Total Potongan</span><span>${formatAmount(employee.potonganInternal)}</span></div>
         </div>
         <div class="slip-foot">
           <span class="net">DITERIMA BERSIH: <strong>Rp ${formatAmount(employee.thp)}</strong></span>
