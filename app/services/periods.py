@@ -13,7 +13,7 @@ class PeriodError(ValueError):
 
 
 def parse_period(value: str) -> date:
-    """Ubah ``YYYY-MM`` menjadi tanggal hari pertama bulan tersebut."""
+    """Ubah ``YYYY-MM`` menjadi tanggal hari pertama bulan atau tanggal periode khusus (13=Gaji 13, 14=Gaji THR)."""
 
     match = PERIOD_PATTERN.fullmatch(str(value or "").strip())
     if not match:
@@ -21,17 +21,32 @@ def parse_period(value: str) -> date:
     year, month = int(match.group(1)), int(match.group(2))
     if not 1900 <= year <= 2100:
         raise PeriodError("Tahun periode di luar rentang yang didukung.")
-    if not 1 <= month <= 12:
-        raise PeriodError("Bulan periode harus antara 01 dan 12.")
+    if not 1 <= month <= 14:
+        raise PeriodError("Bulan periode harus antara 01 dan 14 (13=Gaji 13, 14=Gaji THR).")
+    if month == 13:
+        return date(year, 12, 13)
+    if month == 14:
+        return date(year, 12, 14)
     return date(year, month, 1)
 
 
 def period_str(value: date) -> str:
+    if value.month == 12 and value.day == 13:
+        return f"{value.year:04d}-13"
+    if value.month == 12 and value.day == 14:
+        return f"{value.year:04d}-14"
     return f"{value.year:04d}-{value.month:02d}"
 
 
 def add_months(value: date, months: int) -> date:
-    """Tambah sejumlah bulan, selalu mengembalikan hari pertama bulan."""
+    """Tambah sejumlah bulan, selalu mengembalikan hari pertama bulan/batas periode berikutnya."""
+    if value.month == 12 and value.day == 13:
+        return date(value.year, 12, 14)
+    if value.month == 12 and value.day == 14:
+        return date(value.year, 12, 15)
+    if value.month == 12 and value.day == 1 and months == 1:
+        # Menjaga Desember reguler agar tidak mencakup Gaji 13 (hari ke-13)
+        return date(value.year, 12, 13)
 
     total = (value.year * 12 + (value.month - 1)) + int(months)
     year, month_index = divmod(total, 12)

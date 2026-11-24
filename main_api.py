@@ -71,3 +71,16 @@ def root():
         "version": "1.0.0",
         "docs": "/docs",
     }
+
+
+@app.get("/template_slip_f4.html", include_in_schema=False)
+def template_slip():
+    """Sajikan berkas template cetak F4 untuk popup pencetakan slip."""
+
+    template_file = Path(__file__).resolve().parent / "template_slip_f4.html"
+    if template_file.is_file():
+        return FileResponse(template_file)
+    template_in_web = WEB_DIR / "template_slip_f4.html"
+    if template_in_web.is_file():
+        return FileResponse(template_in_web)
+    raise HTTPException(status_code=404, detail="Template slip tidak ditemukan.")

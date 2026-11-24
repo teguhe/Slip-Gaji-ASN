@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: 330mm 215mm; margin: 0; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 10px; margin: 0; background: #fff; }
+        .sheet {
+            width: 330mm;
+            height: 215mm;
+            padding: 6mm;
+            display: grid;
+            grid-template-columns: 1fr 12mm 1fr 12mm 1fr;
+            page-break-after: always;
+            break-after: page;
+            box-sizing: border-box;
+            background: #fff;
+        }
+        .sheet:last-child {
+            page-break-after: auto;
+            break-after: auto;
+        }
+        .slip-container {
+            height: 100%;
+            padding: 1.5mm 0;
+            box-sizing: border-box;
+            page-break-inside: avoid;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .slip-container.slip-empty {
+            visibility: hidden;
+            border: none;
+        }
+        .cut-separator {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 12mm;
+            box-sizing: border-box;
+        }
+        .cut-separator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            border-left: 1px dashed #777;
+            transform: translateX(-50%);
+        }
+        .cut-scissors {
+            position: relative;
+            z-index: 2;
+            background: #fff;
+            padding: 3px 1px;
+            font-size: 11px;
+            color: #333;
+            line-height: 1;
+            user-select: none;
+        }
+        .header { border-bottom: 1px solid #000; padding-bottom: 1.2mm; margin-bottom: 1.5mm; }
+        .opd-title { font-weight: bold; font-size: 10px; text-transform: uppercase; margin-bottom: 1.2mm; }
+        .meta-list { display: grid; grid-template-columns: 70px 8px 1fr; row-gap: 1.2px; font-size: 8.5px; }
+        .slip-calc-block { display: flex; flex-direction: column; margin-bottom: 1.5mm; }
+        .col-title { font-weight: bold; font-size: 9px; border-bottom: 1px solid #aaa; padding-bottom: 0.8mm; margin-bottom: 0.8mm; text-transform: uppercase; }
+        .row { display: flex; justify-content: space-between; font-size: 8.5px; line-height: 1.3; }
+        .row.total { font-weight: bold; border-top: 1px dashed #aaa; margin-top: 1.5px; padding-top: 1.2px; }
+        .row.total.highlight { border-top: 1px solid #79b08f; border-bottom: 1px solid #79b08f; color: #0b5b31; padding: 1.2px 0; margin: 1.5px 0; }
+        .footer { font-weight: bold; border-top: 1px solid #79b08f; border-bottom: 1px solid #79b08f; color: #0b5b31; display: flex; justify-content: flex-end; padding: 1.2px 0; font-size: 9.5px; margin-top: 1.5px; margin-bottom: 1.5mm; }
+        .numeric { text-align: right; font-family: 'Courier New', monospace; font-weight: 600; }
+        .sign-block { display: flex; justify-content: flex-end; margin-top: 2.5mm; }
+        .sign-box { text-align: center; width: 58mm; font-size: 9px; }
+        .sign-date { font-size: 8.5px; margin-bottom: 1.2mm; white-space: nowrap; }
+        .sign-space { height: 14mm; }
+        .sign-name { font-weight: bold; }
+        .sign-nip { font-size: 8px; }
+    </style>
+</head>
+<body>
+    <div id="slip-root"></div>
+    <script>
+        const MONTH_NAMES = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
+        function formatPeriodLabel(p) {
+            if (!p) return '—';
+            const parts = String(p).split('-');
+            if (parts.length === 2) {
+                const y = parts[0];
+                const m = parseInt(parts[1], 10);
+                if (m === 13) return `Gaji 13 ${y}`;
+                if (m === 14) return `Gaji THR ${y}`;
+                if (m >= 1 && m <= 12) return `${MONTH_NAMES[m - 1]} ${y}`;
+            }
+            return p;
+        }
+        function formatRupiah(num) {
+            return (Number(num) || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        }
+        function renderSlips(dataList, period, signerInfo, posList) {
+            const root = document.getElementById('slip-root');
+            const signTitle = (signerInfo && signerInfo.jabatan ? signerInfo.jabatan : 'Bendahara Pengeluaran') + ',';
+            const signName = (signerInfo && signerInfo.nama_bendahara) ? signerInfo.nama_bendahara : '( ............................................................ )';
+            const signNip = (signerInfo && signerInfo.nip_bendahara) ? ('NIP. ' + signerInfo.nip_bendahara) : 'NIP. .........................................................';
+            const activePosList = (posList || []).filter(p => p.is_active !== false);
+
+            const pages = [];
+            for (let i = 0; i < dataList.length; i += 3) {
+                pages.push(dataList.slice(i, i + 3));
+            }
+
+            root.innerHTML = pages.map((pageData) => {
+                const slots = [];
+                for (let slotIdx = 0; slotIdx < 3; slotIdx++) {
+                    if (slotIdx > 0) {
+                        slots.push('<div class="cut-separator"><span class="cut-scissors">✂</span></div>');
+                    }
+                    const data = pageData[slotIdx];
+                    if (data) {
+                        const p = data.rincian_penghasilan || {};
+                        const kotor = Number(data.penghasilan_kotor) || 0;
+                        const simgaji = Number(data.potongan_simgaji) || 0;
+                        const gajiBersih = kotor - simgaji;
+                        const internal = Number(data.potongan_internal) || 0;
+                        const thp = Number(data.take_home_pay) || (gajiBersih - internal);
+
+                        let incomeRowsHtml = '';
+                        if (p.gapok) incomeRowsHtml += `<div class="row"><span>Gaji Pokok</span><span class="numeric">${formatRupiah(p.gapok)}</span></div>`;
+                        if (p.tjistri) incomeRowsHtml += `<div class="row"><span>Tj. Istri / Suami</span><span class="numeric">${formatRupiah(p.tjistri)}</span></div>`;
+                        if (p.tjanak) incomeRowsHtml += `<div class="row"><span>Tj. Anak</span><span class="numeric">${formatRupiah(p.tjanak)}</span></div>`;
+                        if (p.tjberas) incomeRowsHtml += `<div class="row"><span>Tj. Beras</span><span class="numeric">${formatRupiah(p.tjberas)}</span></div>`;
+                        if (p.tjaskes) incomeRowsHtml += `<div class="row"><span>Tj. Askes / Lainnya</span><span class="numeric">${formatRupiah(p.tjaskes)}</span></div>`;
+
+                        let internalHtml = '';
+                        const items = data.rincian_potongan_internal || [];
+                        if (activePosList.length) {
+                            const usedIndices = new Set();
+                            activePosList.forEach(pos => {
+                                const posName = pos.nama_pos || pos.nama || '';
+                                const idx = items.findIndex((it, i) => !usedIndices.has(i) && (
+                                    (posName && (
+                                        String(it.pos_nama || it.pos || '').trim().toLowerCase() === String(posName).trim().toLowerCase()
+                                    )) ||
+                                    (pos.id && (String(it.pos_id) === String(pos.id) || String(it.id) === String(pos.id)))
+                                ));
+                                if (idx >= 0) {
+                                    const it = items[idx];
+                                    usedIndices.add(idx);
+                                    const label = it.pos_nama || it.pos || posName;
+                                    let tag = '';
+                                    const cText = String(it.cicilan_info || it.info || '');
+                                    const cMatch = cText.match(/Cicilan\s+(\d+)\s+dari\s+(\d+)/i);
+                                    if (cMatch) {
+                                        tag = ` (${cMatch[1]}/${cMatch[2]})`;
+                                    } else if (cText && !cText.startsWith('Bulanan')) {
+                                        tag = ` (${cText})`;
+                                    }
+                                    internalHtml += `<div class="row"><span>${label}${tag}</span><span class="numeric">${formatRupiah(it.nominal)}</span></div>`;
+                                } else {
+                                    internalHtml += `<div class="row"><span>${posName}</span><span class="numeric">${formatRupiah(0)}</span></div>`;
+                                }
+                            });
+                            items.forEach((it, i) => {
+                                if (!usedIndices.has(i)) {
+                                    const label = it.pos_nama || it.pos || 'Potongan Lain';
+                                    let tag = '';
+                                    const cText = String(it.cicilan_info || it.info || '');
+                                    const cMatch = cText.match(/Cicilan\s+(\d+)\s+dari\s+(\d+)/i);
+                                    if (cMatch) {
+                                        tag = ` (${cMatch[1]}/${cMatch[2]})`;
+                                    } else if (cText && !cText.startsWith('Bulanan')) {
+                                        tag = ` (${cText})`;
+                                    }
+                                    internalHtml += `<div class="row"><span>${label}${tag}</span><span class="numeric">${formatRupiah(it.nominal)}</span></div>`;
+                                }
+                            });
+                        } else if (items.length) {
+                            internalHtml = items.map(i => {
+                                const label = i.pos_nama || i.pos || 'Potongan Lain';
+                                return `<div class="row"><span>${label}${i.cicilan_info ? ' ('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>`;
+                            }).join('');
+                        } else {
+                            internalHtml = `<div class="row"><span>Tidak ada potongan</span><span class="numeric">${formatRupiah(0)}</span></div>`;
+                        }
+
+                        slots.push(`
+                            <div class="slip-container">
+                                <div class="header">
+                                    <div class="opd-title">${(data.opd || '').toUpperCase()}</div>
+                                    <div class="meta-list">
+                                        <span>Periode</span><span>:</span><span>${formatPeriodLabel(period)}</span>
+                                        <span>NIP</span><span>:</span><span>${data.nip}</span>
+                                        <span>Nama</span><span>:</span><span>${data.nama}</span>
+                                        <span>Pangkat/Gol</span><span>:</span><span>${data.kdpangkat || data.pangkat || '-'}</span>
+                                        <span>No. Rekening</span><span>:</span><span>${data.norek || '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="slip-calc-block">
+                                    <div class="col-title">Penghasilan</div>
+                                    ${incomeRowsHtml}
+                                    <div class="row total"><span>Penghasilan Kotor</span><span class="numeric">${formatRupiah(kotor)}</span></div>
+                                    <div class="row"><span>Potongan SIMGAJI</span><span class="numeric">${formatRupiah(simgaji)}</span></div>
+                                    <div class="row total highlight"><span>Gaji Bersih</span><span class="numeric">${formatRupiah(gajiBersih)}</span></div>
+
+                                    <div class="col-title" style="margin-top: 1.5mm;">Potongan Lainnya</div>
+                                    ${internalHtml}
+                                    <div class="row total highlight"><span>Total Potongan</span><span class="numeric">${formatRupiah(internal)}</span></div>
+                                </div>
+                                <div class="footer">
+                                    <span>DITERIMA BERSIH: Rp ${formatRupiah(thp)}</span>
+                                </div>
+                                <div class="sign-block">
+                                    <div class="sign-box">
+                                        <div class="sign-date">Salatiga, .... ${formatPeriodLabel(period)}</div>
+                                        <div>${signTitle}</div>
+                                        <div class="sign-space"></div>
+                                        <div class="sign-name">${signName}</div>
+                                        <div class="sign-nip">${signNip}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                    } else {
+                        slots.push('<div class="slip-container slip-empty" aria-hidden="true"></div>');
+                    }
+                }
+                return `<div class="sheet">${slots.join('')}</div>`;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

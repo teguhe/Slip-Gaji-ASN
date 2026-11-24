@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import PayrollMonthly, PayrollPotonganItem
+from app.services.periods import period_str
 
 ZERO = Decimal("0.00")
 
@@ -103,6 +104,10 @@ MONTH_NAMES = [
 def format_period_label(period_str_val: str) -> str:
     parts = str(period_str_val or "").split("-")
     if len(parts) == 2:
+        if parts[1] == "13":
+            return f"Gaji 13 {parts[0]}"
+        if parts[1] == "14":
+            return f"Gaji THR {parts[0]}"
         try:
             m_idx = int(parts[1]) - 1
             if 0 <= m_idx < 12:
@@ -142,7 +147,7 @@ def load_payroll_period_recap(
             "available_periods": [],
         }
 
-    period_set = {f"{d.year:04d}-{d.month:02d}" for d in dates if d}
+    period_set = {period_str(d) for d in dates if d}
     sorted_periods = sorted(period_set)
     if not sorted_periods:
         return {

@@ -261,7 +261,7 @@ def test_get_payroll_rejects_invalid_period(api_app, bendahara_profile):
     )
     with TestClient(api_app) as client:
         response = client.get(
-            f"/api/v1/payroll/{NIP}", params={"period": "2026-13"}
+            f"/api/v1/payroll/{NIP}", params={"period": "2026-15"}
         )
     assert response.status_code == 422
 
@@ -522,4 +522,30 @@ def test_audit_log_captures_client_ip_from_headers(api_app, db_session, seeded, 
         )
         assert log is not None
         assert log.ip_address == "192.168.1.100"
+
+
+def test_special_periods_gaji_13_and_thr():
+    from app.services.periods import parse_period, period_str, add_months
+    from app.services.payroll_summary import format_period_label
+    import datetime
+
+    # Gaji 13
+    d13 = parse_period("2026-13")
+    assert d13 == datetime.date(2026, 12, 13)
+    assert period_str(d13) == "2026-13"
+    assert format_period_label("2026-13") == "Gaji 13 2026"
+    assert add_months(d13, 1) == datetime.date(2026, 12, 14)
+
+    # Gaji THR
+    d14 = parse_period("2026-14")
+    assert d14 == datetime.date(2026, 12, 14)
+    assert period_str(d14) == "2026-14"
+    assert format_period_label("2026-14") == "Gaji THR 2026"
+    assert add_months(d14, 1) == datetime.date(2026, 12, 15)
+
+    # Regular December does not collide
+    d12 = parse_period("2026-12")
+    assert d12 == datetime.date(2026, 12, 1)
+    assert add_months(d12, 1) == datetime.date(2026, 12, 13)
+
 

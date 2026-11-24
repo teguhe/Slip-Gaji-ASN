@@ -72,8 +72,9 @@
         .row.total.highlight { border-top: 1px solid #79b08f; border-bottom: 1px solid #79b08f; color: #0b5b31; padding: 1.2px 0; margin: 1.5px 0; }
         .footer { font-weight: bold; border-top: 1px solid #79b08f; border-bottom: 1px solid #79b08f; color: #0b5b31; display: flex; justify-content: flex-end; padding: 1.2px 0; font-size: 9.5px; margin-top: 1.5px; margin-bottom: 1.5mm; }
         .numeric { text-align: right; font-family: 'Courier New', monospace; font-weight: 600; }
-        .sign-block { display: flex; justify-content: flex-end; margin-top: auto; }
+        .sign-block { display: flex; justify-content: flex-end; margin-top: 2.5mm; }
         .sign-box { text-align: center; width: 58mm; font-size: 9px; }
+        .sign-date { font-size: 8.5px; margin-bottom: 1.2mm; white-space: nowrap; }
         .sign-space { height: 14mm; }
         .sign-name { font-weight: bold; }
         .sign-nip { font-size: 8px; }
@@ -82,6 +83,22 @@
 <body>
     <div id="slip-root"></div>
     <script>
+        const MONTH_NAMES = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
+        function formatPeriodLabel(p) {
+            if (!p) return '—';
+            const parts = String(p).split('-');
+            if (parts.length === 2) {
+                const y = parts[0];
+                const m = parseInt(parts[1], 10);
+                if (m === 13) return `Gaji 13 ${y}`;
+                if (m === 14) return `Gaji THR ${y}`;
+                if (m >= 1 && m <= 12) return `${MONTH_NAMES[m - 1]} ${y}`;
+            }
+            return p;
+        }
         function formatRupiah(num) {
             return (Number(num) || 0).toLocaleString('id-ID', {
                 minimumFractionDigits: 2,
@@ -179,7 +196,7 @@
                                 <div class="header">
                                     <div class="opd-title">${(data.opd || '').toUpperCase()}</div>
                                     <div class="meta-list">
-                                        <span>Periode</span><span>:</span><span>${period}</span>
+                                        <span>Periode</span><span>:</span><span>${formatPeriodLabel(period)}</span>
                                         <span>NIP</span><span>:</span><span>${data.nip}</span>
                                         <span>Nama</span><span>:</span><span>${data.nama}</span>
                                         <span>Pangkat/Gol</span><span>:</span><span>${data.kdpangkat || data.pangkat || '-'}</span>
@@ -202,6 +219,7 @@
                                 </div>
                                 <div class="sign-block">
                                     <div class="sign-box">
+                                        <div class="sign-date">Salatiga, .... ${formatPeriodLabel(period)}</div>
                                         <div>${signTitle}</div>
                                         <div class="sign-space"></div>
                                         <div class="sign-name">${signName}</div>

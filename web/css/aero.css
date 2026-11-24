@@ -564,6 +564,66 @@ code {
   background: #afffca;
 }
 
+.period-special-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #bfd3e2;
+}
+
+.special-period-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-width: 0 !important;
+  height: 26px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1e3d54;
+  background: #f0f7fc;
+  border: 1px solid #a8cde5;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+
+.special-period-btn::before,
+.special-period-btn::after {
+  display: none !important;
+}
+
+.special-period-btn:hover {
+  background: #d8edf9;
+  border-color: #5594be;
+  color: #0c3656;
+}
+
+.special-period-btn.is-active {
+  background: linear-gradient(180deg, #4da4e0, #2279b9) !important;
+  border-color: #145e94 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 3px rgba(10, 60, 110, 0.3);
+}
+
+.special-period-btn .has-data-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22a050;
+}
+
+.special-period-btn.is-active .has-data-dot {
+  background: #afffca;
+}
+
 .period-panel-foot {
   margin-top: 8px;
   padding-top: 6px;
@@ -2334,7 +2394,7 @@ code {
 .slip-sign {
   display: flex;
   justify-content: flex-end;
-  margin-top: auto;
+  margin-top: 2.5mm;
   padding-right: 4mm;
   padding-bottom: 1mm;
 }
@@ -2346,9 +2406,16 @@ code {
   color: #1e2a32;
 }
 
+.slip-sign-box .sign-date {
+  font-size: 7.2pt;
+  color: #1e2a32;
+  margin-bottom: 1.2mm;
+  white-space: nowrap;
+}
+
 .slip-sign-box .sign-title {
   font-weight: 600;
-  margin-bottom: 16mm;
+  margin-bottom: 14mm;
 }
 
 .slip-sign-box .sign-name {

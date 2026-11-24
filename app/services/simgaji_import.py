@@ -40,6 +40,7 @@ from app.constants import (
 from app.models import AuditLog, PayrollMonthly, RefOpd
 from app.services.audit import write_audit
 from app.services.berjangka import generate_for_periods
+from app.services.periods import parse_period, period_str
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +313,17 @@ def _parse_date(value: Any, row: int, errors: list[dict[str, Any]]) -> date | No
                 continue
 
         if parsed_date is None:
+            m_special = re.search(r"\b(13|14|thr)\b", text, re.IGNORECASE)
+            m_year = re.search(r"\b(19\d\d|20\d\d)\b", text)
+            if m_special and m_year:
+                sp_val = m_special.group(1).lower()
+                sp_year = int(m_year.group(1))
+                if sp_val == "13":
+                    parsed_date = date(sp_year, 12, 13)
+                elif sp_val in ("14", "thr"):
+                    parsed_date = date(sp_year, 12, 14)
+
+        if parsed_date is None:
             parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
             if not pd.isna(parsed):
                 parsed_date = parsed.date()
@@ -324,7 +336,10 @@ def _parse_date(value: Any, row: int, errors: list[dict[str, Any]]) -> date | No
         errors.append(_error(row, "tglgaji", "Tanggal gaji di luar rentang wajar."))
         return None
 
-    # Normalisasi ke hari pertama bulan agar seragam menjadi data periode bulanan (YYYY-MM-01)
+    # Normalisasi ke hari pertama bulan agar seragam menjadi data periode bulanan (YYYY-MM-01),
+    # atau tanggal periode khusus (12-13 untuk Gaji 13, 12-14 untuk Gaji THR).
+    if parsed_date.month == 12 and parsed_date.day in (13, 14):
+        return parsed_date
     return date(parsed_date.year, parsed_date.month, 1)
 
 
@@ -789,14 +804,14 @@ def import_simgaji_excel(
     if user.role != "super_admin":
         _assert_no_cross_opd_conflict(db, records, result_opd_name)
 
-    periods = sorted({f"{record['tglgaji']:%Y-%m}" for record in records})
+    periods = sorted({period_str(record['tglgaji']) for record in records})
     import_id = uuid.uuid4()
 
     try:
         inserted, updated = _upsert_payroll(db, records)
 
         # Realisasi otomatis cicilan berjangka untuk periode yang baru diproses.
-        period_dates = [date.fromisoformat(f"{period}-01") for period in periods]
+        period_dates = [parse_period(period) for period in periods]
         berjangka_counts = generate_for_periods(
             db,
             period_dates,

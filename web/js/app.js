@@ -38,7 +38,7 @@
     const now = new Date();
     const currentYear = now.getFullYear();
     for (let year = Math.min(2025, currentYear - 1); year <= Math.max(2027, currentYear + 1); year += 1) {
-      for (let month = 1; month <= 12; month += 1) {
+      for (let month = 1; month <= 14; month += 1) {
         out.push(`${year}-${String(month).padStart(2, '0')}`);
       }
     }
@@ -165,11 +165,15 @@
   function periodLabel(period) {
     if (!/^\d{4}-\d{2}$/.test(String(period))) return String(period || '—');
     const [year, month] = period.split('-').map(Number);
+    if (month === 13) return `Gaji 13 ${year}`;
+    if (month === 14) return `Gaji THR ${year}`;
     return `${MONTH_NAMES[month - 1] || month} ${year}`;
   }
 
   function periodShort(period) {
     const [, month] = String(period).split('-').map(Number);
+    if (month === 13) return 'G13';
+    if (month === 14) return 'THR';
     return MONTH_SHORT[month - 1] || period;
   }
 
@@ -183,7 +187,8 @@
 
   function addMonths(period, count) {
     const [year, month] = period.split('-').map(Number);
-    const date = new Date(year, month - 1 + Number(count), 1);
+    const m = Math.min(12, Math.max(1, month));
+    const date = new Date(year, m - 1 + Number(count), 1);
     return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
   }
 
@@ -787,12 +792,14 @@
   function periodShortLabel(period) {
     if (!/^\d{4}-\d{2}$/.test(String(period))) return String(period || '—');
     const [year, month] = period.split('-').map(Number);
+    if (month === 13) return `Gaji 13 ${year}`;
+    if (month === 14) return `THR ${year}`;
     return `${MONTH_SHORT[month - 1] || month} ${year}`;
   }
 
   function monthNumber(period) {
     const [year, month] = String(period).split('-').map(Number);
-    return (year * 12) + (month - 1);
+    return (year * 12) + (Math.min(12, month) - 1);
   }
 
   function loanProgressFor(loan, period) {
@@ -3467,6 +3474,7 @@
         </div>
         <div class="slip-sign">
           <div class="slip-sign-box">
+            <div class="sign-date">Salatiga, .... ${escapeHtml(periodLabel(state.period))}</div>
             <div class="sign-title">${signTitle}</div>
             <div class="sign-space"></div>
             <div class="sign-name">${signName}</div>
@@ -4515,6 +4523,7 @@
     if (yearDisplay) yearDisplay.textContent = String(pickerYear);
 
     const grid = $('#period-month-grid');
+    const specialGrid = $('#period-special-grid');
     if (!grid) return;
 
     const available = new Set(state.availablePeriods || []);
@@ -4533,6 +4542,27 @@
       `;
     }
     grid.innerHTML = html;
+
+    if (specialGrid) {
+      const p13 = `${pickerYear}-13`;
+      const p14 = `${pickerYear}-14`;
+      const is13Active = p13 === state.period;
+      const is14Active = p14 === state.period;
+      const hasData13 = available.has(p13);
+      const hasData14 = available.has(p14);
+
+      specialGrid.innerHTML = `
+        <button type="button" class="special-period-btn ${is13Active ? 'is-active' : ''}" data-period="${p13}" title="Gaji 13 ${pickerYear}${hasData13 ? ' (Ada Data)' : ''}">
+          <span>Gaji 13</span>
+          ${hasData13 ? '<span class="has-data-dot" title="Data tersedia"></span>' : ''}
+        </button>
+        <button type="button" class="special-period-btn ${is14Active ? 'is-active' : ''}" data-period="${p14}" title="Gaji THR ${pickerYear}${hasData14 ? ' (Ada Data)' : ''}">
+          <span>Gaji THR</span>
+          ${hasData14 ? '<span class="has-data-dot" title="Data tersedia"></span>' : ''}
+        </button>
+      `;
+    }
+
     updateToolbarPeriodUI();
   }
 
@@ -4643,8 +4673,8 @@
       });
     }
 
-    if (grid && panel && trigger) {
-      grid.addEventListener('click', (e) => {
+    if (panel && trigger) {
+      panel.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-period]');
         if (btn) {
           e.stopPropagation();
