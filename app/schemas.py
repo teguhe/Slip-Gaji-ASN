@@ -244,6 +244,54 @@ class PosBulananDetailResponse(BaseModel):
     items: list[PosBulananDetailItem]
 
 
+class PosBerjangkaRekapItem(BaseModel):
+    pos_id: int
+    nama_pos: str
+    kategori: str
+    is_active: bool
+    jumlah_pegawai: int
+    total_pinjaman: int
+    total_nominal: Decimal
+
+
+class RekapBerjangkaResponse(BaseModel):
+    period: str
+    opd_id: int
+    opd_nama: str
+    total_pos: int
+    total_pegawai: int
+    total_pinjaman: int
+    total_nominal: Decimal
+    items: list[PosBerjangkaRekapItem]
+
+
+class PosBerjangkaDetailItem(BaseModel):
+    id: str
+    nip: str
+    nama: str
+    nominal_per_bulan: Decimal
+    start_period: str
+    end_period: str
+    tenor_bulan: int
+    cicilan_ke: int | None = None
+    sisa_bulan: int = 0
+    status: str = "aktif"
+    progres_label: str = "—"
+    keterangan: str | None = None
+    created_at: datetime | None = None
+
+
+class PosBerjangkaDetailResponse(BaseModel):
+    pos_id: int
+    nama_pos: str
+    period: str
+    opd_nama: str
+    total_pegawai: int
+    total_pinjaman: int
+    total_nominal: Decimal
+    items: list[PosBerjangkaDetailItem]
+
+
 class AuthMeResponse(BaseModel):
     email: str
     display_name: str | None = None

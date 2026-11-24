@@ -84,6 +84,7 @@
     masterGajiFilter: '',
     penyesuaianList: [],
     rekapBulanan: null,
+    rekapBerjangka: null,
     potonganTab: 'rekap-bulanan',
     monitoringLogs: [],
     monitoringFilterAction: '',
@@ -336,6 +337,7 @@
     renderPotongan();
     renderPosTable();
     renderRekapBulanan();
+    renderRekapBerjangka();
     renderPrintPreview();
     updateProfileUI();
   }
@@ -1074,6 +1076,153 @@
       await loadPotonganReferenceData();
     } catch (err) {
       toast('Gagal menghapus', err.message, 'error');
+    }
+  }
+
+  async function loadRekapBulanan() {
+    if (state.mode !== 'api' || !state.token) return;
+    try {
+      const data = await apiRequest(`/api/v1/potongan/rekap-bulanan?period=${encodeURIComponent(state.period)}`);
+      state.rekapBulanan = data;
+      renderRekapBulanan();
+    } catch (err) {
+      console.warn('Gagal memuat rekap bulanan:', err);
+    }
+  }
+
+  function renderRekapBerjangka() {
+    const body = $('#rekap-berjangka-table-body');
+    if (!body) return;
+
+    const periodText = periodLabel(state.period);
+    const labelPeriod = $('#rekap-berjangka-period-label');
+    if (labelPeriod) labelPeriod.textContent = periodText;
+    const subPeriod = $('#rekap-berjangka-period-sub');
+    if (subPeriod) subPeriod.textContent = `Periode ${periodText}`;
+
+    const rekap = state.rekapBerjangka;
+    if (!rekap || !Array.isArray(rekap.items)) {
+      const berjangkaPos = state.posList.filter((p) => p.kategori === 'berjangka');
+      const totalPosEl = $('#rekap-berjangka-total-pos');
+      if (totalPosEl) totalPosEl.textContent = `${berjangkaPos.length} Pos`;
+      const totalPegawaiEl = $('#rekap-berjangka-total-pegawai');
+      if (totalPegawaiEl) totalPegawaiEl.textContent = `0 ASN`;
+      const totalNominalEl = $('#rekap-berjangka-total-nominal');
+      if (totalNominalEl) totalNominalEl.textContent = `Rp 0`;
+
+      body.innerHTML = berjangkaPos.map((pos) => `
+        <tr>
+          <td><strong>${escapeHtml(pos.nama_pos)}</strong></td>
+          <td><span class="status-pill info">berjangka</span></td>
+          <td style="text-align: center;"><span class="badge">0 ASN</span></td>
+          <td class="money-col mono">Rp 0</td>
+          <td style="text-align: center;">${pos.is_active ? '<span class="status-pill">Aktif</span>' : '<span class="status-pill error">Nonaktif</span>'}</td>
+          <td style="text-align: center;">
+            <div class="pos-rekap-actions">
+              <button type="button" class="pos-rekap-btn primary" data-open-pos-berjangka-detail="${escapeHtml(pos.id)}" data-pos-nama="${escapeHtml(pos.nama_pos)}" title="Lihat rincian pegawai dengan cicilan aktif">
+                Rincian
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      const empty = $('#rekap-berjangka-empty');
+      if (empty) empty.hidden = berjangkaPos.length > 0;
+      return;
+    }
+
+    const totalPosEl = $('#rekap-berjangka-total-pos');
+    if (totalPosEl) totalPosEl.textContent = `${rekap.total_pos || 0} Pos`;
+    const totalPegawaiEl = $('#rekap-berjangka-total-pegawai');
+    if (totalPegawaiEl) totalPegawaiEl.textContent = `${rekap.total_pegawai || 0} ASN`;
+    const totalNominalEl = $('#rekap-berjangka-total-nominal');
+    if (totalNominalEl) totalNominalEl.textContent = formatRupiah(rekap.total_nominal || 0, 0);
+
+    const items = rekap.items || [];
+    body.innerHTML = items.map((item) => `
+      <tr>
+        <td><strong>${escapeHtml(item.nama_pos)}</strong></td>
+        <td><span class="status-pill info">berjangka</span></td>
+        <td style="text-align: center;">
+          <span class="badge ${item.jumlah_pegawai > 0 ? 'tone-blue' : ''}">${item.jumlah_pegawai} ASN</span>
+        </td>
+        <td class="money-col mono"><strong>${formatRupiah(item.total_nominal, 0)}</strong></td>
+        <td style="text-align: center;">${item.is_active ? '<span class="status-pill">Aktif</span>' : '<span class="status-pill error">Nonaktif</span>'}</td>
+        <td style="text-align: center;">
+          <div class="pos-rekap-actions">
+            <button type="button" class="pos-rekap-btn primary" data-open-pos-berjangka-detail="${escapeHtml(item.pos_id)}" data-pos-nama="${escapeHtml(item.nama_pos)}" title="Lihat rincian pegawai dengan cicilan aktif">
+              Rincian (${item.jumlah_pegawai})
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    const empty = $('#rekap-berjangka-empty');
+    if (empty) empty.hidden = items.length > 0;
+  }
+
+  async function loadRekapBerjangka() {
+    if (state.mode !== 'api' || !state.token) return;
+    try {
+      const data = await apiRequest(`/api/v1/potongan/rekap-berjangka?period=${encodeURIComponent(state.period)}`);
+      state.rekapBerjangka = data;
+      renderRekapBerjangka();
+    } catch (err) {
+      console.warn('Gagal memuat rekap berjangka:', err);
+    }
+  }
+
+  async function openRekapBerjangkaDetail(posId, namaPos) {
+    const heading = $('#rekap-berjangka-detail-heading');
+    if (heading) heading.textContent = namaPos;
+    const meta = $('#rekap-berjangka-detail-meta');
+    if (meta) meta.textContent = `Memuat rincian pinjaman periode ${periodLabel(state.period)}...`;
+    const body = $('#rekap-berjangka-detail-table-body');
+    if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:12px; color:#688195;">Memuat data...</td></tr>';
+    const empty = $('#rekap-berjangka-detail-empty');
+    if (empty) empty.hidden = true;
+    const totalEl = $('#rekap-berjangka-detail-total');
+    if (totalEl) totalEl.textContent = 'Total: —';
+
+    openModal('rekap-berjangka-detail');
+
+    if (!state.token) return;
+
+    try {
+      const data = await apiRequest(`/api/v1/potongan/rekap-berjangka/${encodeURIComponent(posId)}?period=${encodeURIComponent(state.period)}`);
+      if (meta) meta.textContent = `${data.total_pegawai} Pegawai • ${data.total_pinjaman} Pinjaman Aktif • Periode ${periodLabel(state.period)}`;
+      if (totalEl) totalEl.textContent = `Total: ${formatRupiah(data.total_nominal, 0)}`;
+
+      const items = data.items || [];
+      if (!items.length) {
+        if (body) body.innerHTML = '';
+        if (empty) empty.hidden = false;
+        return;
+      }
+
+      if (body) {
+        body.innerHTML = items.map((item) => `
+          <tr>
+            <td class="mono">${escapeHtml(item.nip)}</td>
+            <td><strong>${escapeHtml(item.nama)}</strong></td>
+            <td class="money-col mono">${formatRupiah(item.nominal_per_bulan, 0)}</td>
+            <td style="text-align:center;">
+              <span class="badge ${item.status === 'aktif' ? 'tone-green' : 'tone-blue'}">${escapeHtml(item.progres_label)}</span>
+            </td>
+            <td style="text-align:center;">
+              <button type="button" class="pos-btn" data-jump-asn="${escapeHtml(item.nip)}" title="Buka di Potongan per ASN">
+                Lihat ASN
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+      if (empty) empty.hidden = true;
+    } catch (err) {
+      if (meta) meta.textContent = `Gagal memuat: ${err.message}`;
+      toast('Gagal memuat detail berjangka', err.message, 'error');
     }
   }
 
@@ -2518,17 +2667,22 @@
 
     try {
       const query = new URLSearchParams({ period: state.period });
-      const [posData, loanData, rekapData] = await Promise.all([
+      const [posData, loanData, rekapData, rekapBerjangkaData] = await Promise.all([
         apiRequest('/api/v1/potongan/pos'),
         apiRequest(`/api/v1/potongan/berjangka?${query.toString()}`),
         apiRequest(`/api/v1/potongan/rekap-bulanan?${query.toString()}`).catch((e) => {
           console.warn('Gagal memuat rekap bulanan:', e);
           return null;
         }),
+        apiRequest(`/api/v1/potongan/rekap-berjangka?${query.toString()}`).catch((e) => {
+          console.warn('Gagal memuat rekap berjangka:', e);
+          return null;
+        }),
       ]);
       state.posList = (posData || []).map(mapApiPos);
       state.loans = (loanData || []).map(mapApiLoan);
       state.rekapBulanan = rekapData;
+      state.rekapBerjangka = rekapBerjangkaData;
       renderAll();
       if (state.potonganNip) {
         await loadEmployeePotongan(state.potonganNip, state.period);
@@ -4107,6 +4261,8 @@
     if (next === 'potongan') {
       renderRekapBulanan();
       void loadRekapBulanan();
+      renderRekapBerjangka();
+      void loadRekapBerjangka();
       void loadLoans();
     }
     if (next === 'potongan-asn') {
@@ -4250,7 +4406,7 @@
   /* ============================== TABS ============================== */
 
   function setTab(tab) {
-    const validTabs = ['rekap-bulanan', 'berjangka'];
+    const validTabs = ['rekap-bulanan', 'rekap-berjangka', 'berjangka'];
     const target = validTabs.includes(tab) ? tab : 'rekap-bulanan';
     const shell = $('#potongan-tabs');
     if (!shell) return;
@@ -4267,6 +4423,9 @@
     if (target === 'rekap-bulanan') {
       renderRekapBulanan();
       void loadRekapBulanan();
+    } else if (target === 'rekap-berjangka') {
+      renderRekapBerjangka();
+      void loadRekapBerjangka();
     } else if (target === 'berjangka') {
       renderLoansTable();
       void loadLoans();
@@ -4555,6 +4714,41 @@
         if (delBtn) {
           e.preventDefault();
           deleteDetailItem(delBtn.dataset.deleteDetailItem);
+        }
+      });
+    }
+
+    const btnRefreshRekapBerjangka = $('#btn-refresh-rekap-berjangka');
+    if (btnRefreshRekapBerjangka) {
+      btnRefreshRekapBerjangka.addEventListener('click', async () => {
+        btnRefreshRekapBerjangka.disabled = true;
+        await loadPotonganReferenceData();
+        btnRefreshRekapBerjangka.disabled = false;
+        toast('Rekap Disegarkan', 'Data rekap potongan berjangka berhasil diperbarui.', 'info');
+      });
+    }
+
+    const tableRekapBerjangka = $('#table-rekap-berjangka');
+    if (tableRekapBerjangka) {
+      tableRekapBerjangka.addEventListener('click', (e) => {
+        const detailBtn = e.target.closest('[data-open-pos-berjangka-detail]');
+        if (detailBtn) {
+          e.preventDefault();
+          openRekapBerjangkaDetail(detailBtn.dataset.openPosBerjangkaDetail, detailBtn.dataset.posNama || 'Pos Potongan Berjangka');
+        }
+      });
+    }
+
+    const tableRekapBerjangkaDetail = $('#table-rekap-berjangka-detail');
+    if (tableRekapBerjangkaDetail) {
+      tableRekapBerjangkaDetail.addEventListener('click', (e) => {
+        const jumpBtn = e.target.closest('[data-jump-asn]');
+        if (jumpBtn) {
+          e.preventDefault();
+          const nip = jumpBtn.dataset.jumpAsn;
+          selectPotonganEmployee(nip);
+          closeModal();
+          setView('potongan-asn');
         }
       });
     }

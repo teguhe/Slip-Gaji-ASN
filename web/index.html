@@ -895,10 +895,15 @@
                   <svg class="icon"><use href="#icon-receipt"></use></svg>
                   Rekap Potongan Bulanan
                 </button>
+                <button type="button" role="tab" id="tab-btn-rekap-berjangka" data-tab="rekap-berjangka"
+                        aria-selected="false" aria-controls="tab-panel-rekap-berjangka" tabindex="-1">
+                  <svg class="icon"><use href="#icon-calendar"></use></svg>
+                  Rekap Potongan Berjangka
+                </button>
                 <button type="button" role="tab" id="tab-btn-berjangka" data-tab="berjangka"
                         aria-selected="false" aria-controls="tab-panel-berjangka" tabindex="-1">
-                  <svg class="icon"><use href="#icon-calendar"></use></svg>
-                  Potongan Berjangka
+                  <svg class="icon"><use href="#icon-file"></use></svg>
+                  Daftar Pinjaman Berjangka
                 </button>
               </menu>
 
@@ -957,6 +962,66 @@
                       <svg class="icon"><use href="#icon-receipt"></use></svg>
                       <strong>Belum ada pos potongan bulanan</strong>
                       <span>Kelola pos potongan atau impor potongan via Excel.</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <!-- TAB 2: REKAP POTONGAN BERJANGKA (PER POS POTONGAN BERJANGKA) -->
+              <div role="tabpanel" id="tab-panel-rekap-berjangka" aria-labelledby="tab-btn-rekap-berjangka" hidden>
+                <div class="recap-grid" style="margin-bottom: 12px;">
+                  <article class="recap-card">
+                    <span class="recap-label">Pos Berjangka Terdaftar</span>
+                    <strong class="recap-value" id="rekap-berjangka-total-pos">0 Pos</strong>
+                    <span class="recap-sub" id="rekap-berjangka-pos-sub">Pos pinjaman/cicilan</span>
+                  </article>
+                  <article class="recap-card">
+                    <span class="recap-label">Pegawai Berjangka Aktif</span>
+                    <strong class="recap-value mono" id="rekap-berjangka-total-pegawai">0 ASN</strong>
+                    <span class="recap-sub">Pegawai dengan pinjaman aktif bulan ini</span>
+                  </article>
+                  <article class="recap-card">
+                    <span class="recap-label">Total Cicilan Bulan Ini</span>
+                    <strong class="recap-value mono" id="rekap-berjangka-total-nominal">Rp 0</strong>
+                    <span class="recap-sub" id="rekap-berjangka-period-sub">Periode berjalan</span>
+                  </article>
+                </div>
+
+                <section class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Rekap Potongan Berjangka per Pos</h2>
+                      <p class="panel-sub">Daftar akumulasi cicilan pinjaman berjangka OPD per pos potongan periode <span id="rekap-berjangka-period-label">Oktober 2026</span></p>
+                    </div>
+                    <div class="panel-tools">
+                      <button type="button" id="btn-refresh-rekap-berjangka" title="Segarkan Rekap Berjangka">
+                        <svg class="icon"><use href="#icon-refresh"></use></svg>
+                        Segarkan
+                      </button>
+                      <button type="button" class="default" data-open-modal="loan" title="Daftarkan Pinjaman Baru">
+                        <svg class="icon"><use href="#icon-plus"></use></svg>
+                        Pinjaman Baru
+                      </button>
+                    </div>
+                  </div>
+                  <div class="table-wrap">
+                    <table class="listview" id="table-rekap-berjangka">
+                      <thead>
+                        <tr>
+                          <th>Pos Potongan</th>
+                          <th>Kategori</th>
+                          <th style="text-align: center; width: 110px;">Jumlah ASN</th>
+                          <th class="money-col">Total Cicilan / Bln (Rp)</th>
+                          <th style="text-align: center; width: 90px;">Status Pos</th>
+                          <th style="width: 155px; text-align: center;">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="rekap-berjangka-table-body"></tbody>
+                    </table>
+                    <div class="empty-state compact" id="rekap-berjangka-empty" hidden>
+                      <svg class="icon"><use href="#icon-calendar"></use></svg>
+                      <strong>Belum ada pos potongan berjangka</strong>
+                      <span>Kelola pos potongan atau daftarkan pinjaman berjangka baru.</span>
                     </div>
                   </div>
                 </section>
@@ -1764,6 +1829,49 @@
         </div>
         <div class="dialog-actions" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
           <strong id="rekap-pos-detail-total" style="font-size: 11px; color: #164e78;">Total: Rp 0</strong>
+          <button type="button" data-close-modal>Tutup</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Rincian ASN Pinjaman per Pos Potongan Berjangka -->
+    <div class="window glass active modal-window modal-wide" role="dialog" aria-modal="true"
+         aria-labelledby="rekap-berjangka-detail-title" data-modal="rekap-berjangka-detail" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="rekap-berjangka-detail-title">Rincian ASN per Pos Potongan Berjangka</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-calendar"></use></svg></span>
+          <div>
+            <h3 id="rekap-berjangka-detail-heading" style="margin:0 0 3px; font-size:13px; color:#183b56;">Pos Potongan Berjangka</h3>
+            <p id="rekap-berjangka-detail-meta" style="margin:0; font-size:10px; color:#688195;">—</p>
+          </div>
+        </div>
+        <div class="table-wrap" style="max-height: 320px; overflow-y: auto; margin-top: 8px;">
+          <table class="listview" id="table-rekap-berjangka-detail">
+            <thead>
+              <tr>
+                <th style="width: 155px;">NIP</th>
+                <th>Nama ASN</th>
+                <th class="money-col" style="width: 130px;">Nominal / Bln (Rp)</th>
+                <th style="width: 135px; text-align: center;">Progres Tenor</th>
+                <th style="width: 80px; text-align: center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="rekap-berjangka-detail-table-body"></tbody>
+          </table>
+          <div class="empty-state compact" id="rekap-berjangka-detail-empty" hidden>
+            <svg class="icon"><use href="#icon-calendar"></use></svg>
+            <strong>Tidak ada pegawai dengan pinjaman aktif</strong>
+            <span>Belum ada ASN yang memiliki pinjaman berjangka aktif pada pos ini untuk periode berjalan.</span>
+          </div>
+        </div>
+        <div class="dialog-actions" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <strong id="rekap-berjangka-detail-total" style="font-size: 11px; color: #164e78;">Total: Rp 0</strong>
           <button type="button" data-close-modal>Tutup</button>
         </div>
       </div>

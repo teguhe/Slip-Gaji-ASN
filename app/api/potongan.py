@@ -48,12 +48,16 @@ from app.schemas import (
     PosBulananDetailItem,
     PosBulananDetailResponse,
     PosBulananRekapItem,
+    PosBerjangkaDetailItem,
+    PosBerjangkaDetailResponse,
+    PosBerjangkaRekapItem,
     PosPotonganCreate,
     PosPotonganResponse,
     PosPotonganUpdate,
     PotonganItemCreate,
     PotonganItemDeleteResponse,
     PotonganItemResponse,
+    RekapBerjangkaResponse,
     RekapBulananResponse,
 )
 from app.services.audit import extract_client_ip
@@ -1238,5 +1242,207 @@ def get_rekap_bulanan_detail(
         opd_nama=opd.nmskpd.strip(),
         total_pegawai=len(detail_items),
         total_nominal=total_nominal,
+        items=detail_items,
+    )
+
+
+@router.get("/rekap-berjangka", response_model=RekapBerjangkaResponse)
+def get_rekap_berjangka(
+    period: str = Query(..., description="Periode YYYY-MM"),
+    opd_id: int | None = Query(None, description="Khusus super admin"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> RekapBerjangkaResponse:
+    opd = _resolve_opd(db, current_user, opd_id)
+    period_date = _validate_period(period)
+
+    pos_list = db.scalars(
+        select(RefPosPotongan)
+        .where(
+            RefPosPotongan.opd_id == opd.id,
+            RefPosPotongan.kategori == "berjangka",
+        )
+        .order_by(RefPosPotongan.nama_pos)
+    ).all()
+
+    nip_rows = db.scalars(
+        select(PayrollMonthly.nip)
+        .where(_opd_clause(opd))
+        .distinct()
+    ).all()
+    opd_nips = {row for row in nip_rows if row}
+
+    items: list[PosBerjangkaRekapItem] = []
+    grand_total = Decimal("0.00")
+    total_pinjaman_all = 0
+    pos_ids = [p.id for p in pos_list]
+
+    if pos_ids and opd_nips:
+        agg_stmt = (
+            select(
+                PotonganBerjangka.pos_id,
+                func.count(func.distinct(PotonganBerjangka.nip)).label("cnt_pegawai"),
+                func.count(PotonganBerjangka.id).label("cnt_pinjaman"),
+                func.coalesce(func.sum(PotonganBerjangka.nominal_per_bulan), 0).label("total"),
+            )
+            .where(
+                PotonganBerjangka.nip.in_(opd_nips),
+                PotonganBerjangka.pos_id.in_(pos_ids),
+                PotonganBerjangka.start_period <= period_date,
+                PotonganBerjangka.end_period >= period_date,
+            )
+            .group_by(PotonganBerjangka.pos_id)
+        )
+        agg_map = {
+            row.pos_id: (row.cnt_pegawai, row.cnt_pinjaman, row.total)
+            for row in db.execute(agg_stmt).all()
+        }
+
+        total_pegawai = (
+            db.scalar(
+                select(func.count(func.distinct(PotonganBerjangka.nip))).where(
+                    PotonganBerjangka.nip.in_(opd_nips),
+                    PotonganBerjangka.pos_id.in_(pos_ids),
+                    PotonganBerjangka.start_period <= period_date,
+                    PotonganBerjangka.end_period >= period_date,
+                )
+            )
+            or 0
+        )
+    else:
+        agg_map = {}
+        total_pegawai = 0
+
+    for pos in pos_list:
+        cnt_pegawai, cnt_pinjaman, total = agg_map.get(pos.id, (0, 0, Decimal("0.00")))
+        total_dec = Decimal(str(total)).quantize(CENT)
+        grand_total += total_dec
+        total_pinjaman_all += cnt_pinjaman
+        items.append(
+            PosBerjangkaRekapItem(
+                pos_id=pos.id,
+                nama_pos=pos.nama_pos,
+                kategori=pos.kategori,
+                is_active=bool(pos.is_active),
+                jumlah_pegawai=cnt_pegawai,
+                total_pinjaman=cnt_pinjaman,
+                total_nominal=total_dec,
+            )
+        )
+
+    return RekapBerjangkaResponse(
+        period=period_str(period_date),
+        opd_id=opd.id,
+        opd_nama=opd.nmskpd.strip(),
+        total_pos=len(items),
+        total_pegawai=total_pegawai,
+        total_pinjaman=total_pinjaman_all,
+        total_nominal=grand_total.quantize(CENT),
+        items=items,
+    )
+
+
+@router.get("/rekap-berjangka/{pos_id}", response_model=PosBerjangkaDetailResponse)
+def get_rekap_berjangka_detail(
+    pos_id: int,
+    period: str = Query(..., description="Periode YYYY-MM"),
+    opd_id: int | None = Query(None, description="Khusus super admin"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> PosBerjangkaDetailResponse:
+    opd = _resolve_opd(db, current_user, opd_id)
+    period_date = _validate_period(period)
+    next_month = add_months(period_date, 1)
+    pos = _pos_or_404(db, pos_id, opd)
+
+    nip_rows = db.scalars(
+        select(PayrollMonthly.nip)
+        .where(_opd_clause(opd))
+        .distinct()
+    ).all()
+    opd_nips = {row for row in nip_rows if row}
+
+    if not opd_nips:
+        return PosBerjangkaDetailResponse(
+            pos_id=pos.id,
+            nama_pos=pos.nama_pos,
+            period=period_str(period_date),
+            opd_nama=opd.nmskpd.strip(),
+            total_pegawai=0,
+            total_pinjaman=0,
+            total_nominal=Decimal("0.00"),
+            items=[],
+        )
+
+    stmt = (
+        select(
+            PotonganBerjangka,
+            func.coalesce(PayrollMonthly.nama, "—").label("nama"),
+        )
+        .outerjoin(
+            PayrollMonthly,
+            (PayrollMonthly.nip == PotonganBerjangka.nip)
+            & (PayrollMonthly.tglgaji >= period_date)
+            & (PayrollMonthly.tglgaji < next_month)
+            & _opd_clause(opd),
+        )
+        .where(
+            PotonganBerjangka.pos_id == pos.id,
+            PotonganBerjangka.nip.in_(opd_nips),
+            PotonganBerjangka.start_period <= period_date,
+            PotonganBerjangka.end_period >= period_date,
+        )
+        .order_by(PotonganBerjangka.nominal_per_bulan.desc(), PotonganBerjangka.nip)
+    )
+    rows = db.execute(stmt).all()
+
+    detail_items: list[PosBerjangkaDetailItem] = []
+    grand_total = Decimal("0.00")
+    unique_nips = set()
+
+    for row in rows:
+        loan: PotonganBerjangka = row[0]
+        emp_name: str = row[1]
+        unique_nips.add(loan.nip)
+        dec_nom = Decimal(str(loan.nominal_per_bulan)).quantize(CENT)
+        grand_total += dec_nom
+
+        progress = loan_progress(
+            loan.start_period, loan.end_period, loan.tenor_bulan, period_date
+        )
+        cicilan_ke = progress.get("cicilan_ke")
+        sisa = progress.get("sisa_bulan", 0)
+        status_val = progress.get("status", "aktif")
+        if cicilan_ke:
+            progres_label = f"Cicilan {cicilan_ke} dari {loan.tenor_bulan}"
+        else:
+            progres_label = "—"
+
+        detail_items.append(
+            PosBerjangkaDetailItem(
+                id=str(loan.id),
+                nip=loan.nip,
+                nama=emp_name,
+                nominal_per_bulan=dec_nom,
+                start_period=period_str(loan.start_period),
+                end_period=period_str(loan.end_period),
+                tenor_bulan=loan.tenor_bulan,
+                cicilan_ke=cicilan_ke,
+                sisa_bulan=sisa,
+                status=status_val,
+                progres_label=progres_label,
+                keterangan=loan.keterangan,
+                created_at=loan.created_at,
+            )
+        )
+
+    return PosBerjangkaDetailResponse(
+        pos_id=pos.id,
+        nama_pos=pos.nama_pos,
+        period=period_str(period_date),
+        opd_nama=opd.nmskpd.strip(),
+        total_pegawai=len(unique_nips),
+        total_pinjaman=len(detail_items),
+        total_nominal=grand_total.quantize(CENT),
         items=detail_items,
     )

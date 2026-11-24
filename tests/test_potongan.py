@@ -550,3 +550,54 @@ def test_rekap_potongan_bulanan_endpoint(
         assert detail["items"][0]["nip"] == NIP
 
 
+def test_rekap_potongan_berjangka_endpoint(
+    api_app,
+    db_session,
+    seeded,
+    bendahara_profile,
+):
+    _import_payroll(db_session, bendahara_profile, period=date(2026, 10, 1))
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+
+    with TestClient(api_app) as client:
+        # Buat pos berjangka
+        pos_loan = _pos(client, "Koperasi Dimas Rekap", "berjangka")
+
+        # Daftarkan pinjaman berjangka untuk NIP pada pos_loan
+        loan_payload = {
+            "nip": NIP,
+            "pos_id": pos_loan["id"],
+            "nominal_per_bulan": "250000.00",
+            "start_period": "2026-08",
+            "tenor_bulan": 12,
+            "keterangan": "Pinjaman koperasi",
+        }
+        res_loan = client.post("/api/v1/potongan/berjangka", json=loan_payload)
+        assert res_loan.status_code == 201, res_loan.text
+
+        # Ambil rekap berjangka periode 2026-10
+        rekap_res = client.get("/api/v1/potongan/rekap-berjangka?period=2026-10")
+        assert rekap_res.status_code == 200, rekap_res.text
+        data = rekap_res.json()
+        assert data["period"] == "2026-10"
+        assert data["opd_nama"] == seeded.opd_name
+        assert data["total_pegawai"] >= 1
+        assert data["total_pinjaman"] >= 1
+        assert Decimal(str(data["total_nominal"])) >= Decimal("250000.00")
+
+        # Cek detail pos_loan
+        detail_res = client.get(f"/api/v1/potongan/rekap-berjangka/{pos_loan['id']}?period=2026-10")
+        assert detail_res.status_code == 200, detail_res.text
+        detail = detail_res.json()
+        assert detail["pos_id"] == pos_loan["id"]
+        assert detail["nama_pos"] == "Koperasi Dimas Rekap"
+        assert detail["total_pegawai"] == 1
+        assert detail["total_pinjaman"] == 1
+        assert Decimal(str(detail["total_nominal"])) == Decimal("250000.00")
+        assert len(detail["items"]) == 1
+        assert detail["items"][0]["nip"] == NIP
+        assert detail["items"][0]["cicilan_ke"] == 3
+        assert "Cicilan 3 dari 12" in detail["items"][0]["progres_label"]
+
+
+
