@@ -2124,7 +2124,7 @@
       toast('Laporan OPD Dicetak', `${opdList.length} data OPD siap dicetak. Aksi dicatat dalam log audit.`, 'info');
 
       // 2. Buat dokumen jendela cetak
-      const win = window.open('', '_blank', 'width=900,height=700');
+      const win = window.open('', '_blank', 'width=1100,height=750');
       if (!win) {
         toast('Popup Diblokir', 'Mohon izinkan pop-up peramban untuk mencetak laporan.', 'error');
         return;
@@ -2158,8 +2158,8 @@
   <title>${escapeHtml(title)}</title>
   <style>
     @page {
-      size: A4 portrait;
-      margin: 15mm 12mm 15mm 12mm;
+      size: A4 landscape;
+      margin: 12mm 15mm 12mm 15mm;
     }
     * { box-sizing: border-box; }
     body {
@@ -2262,21 +2262,21 @@
   <div class="header-wrap">
     <h1>PEMERINTAH KOTA SALATIGA</h1>
     <h2>${escapeHtml(title)}</h2>
-    <p>Aplikasi Penggajian dan Cetak Slip Gaji ASN • Modul Master OPD</p>
+    <p>Aplikasi Penggajian dan Cetak Slip Gaji ASN • Modul Master OPD (Landscape)</p>
   </div>
   <table class="meta-box">
     <tr>
-      <td style="width: 140px;"><strong>Tanggal &amp; Waktu Cetak</strong></td>
+      <td style="width: 160px;"><strong>Tanggal &amp; Waktu Cetak</strong></td>
       <td style="width: 8px;">:</td>
       <td style="width: 38%;">${escapeHtml(printDate)}</td>
-      <td style="width: 140px;"><strong>Admin yang Mencetak</strong></td>
+      <td style="width: 160px;"><strong>Admin yang Mencetak</strong></td>
       <td style="width: 8px;">:</td>
       <td><strong>${escapeHtml(adminName)}</strong> (${escapeHtml(adminEmail)})</td>
     </tr>
     <tr>
       <td><strong>Kategori Dokumen</strong></td>
       <td>:</td>
-      <td>Master Organisasi Perangkat Daerah (Multi-tenant)</td>
+      <td>Master Organisasi Perangkat Daerah (Multi-tenant • Format Landscape)</td>
       <td><strong>Total Data OPD</strong></td>
       <td>:</td>
       <td><strong>${opdList.length}</strong> OPD Terdaftar</td>
@@ -2285,11 +2285,11 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th style="width: 32px;">No</th>
+        <th style="width: 36px;">No</th>
         <th>Nama Organisasi Perangkat Daerah (OPD)</th>
-        <th style="width: 110px;">Pengguna Terhubung</th>
-        <th style="width: 120px;">Data Gaji Bulanan</th>
-        <th style="width: 95px;">Tanggal Terdaftar</th>
+        <th style="width: 140px;">Pengguna Terhubung</th>
+        <th style="width: 160px;">Data Gaji Bulanan</th>
+        <th style="width: 130px;">Tanggal Terdaftar</th>
       </tr>
     </thead>
     <tbody>
@@ -2762,7 +2762,7 @@
       toast('Laporan Pengguna Dicetak', `${users.length} akun pengguna siap dicetak. Aksi dicatat dalam log audit.`, 'info');
 
       // 2. Buat dokumen jendela cetak yang rapi
-      const win = window.open('', '_blank', 'width=900,height=700');
+      const win = window.open('', '_blank', 'width=1100,height=750');
       if (!win) {
         toast('Popup Diblokir', 'Mohon izinkan pop-up peramban untuk mencetak laporan.', 'error');
         return;
@@ -2802,8 +2802,8 @@
   <title>${escapeHtml(title)}</title>
   <style>
     @page {
-      size: A4 portrait;
-      margin: 15mm 12mm 15mm 12mm;
+      size: A4 landscape;
+      margin: 12mm 15mm 12mm 15mm;
     }
     * { box-sizing: border-box; }
     body {
@@ -2917,14 +2917,14 @@
   <div class="header-wrap">
     <h1>PEMERINTAH KOTA SALATIGA</h1>
     <h2>${escapeHtml(title)}</h2>
-    <p>Aplikasi Penggajian dan Cetak Slip Gaji ASN • Modul Manajemen Pengguna</p>
+    <p>Aplikasi Penggajian dan Cetak Slip Gaji ASN • Modul Manajemen Pengguna (Landscape)</p>
   </div>
   <table class="meta-box">
     <tr>
-      <td style="width: 140px;"><strong>Tanggal &amp; Waktu Cetak</strong></td>
+      <td style="width: 160px;"><strong>Tanggal &amp; Waktu Cetak</strong></td>
       <td style="width: 8px;">:</td>
       <td style="width: 38%;">${escapeHtml(printDate)}</td>
-      <td style="width: 140px;"><strong>Admin yang Mencetak</strong></td>
+      <td style="width: 160px;"><strong>Admin yang Mencetak</strong></td>
       <td style="width: 8px;">:</td>
       <td><strong>${escapeHtml(adminName)}</strong> (${escapeHtml(adminEmail)})</td>
     </tr>
@@ -2934,19 +2934,19 @@
       <td>Peran: ${escapeHtml(roleLabels[roleFilter] || roleFilter)} | Status: ${escapeHtml(statusLabels[statusFilter] || statusFilter)}</td>
       <td><strong>Total Data Pengguna</strong></td>
       <td>:</td>
-      <td><strong>${users.length}</strong> Akun Terdaftar</td>
+      <td><strong>${users.length}</strong> Akun Terdaftar (Format Landscape)</td>
     </tr>
   </table>
   <table class="data-table">
     <thead>
       <tr>
-        <th style="width: 32px;">No</th>
-        <th>Email Akun (Google)</th>
-        <th>Nama Pengguna</th>
-        <th style="width: 110px;">Peran Akses</th>
+        <th style="width: 36px;">No</th>
+        <th style="width: 230px;">Email Akun (Google)</th>
+        <th style="width: 180px;">Nama Pengguna</th>
+        <th style="width: 130px;">Peran Akses</th>
         <th>Penugasan OPD</th>
-        <th style="width: 70px;">Status</th>
-        <th style="width: 85px;">Terdaftar</th>
+        <th style="width: 80px;">Status</th>
+        <th style="width: 110px;">Terdaftar</th>
       </tr>
     </thead>
     <tbody>
