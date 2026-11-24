@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import AuthContext, UserProfile, get_auth_context, get_current_user
 from app.config import get_settings
-from app.constants import DEDUCTION_COLUMNS, INCOME_COLUMNS
+from app.constants import DEDUCTION_COLUMNS, INCOME_COLUMNS, format_kdpangkat
 from app.db import get_db
 from app.models import (
     PayrollMonthly,
@@ -525,7 +525,7 @@ def get_payroll_monthly_list(
                 id=str(row.id),
                 nip=row.nip,
                 nama=row.nama,
-                kdpangkat=row.kdpangkat,
+                kdpangkat=format_kdpangkat(row.kdpangkat),
                 norek=row.norek,
                 nmskpd=row.nmskpd.strip(),
                 gapok=gapok,
@@ -881,7 +881,7 @@ def get_asn_payroll_by_period(
         nama=payroll.nama,
         opd=payroll.nmskpd.strip(),
         periode=period_str(start_period),
-        kdpangkat=payroll.kdpangkat,
+        kdpangkat=format_kdpangkat(payroll.kdpangkat),
         norek=payroll.norek,
         penghasilan_kotor=penghasilan_kotor,
         potongan_simgaji=potongan_simgaji,

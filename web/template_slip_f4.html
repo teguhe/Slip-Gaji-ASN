@@ -105,6 +105,24 @@
                 maximumFractionDigits: 2,
             });
         }
+        const KDPANGKAT_MAP = {
+            '1A': 'I/a', '1B': 'I/b', '1C': 'I/c', '1D': 'I/d',
+            '2A': 'II/a', '2B': 'II/b', '2C': 'II/c', '2D': 'II/d',
+            '3A': 'III/a', '3B': 'III/b', '3C': 'III/c', '3D': 'III/d',
+            '4A': 'IV/a', '4B': 'IV/b', '4C': 'IV/c', '4D': 'IV/d', '4E': 'IV/e'
+        };
+        function formatKdpangkat(val) {
+            if (!val) return '-';
+            const s = String(val).trim();
+            if (!s || s === '-' || s === '—') return '-';
+            const upper = s.toUpperCase();
+            if (KDPANGKAT_MAP[upper]) return KDPANGKAT_MAP[upper];
+            const dashMatch = upper.match(/^(\d[A-E])\s*[-/]\s*([IV]+)\/([A-E])$/i);
+            if (dashMatch) return `${dashMatch[2].toUpperCase()}/${dashMatch[3].toLowerCase()}`;
+            const romanMatch = upper.match(/^([IV]+)\/([A-E])$/i);
+            if (romanMatch) return `${romanMatch[1].toUpperCase()}/${romanMatch[2].toLowerCase()}`;
+            return s;
+        }
         function renderSlips(dataList, period, signerInfo, posList) {
             const root = document.getElementById('slip-root');
             const signTitle = (signerInfo && signerInfo.jabatan ? signerInfo.jabatan : 'Bendahara Pengeluaran') + ',';
@@ -199,7 +217,7 @@
                                         <span>Periode</span><span>:</span><span>${formatPeriodLabel(period)}</span>
                                         <span>NIP</span><span>:</span><span>${data.nip}</span>
                                         <span>Nama</span><span>:</span><span>${data.nama}</span>
-                                        <span>Pangkat/Gol</span><span>:</span><span>${data.kdpangkat || data.pangkat || '-'}</span>
+                                        <span>Pangkat/Gol</span><span>:</span><span>${formatKdpangkat(data.kdpangkat || data.pangkat)}</span>
                                         <span>No. Rekening</span><span>:</span><span>${data.norek || '-'}</span>
                                     </div>
                                 </div>

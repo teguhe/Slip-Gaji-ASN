@@ -177,6 +177,39 @@
     return MONTH_SHORT[month - 1] || period;
   }
 
+  const KDPANGKAT_MAP = {
+    '1A': 'I/a',
+    '1B': 'I/b',
+    '1C': 'I/c',
+    '1D': 'I/d',
+    '2A': 'II/a',
+    '2B': 'II/b',
+    '2C': 'II/c',
+    '2D': 'II/d',
+    '3A': 'III/a',
+    '3B': 'III/b',
+    '3C': 'III/c',
+    '3D': 'III/d',
+    '4A': 'IV/a',
+    '4B': 'IV/b',
+    '4C': 'IV/c',
+    '4D': 'IV/d',
+    '4E': 'IV/e',
+  };
+
+  function formatKdpangkat(val) {
+    if (!val) return '—';
+    const s = String(val).trim();
+    if (!s || s === '—' || s === '-') return '—';
+    const upper = s.toUpperCase();
+    if (KDPANGKAT_MAP[upper]) return KDPANGKAT_MAP[upper];
+    const dashMatch = upper.match(/^(\d[A-E])\s*[-/]\s*([IV]+)\/([A-E])$/i);
+    if (dashMatch) return `${dashMatch[2].toUpperCase()}/${dashMatch[3].toLowerCase()}`;
+    const romanMatch = upper.match(/^([IV]+)\/([A-E])$/i);
+    if (romanMatch) return `${romanMatch[1].toUpperCase()}/${romanMatch[2].toLowerCase()}`;
+    return s;
+  }
+
   function getAllPeriods() {
     const list = Array.from(new Set([...(state.availablePeriods || []), ...PERIODS]));
     if (state.period && !list.includes(state.period)) {
@@ -480,7 +513,7 @@
               <span>${escapeHtml(employee.nip)}</span>
             </div>
           </td>
-          <td><span class="pangkat-badge">${escapeHtml(employee.kdpangkat || '—')}</span></td>
+          <td><span class="pangkat-badge">${escapeHtml(formatKdpangkat(employee.kdpangkat))}</span></td>
           <td class="money-col">${formatRupiah(employee.kotor, 2)}</td>
           <td class="money-col deduction-value">${formatRupiah(employee.totalPotongan, 2)}</td>
           <td class="money-col thp-value">${formatRupiah(employee.thp, 2)}</td>
@@ -606,7 +639,7 @@
         <div class="pdi-nip">${escapeHtml(emp.nip)}</div>
         <div class="pdi-name">
           <strong>${escapeHtml(emp.nama)}</strong>
-          <span class="pdi-sub">${escapeHtml(emp.kdpangkat || '')}</span>
+          <span class="pdi-sub">${escapeHtml(formatKdpangkat(emp.kdpangkat))}</span>
         </div>
       </div>
     `).join('');
@@ -636,6 +669,7 @@
         (emp.nip || '').toLowerCase().includes(q) ||
         (emp.nama || '').toLowerCase().includes(q) ||
         (emp.kdpangkat || '').toLowerCase().includes(q) ||
+        formatKdpangkat(emp.kdpangkat).toLowerCase().includes(q) ||
         (emp.norek || '').toLowerCase().includes(q)
       );
     });
@@ -662,7 +696,7 @@
           <td style="text-align: center;">${idx + 1}</td>
           <td><code class="mono">${escapeHtml(emp.nip)}</code></td>
           <td><strong>${escapeHtml(emp.nama)}</strong></td>
-          <td style="text-align: center;">${escapeHtml(emp.kdpangkat || '—')}</td>
+          <td style="text-align: center;">${escapeHtml(formatKdpangkat(emp.kdpangkat))}</td>
           <td>${escapeHtml(emp.norek || '—')}</td>
           <td style="text-align: center;">
             <button type="button" class="${isCurrent ? '' : 'default'} btn-select-emp" data-nip="${escapeHtml(emp.nip)}">
@@ -731,7 +765,7 @@
 
     state.potonganNip = employee.nip;
     if (name) name.textContent = employee.nama;
-    if (pangkat) pangkat.textContent = employee.kdpangkat || '—';
+    if (pangkat) pangkat.textContent = formatKdpangkat(employee.kdpangkat);
     if (total) total.textContent = formatRupiah(employee.potonganInternal, 0);
     if (listSub) listSub.textContent = `${employee.nama} • ${periodLabel(state.period)}`;
     renderPotonganList(employee);
@@ -3344,7 +3378,7 @@
           <td style="text-align: center;">${idx + 1}</td>
           <td><code class="mono">${escapeHtml(row.nip)}</code></td>
           <td><strong>${escapeHtml(row.nama)}</strong></td>
-          <td style="text-align: center;">${escapeHtml(row.kdpangkat || '—')}</td>
+          <td style="text-align: center;">${escapeHtml(formatKdpangkat(row.kdpangkat))}</td>
           <td>${escapeHtml(row.norek || '—')}</td>
           <td class="num-col">${formatRupiah(row.gapok)}</td>
           <td class="num-col">${formatRupiah(row.total_tunjangan)}</td>
@@ -4407,7 +4441,7 @@
             <div class="slip-meta-row"><span class="meta-lbl">Periode</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(periodLabel(state.period))}</span></div>
             <div class="slip-meta-row"><span class="meta-lbl">NIP</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.nip)}</span></div>
             <div class="slip-meta-row"><span class="meta-lbl">Nama</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.nama)}</span></div>
-            <div class="slip-meta-row"><span class="meta-lbl">Pangkat/Gol</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.kdpangkat || '—')}</span></div>
+            <div class="slip-meta-row"><span class="meta-lbl">Pangkat/Gol</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(formatKdpangkat(employee.kdpangkat))}</span></div>
             <div class="slip-meta-row"><span class="meta-lbl">No. Rekening</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.norek || '—')}</span></div>
           </div>
         </div>
@@ -4924,7 +4958,7 @@
     return {
       nip: raw.nip,
       nama: raw.nama,
-      kdpangkat: raw.kdpangkat || '—',
+      kdpangkat: formatKdpangkat(raw.kdpangkat),
       norek: raw.norek || '—',
       opd: raw.opd,
       kotor: Number(raw.penghasilan_kotor) || 0,

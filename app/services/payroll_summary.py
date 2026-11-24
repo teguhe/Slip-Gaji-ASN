@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.constants import format_kdpangkat
 from app.models import PayrollMonthly, PayrollPotonganItem
 from app.services.periods import period_str
 
@@ -67,7 +68,7 @@ def load_payroll_summary(
             {
                 "nip": payroll.nip,
                 "nama": payroll.nama,
-                "kdpangkat": payroll.kdpangkat,
+                "kdpangkat": format_kdpangkat(payroll.kdpangkat),
                 "norek": payroll.norek,
                 "opd": payroll.nmskpd.strip(),
                 "penghasilan_kotor": kotor,

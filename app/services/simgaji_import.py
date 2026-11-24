@@ -36,6 +36,7 @@ from app.constants import (
     MONEY_COLUMNS,
     PAYROLL_UPSERT_COLUMNS,
     REQUIRED_COLUMNS,
+    format_kdpangkat,
 )
 from app.models import AuditLog, PayrollMonthly, RefOpd
 from app.services.audit import write_audit
@@ -585,7 +586,7 @@ def _parse_rows(
             "nip": nip,
             "nama": nama.strip(),
             "norek": (norek or "").strip() or None,
-            "kdpangkat": (kdpangkat or "").strip() or None,
+            "kdpangkat": format_kdpangkat(kdpangkat),
             "nmskpd": row_canonical_opd,
             **numeric_values,
             "imported_by": user_email,

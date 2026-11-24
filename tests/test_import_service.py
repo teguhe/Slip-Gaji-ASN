@@ -269,3 +269,43 @@ def test_legacy_parser_facade_delegates_to_import_engine(
     assert result["opd"] == seeded.opd_name
 
 
+def test_format_kdpangkat_mappings():
+    from app.constants import format_kdpangkat
+
+    expected_mappings = {
+        "1A": "I/a",
+        "1B": "I/b",
+        "1C": "I/c",
+        "1D": "I/d",
+        "2A": "II/a",
+        "2B": "II/b",
+        "2C": "II/c",
+        "2D": "II/d",
+        "3A": "III/a",
+        "3B": "III/b",
+        "3C": "III/c",
+        "3D": "III/d",
+        "4A": "IV/a",
+        "4B": "IV/b",
+        "4C": "IV/c",
+        "4D": "IV/d",
+        "4E": "IV/e",
+    }
+
+    for code, expected in expected_mappings.items():
+        assert format_kdpangkat(code) == expected
+        assert format_kdpangkat(code.lower()) == expected
+        assert format_kdpangkat(f" {code} ") == expected
+        assert format_kdpangkat(f"{code}-{expected}") == expected
+
+    # Edge cases
+    assert format_kdpangkat("IV/a") == "IV/a"
+    assert format_kdpangkat("IV/A") == "IV/a"
+    assert format_kdpangkat("5") == "5"
+    assert format_kdpangkat(None) is None
+    assert format_kdpangkat("") is None
+    assert format_kdpangkat("-") is None
+    assert format_kdpangkat("—") is None
+
+
+

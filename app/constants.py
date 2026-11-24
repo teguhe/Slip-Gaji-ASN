@@ -123,3 +123,49 @@ DEDUCTION_COLUMNS: tuple[str, ...] = (
     "ptaperap",
     "ptaperai",
 )
+
+# Pemetaan resmi kode pangkat SIMGAJI ke format golongan ASN Romawi
+KDPANGKAT_MAP: dict[str, str] = {
+    "1A": "I/a",
+    "1B": "I/b",
+    "1C": "I/c",
+    "1D": "I/d",
+    "2A": "II/a",
+    "2B": "II/b",
+    "2C": "II/c",
+    "2D": "II/d",
+    "3A": "III/a",
+    "3B": "III/b",
+    "3C": "III/c",
+    "3D": "III/d",
+    "4A": "IV/a",
+    "4B": "IV/b",
+    "4C": "IV/c",
+    "4D": "IV/d",
+    "4E": "IV/e",
+}
+
+
+def format_kdpangkat(val: str | None) -> str | None:
+    """Format kode pangkat SIMGAJI (misal '4A', '1A') menjadi golongan romawi ('IV/a', 'I/a')."""
+    if val is None:
+        return None
+    cleaned = str(val).strip()
+    if not cleaned or cleaned in {"-", "—"}:
+        return None
+    upper = cleaned.upper()
+    if upper in KDPANGKAT_MAP:
+        return KDPANGKAT_MAP[upper]
+
+    import re
+
+    dash_match = re.match(r"^(\d[A-E])\s*[-/]\s*([IV]+)/([A-E])$", upper)
+    if dash_match:
+        return f"{dash_match.group(2).upper()}/{dash_match.group(3).lower()}"
+
+    roman_match = re.match(r"^([IV]+)/([A-E])$", upper)
+    if roman_match:
+        return f"{roman_match.group(1).upper()}/{roman_match.group(2).lower()}"
+
+    return cleaned
+
