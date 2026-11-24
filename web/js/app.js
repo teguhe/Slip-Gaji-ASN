@@ -1242,11 +1242,13 @@
   }
 
   function mapApiPos(raw) {
+    const nama = raw.nama_pos || raw.nama || '';
     return {
       id: Number(raw.id),
       opd_id: raw.opd_id == null ? null : Number(raw.opd_id),
       opd_nama: raw.opd_nama || state.opd,
-      nama_pos: raw.nama_pos,
+      nama_pos: nama,
+      nama,
       kategori: raw.kategori,
       is_active: Boolean(raw.is_active),
       created_at: raw.created_at || null,
@@ -2650,6 +2652,7 @@
 
     const data = await loadApiData(token);
     applyApiData(data, token);
+    await loadPotonganReferenceData();
     return profile;
   }
 
@@ -2699,10 +2702,12 @@
       if (details.length || totalInternal === 0) {
         employee.internalPotongan = details.map((detail, index) => ({
           id: detail.id || `api-${nip}-${index}`,
-          pos: detail.pos_nama,
+          pos_id: detail.pos_id,
+          pos: detail.pos_nama || detail.pos,
+          pos_nama: detail.pos_nama || detail.pos,
           nominal: Number(detail.nominal) || 0,
           info: detail.cicilan_info || detail.keterangan || `Bulanan • ${periodLabel(period)}`,
-          kategori: detail.cicilan_info ? 'berjangka' : 'bulanan',
+          kategori: detail.cicilan_info ? 'berjangka' : (detail.kategori || 'bulanan'),
           keterangan: detail.keterangan || '',
           readOnly: Boolean(detail.cicilan_info || detail.kategori === 'berjangka'),
         }));
@@ -3228,6 +3233,41 @@
     return slots.join('');
   }
 
+  async function ensurePrintEmployeesLoaded() {
+    if (state.mode !== 'api' || !state.token) return;
+    const employeesToPrint = getPrintEmployees();
+    const targets = employeesToPrint.filter(
+      (e) => Number(e.potonganInternal) > 0 && (!e.internalPotongan || !e.internalPotongan.length)
+    );
+    if (!targets.length) return;
+    await Promise.all(
+      targets.map(async (emp) => {
+        try {
+          const data = await apiRequest(
+            `/api/v1/payroll/${encodeURIComponent(emp.nip)}?period=${encodeURIComponent(state.period)}`
+          );
+          const details = Array.isArray(data.rincian_potongan_internal)
+            ? data.rincian_potongan_internal
+            : [];
+          emp.internalPotongan = details.map((detail, index) => ({
+            id: detail.id || `api-${emp.nip}-${index}`,
+            pos_id: detail.pos_id,
+            pos: detail.pos_nama || detail.pos,
+            pos_nama: detail.pos_nama || detail.pos,
+            nominal: Number(detail.nominal) || 0,
+            info: detail.cicilan_info || detail.keterangan || `Bulanan • ${periodLabel(state.period)}`,
+            kategori: detail.cicilan_info ? 'berjangka' : (detail.kategori || 'bulanan'),
+            keterangan: detail.keterangan || '',
+            readOnly: Boolean(detail.cicilan_info || detail.kategori === 'berjangka'),
+          }));
+          emp.basePotonganInternal = 0;
+        } catch (e) {
+          console.warn(`Gagal memuat rincian potongan ${emp.nip}:`, e);
+        }
+      })
+    );
+  }
+
   function renderPrintPreview() {
     const preview = $('#preview-pages');
     const printRoot = $('#print-root');
@@ -3305,9 +3345,11 @@
   }
 
   function cicilanTag(item) {
-    const text = String(item.info || '');
+    const text = String(item.info || item.cicilan_info || '');
     const match = text.match(/Cicilan\s+(\d+)\s+dari\s+(\d+)/i);
     if (match) return ` (${match[1]}/${match[2]})`;
+    const fracMatch = text.match(/\((\d+\/\d+)\)/);
+    if (fracMatch) return ` ${fracMatch[0]}`;
     if (item.kategori === 'berjangka' && item.tenor) return ` (1/${item.tenor})`;
     return '';
   }
@@ -3338,39 +3380,45 @@
       if (Math.abs(other) >= 0.005) incomeRows.push(['Tunjangan Lain', other]);
     }
 
-    const baseInternal = Number(employee.basePotonganInternal) || 0;
-    if (baseInternal > 0) internalRows.push(['Potongan Internal', baseInternal]);
-
     const activePos = (state.posList || []).filter((p) => p.is_active !== false);
     if (activePos.length) {
       const items = employee.internalPotongan || [];
       const usedItemIndices = new Set();
       activePos.forEach((pos) => {
+        const posName = pos.nama_pos || pos.nama || '';
         const matchingIdx = items.findIndex(
-          (it, idx) => !usedItemIndices.has(idx) && (it.pos === pos.nama || it.pos_id === pos.id)
+          (it, idx) =>
+            !usedItemIndices.has(idx) &&
+            ((posName &&
+              String(it.pos || it.pos_nama || '').trim().toLowerCase() === String(posName).trim().toLowerCase()) ||
+              (pos.id && (String(it.pos_id) === String(pos.id) || String(it.id) === String(pos.id))))
         );
         if (matchingIdx >= 0) {
           const item = items[matchingIdx];
           usedItemIndices.add(matchingIdx);
-          internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
+          const label = item.pos || item.pos_nama || posName;
+          internalRows.push([`${label}${cicilanTag(item)}`, Number(item.nominal) || 0]);
         } else {
-          internalRows.push([pos.nama, 0]);
+          internalRows.push([posName, 0]);
         }
       });
       items.forEach((item, idx) => {
         if (!usedItemIndices.has(idx)) {
-          internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
+          const label = item.pos || item.pos_nama || 'Potongan Lain';
+          internalRows.push([`${label}${cicilanTag(item)}`, Number(item.nominal) || 0]);
         }
       });
     } else {
       const items = employee.internalPotongan || [];
       items.forEach((item) => {
-        internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
+        const label = item.pos || item.pos_nama || 'Potongan Lain';
+        internalRows.push([`${label}${cicilanTag(item)}`, Number(item.nominal) || 0]);
       });
       if (!internalRows.length) {
+        const baseInternal = Number(employee.basePotonganInternal) || Number(employee.potonganInternal) || 0;
         internalRows.push([
-          Number(employee.potonganInternal) > 0 ? 'Potongan Internal' : 'Tidak ada potongan',
-          employee.potonganInternal || 0,
+          baseInternal > 0 ? 'Potongan Internal' : 'Tidak ada potongan',
+          baseInternal,
         ]);
       }
     }
@@ -4266,9 +4314,14 @@
 
     if (next === 'print') {
       renderPrintPreview();
-      if (!state.posList || !state.posList.length) {
-        void loadPotonganReferenceData().then(() => renderPrintPreview());
-      }
+      const posPromise = (!state.posList || !state.posList.length)
+        ? loadPotonganReferenceData()
+        : Promise.resolve();
+      posPromise.then(async () => {
+        renderPrintPreview();
+        await ensurePrintEmployeesLoaded();
+        renderPrintPreview();
+      });
       setTimeout(() => applyPrintZoom(state.printZoom || 'fit'), 40);
     }
     if (next === 'potongan') {
@@ -4502,14 +4555,16 @@
       void loadMasterGaji();
     }
     if (state.token) {
-      loadApiData(state.token).then((data) => {
+      loadApiData(state.token).then(async (data) => {
         applyApiData(data, state.token);
+        await loadPotonganReferenceData();
         renderAll();
         if (state.view === 'master-gaji') {
           void loadMasterGaji();
         }
-        if (state.view === 'potongan' || state.view === 'potongan-asn') {
-          void loadPotonganReferenceData();
+        if (state.view === 'print') {
+          await ensurePrintEmployeesLoaded();
+          renderPrintPreview();
         }
         toast('Periode diperbarui', periodLabel(state.period), 'info');
       }).catch((caught) => {
@@ -5159,7 +5214,11 @@
     // Print
     const printButton = $('#btn-print');
     if (printButton) {
-      printButton.addEventListener('click', () => {
+      printButton.addEventListener('click', async () => {
+        if (!state.posList || !state.posList.length) {
+          await loadPotonganReferenceData();
+        }
+        await ensurePrintEmployeesLoaded();
         renderPrintPreview();
         window.setTimeout(() => window.print(), 80);
       });

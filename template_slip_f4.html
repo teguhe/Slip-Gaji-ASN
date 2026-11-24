@@ -83,7 +83,10 @@
     <div id="slip-root"></div>
     <script>
         function formatRupiah(num) {
-            return new Intl.NumberFormat('id-ID').format(num);
+            return (Number(num) || 0).toLocaleString('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
         }
         function renderSlips(dataList, period, signerInfo, posList) {
             const root = document.getElementById('slip-root');
@@ -125,26 +128,50 @@
                             const usedIndices = new Set();
                             activePosList.forEach(pos => {
                                 const posName = pos.nama_pos || pos.nama || '';
-                                const idx = items.findIndex((it, i) => !usedIndices.has(i) && (it.pos_nama === posName || (pos.id && it.pos_id === pos.id)));
+                                const idx = items.findIndex((it, i) => !usedIndices.has(i) && (
+                                    (posName && (
+                                        String(it.pos_nama || it.pos || '').trim().toLowerCase() === String(posName).trim().toLowerCase()
+                                    )) ||
+                                    (pos.id && (String(it.pos_id) === String(pos.id) || String(it.id) === String(pos.id)))
+                                ));
                                 if (idx >= 0) {
                                     const it = items[idx];
                                     usedIndices.add(idx);
-                                    internalHtml += `<div class="row"><span>${it.pos_nama}${it.cicilan_info ? ' ('+it.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(it.nominal)}</span></div>`;
+                                    const label = it.pos_nama || it.pos || posName;
+                                    let tag = '';
+                                    const cText = String(it.cicilan_info || it.info || '');
+                                    const cMatch = cText.match(/Cicilan\s+(\d+)\s+dari\s+(\d+)/i);
+                                    if (cMatch) {
+                                        tag = ` (${cMatch[1]}/${cMatch[2]})`;
+                                    } else if (cText && !cText.startsWith('Bulanan')) {
+                                        tag = ` (${cText})`;
+                                    }
+                                    internalHtml += `<div class="row"><span>${label}${tag}</span><span class="numeric">${formatRupiah(it.nominal)}</span></div>`;
                                 } else {
-                                    internalHtml += `<div class="row"><span>${posName}</span><span class="numeric">0</span></div>`;
+                                    internalHtml += `<div class="row"><span>${posName}</span><span class="numeric">${formatRupiah(0)}</span></div>`;
                                 }
                             });
                             items.forEach((it, i) => {
                                 if (!usedIndices.has(i)) {
-                                    internalHtml += `<div class="row"><span>${it.pos_nama}${it.cicilan_info ? ' ('+it.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(it.nominal)}</span></div>`;
+                                    const label = it.pos_nama || it.pos || 'Potongan Lain';
+                                    let tag = '';
+                                    const cText = String(it.cicilan_info || it.info || '');
+                                    const cMatch = cText.match(/Cicilan\s+(\d+)\s+dari\s+(\d+)/i);
+                                    if (cMatch) {
+                                        tag = ` (${cMatch[1]}/${cMatch[2]})`;
+                                    } else if (cText && !cText.startsWith('Bulanan')) {
+                                        tag = ` (${cText})`;
+                                    }
+                                    internalHtml += `<div class="row"><span>${label}${tag}</span><span class="numeric">${formatRupiah(it.nominal)}</span></div>`;
                                 }
                             });
                         } else if (items.length) {
-                            internalHtml = items.map(i => `
-                                <div class="row"><span>${i.pos_nama}${i.cicilan_info ? ' ('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>
-                            `).join('');
+                            internalHtml = items.map(i => {
+                                const label = i.pos_nama || i.pos || 'Potongan Lain';
+                                return `<div class="row"><span>${label}${i.cicilan_info ? ' ('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>`;
+                            }).join('');
                         } else {
-                            internalHtml = `<div class="row"><span>Tidak ada potongan</span><span class="numeric">0</span></div>`;
+                            internalHtml = `<div class="row"><span>Tidak ada potongan</span><span class="numeric">${formatRupiah(0)}</span></div>`;
                         }
 
                         slots.push(`
@@ -171,7 +198,7 @@
                                     <div class="row total highlight"><span>Total Potongan</span><span class="numeric">${formatRupiah(internal)}</span></div>
                                 </div>
                                 <div class="footer">
-                                    <span>DITERIMA BERSIH (THP): ${formatRupiah(thp)}</span>
+                                    <span>DITERIMA BERSIH: Rp ${formatRupiah(thp)}</span>
                                 </div>
                                 <div class="sign-block">
                                     <div class="sign-box">
