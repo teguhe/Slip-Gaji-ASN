@@ -853,6 +853,8 @@ def get_asn_payroll_by_period(
         nama=payroll.nama,
         opd=payroll.nmskpd.strip(),
         periode=period_str(start_period),
+        kdpangkat=payroll.kdpangkat,
+        norek=payroll.norek,
         penghasilan_kotor=penghasilan_kotor,
         potongan_simgaji=potongan_simgaji,
         potongan_internal=potongan_internal,

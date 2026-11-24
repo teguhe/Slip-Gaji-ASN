@@ -3240,7 +3240,6 @@
     } else {
       preview.innerHTML = pages.map((page, pageIndex) => `
         <section class="paper">
-          <div class="paper-label">Halaman ${pageIndex + 1} dari ${pages.length} • F4 215 × 330 mm</div>
           ${page.map((employee, index) => renderSlip(employee, pageIndex * 2 + index)).join('')}
         </section>`).join('') + `
         <div class="print-help">Pratinjau diperkecil. Klik <strong>Cetak</strong> untuk output F4 215 × 330 mm.</div>`;
@@ -3322,31 +3321,27 @@
 
     if (employee.income) {
       const income = employee.income;
-      incomeRows.push(['Gaji Pokok', income.gapok]);
-      incomeRows.push(['Tj. Istri / Suami', income.tjistri]);
-      incomeRows.push(['Tj. Anak', income.tjanak]);
-      incomeRows.push(['Tj. Beras', income.tjberas]);
-      incomeRows.push(['Tj. Askes / Lainnya', income.tjaskes]);
+      if (Number(income.gapok)) incomeRows.push(['Gaji Pokok', income.gapok]);
+      if (Number(income.tjistri)) incomeRows.push(['Tj. Istri / Suami', income.tjistri]);
+      if (Number(income.tjanak)) incomeRows.push(['Tj. Anak', income.tjanak]);
+      if (Number(income.tjberas)) incomeRows.push(['Tj. Beras', income.tjberas]);
+      if (Number(income.tjaskes)) incomeRows.push(['Tj. Askes / Lainnya', income.tjaskes]);
       const known = ['gapok', 'tjistri', 'tjanak', 'tjberas', 'tjaskes']
         .reduce((sum, key) => sum + (Number(income[key]) || 0), 0);
       const other = (Number(employee.kotor) || 0) - known;
       if (Math.abs(other) >= 0.005) incomeRows.push(['Tunjangan Lain', other]);
-    } else {
-      incomeRows.push(['Penghasilan Kotor', employee.kotor]);
     }
 
     if (employee.resmi) {
       const resmi = employee.resmi;
-      deductionRows.push(['IWP Beban Pegawai', resmi.iwpPegawai]);
-      deductionRows.push(['IWP Taspen', resmi.iwpTaspen]);
-      deductionRows.push(['PPh 21', resmi.pph]);
-      deductionRows.push(['JKK & JKM', resmi.jkkJkm]);
+      if (Number(resmi.iwpPegawai)) deductionRows.push(['IWP Beban Pegawai', resmi.iwpPegawai]);
+      if (Number(resmi.iwpTaspen)) deductionRows.push(['IWP Taspen', resmi.iwpTaspen]);
+      if (Number(resmi.pph)) deductionRows.push(['PPh 21', resmi.pph]);
+      if (Number(resmi.jkkJkm)) deductionRows.push(['JKK & JKM', resmi.jkkJkm]);
       const known = ['iwpPegawai', 'iwpTaspen', 'pph', 'jkkJkm']
         .reduce((sum, key) => sum + (Number(resmi[key]) || 0), 0);
       const other = (Number(employee.potonganSimgaji) || 0) - known;
       if (Math.abs(other) >= 0.005) deductionRows.push(['Potongan Lain', other]);
-    } else {
-      deductionRows.push(['Potongan SIMGAJI', employee.potonganSimgaji]);
     }
 
     const baseInternal = Number(employee.basePotonganInternal) || 0;
@@ -3363,6 +3358,10 @@
       ]);
     }
 
+    const kotor = Number(employee.kotor) || 0;
+    const simgaji = Number(employee.potonganSimgaji) || 0;
+    const gajiBersih = kotor - simgaji;
+
     const curJabatan = state.profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
     const curNama = state.profile?.nama_bendahara || storageGet('simgaji.nama_bendahara', localStorage) || null;
     const curNip = state.profile?.nip_bendahara || storageGet('simgaji.nip_bendahara', localStorage) || null;
@@ -3377,34 +3376,36 @@
 
     return `
       <article class="slip">
-        <div class="slip-head">
+        <div class="slip-header-block">
           <div class="slip-opd" title="${escapeHtml(opd)}">${escapeHtml(opd)}</div>
-          <div class="slip-period">SLIP GAJI — ${escapeHtml(periodLabel(state.period).toUpperCase())}</div>
-        </div>
-        <div class="slip-bio">
-          <span><b>NIP/Nama:</b> ${escapeHtml(employee.nip)} / ${escapeHtml(employee.nama)}</span>
-          <span><b>Pangkat/Gol:</b> ${escapeHtml(employee.kdpangkat || '—')}</span>
-          <span><b>No. Rekening:</b> ${escapeHtml(employee.norek || '—')}</span>
+          <div class="slip-meta-grid">
+            <div class="slip-meta-row"><span class="meta-lbl">Periode</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(periodLabel(state.period))}</span></div>
+            <div class="slip-meta-row"><span class="meta-lbl">NIP</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.nip)}</span></div>
+            <div class="slip-meta-row"><span class="meta-lbl">Nama</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.nama)}</span></div>
+            <div class="slip-meta-row"><span class="meta-lbl">Pangkat/Gol</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.kdpangkat || '—')}</span></div>
+            <div class="slip-meta-row"><span class="meta-lbl">No. Rekening</span><span class="meta-sep">:</span><span class="meta-val">${escapeHtml(employee.norek || '—')}</span></div>
+          </div>
         </div>
         <div class="slip-grid">
           <div class="slip-col">
             <div class="slip-col-title">PENGHASILAN</div>
             ${slipRows(incomeRows)}
-            <div class="slip-row total"><span>KOTOR</span><span>${formatAmount(employee.kotor)}</span></div>
+            <div class="slip-row total"><span>Penghasilan Kotor</span><span>${formatAmount(kotor)}</span></div>
+            <div class="slip-row"><span>Potongan SIMGAJI</span><span>${formatAmount(simgaji)}</span></div>
+            <div class="slip-row total"><span>Gaji Bersih</span><span>${formatAmount(gajiBersih)}</span></div>
           </div>
           <div class="slip-col">
             <div class="slip-col-title">POTONGAN RESMI</div>
             ${slipRows(deductionRows)}
-            <div class="slip-row total"><span>Subtotal SIMGAJI</span><span>${formatAmount(employee.potonganSimgaji)}</span></div>
+            <div class="slip-row total"><span>Total Resmi</span><span>${formatAmount(simgaji)}</span></div>
           </div>
           <div class="slip-col">
             <div class="slip-col-title">POTONGAN LAINNYA</div>
             ${slipRows(internalRows)}
-            <div class="slip-row total"><span>Subtotal Potongan</span><span>${formatAmount(employee.potonganInternal)}</span></div>
+            <div class="slip-row total"><span>Total Potongan</span><span>${formatAmount(employee.potonganInternal)}</span></div>
           </div>
         </div>
         <div class="slip-foot">
-          <span>Total Potongan: <strong>Rp ${formatAmount(employee.totalPotongan)}</strong></span>
           <span class="net">DITERIMA BERSIH: <strong>Rp ${formatAmount(employee.thp)}</strong></span>
         </div>
         <div class="slip-sign">

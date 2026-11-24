@@ -1838,11 +1838,7 @@ code {
 }
 
 .paper-label {
-  margin-bottom: 3mm;
-  padding-bottom: 1.5mm;
-  color: #7b8b96;
-  font-size: 7.5pt;
-  border-bottom: 1px solid #d5dfe6;
+  display: none;
 }
 
 .print-page .paper-label { display: none; }
@@ -1856,9 +1852,62 @@ code {
   border-bottom: 1px dashed #9aa8b2;
   break-inside: avoid;
   page-break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .slip:last-child { border-bottom: 0; }
+
+.slip-header-block {
+  margin-bottom: 1.5mm;
+  padding-bottom: 1.5mm;
+  border-bottom: 1px solid #000;
+}
+
+.slip-header-block .slip-opd {
+  overflow: hidden;
+  color: #111;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  margin-bottom: 1.5mm;
+}
+
+.slip-meta-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7mm;
+  font-size: 6.8pt;
+  color: #222;
+}
+
+.slip-meta-row {
+  display: grid;
+  grid-template-columns: 75px 8px 1fr;
+  align-items: baseline;
+  line-height: 1.25;
+}
+
+.slip-meta-row .meta-lbl {
+  font-weight: 600;
+  color: #333;
+}
+
+.slip-meta-row .meta-sep {
+  text-align: center;
+  font-weight: 600;
+  color: #444;
+}
+
+.slip-meta-row .meta-val {
+  font-weight: 600;
+  color: #111;
+}
 
 .slip-head {
   display: flex;
@@ -1908,6 +1957,7 @@ code {
   gap: 4mm;
   padding: 0.6mm 0 1mm;
   border-top: 1px solid #c4ccd2;
+  flex: 1;
 }
 
 .slip-col { min-width: 0; }
@@ -1949,7 +1999,7 @@ code {
 .slip-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 3mm;
   margin-top: 1.2mm;
   padding: 1.1mm 2mm;

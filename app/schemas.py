@@ -23,6 +23,8 @@ class SlipGajiResponse(BaseModel):
     nama: str
     opd: str
     periode: str  # Format: "YYYY-MM"
+    kdpangkat: str | None = None
+    norek: str | None = None
     penghasilan_kotor: Decimal
     potongan_simgaji: Decimal
     potongan_internal: Decimal
