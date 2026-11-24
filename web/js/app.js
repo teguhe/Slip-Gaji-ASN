@@ -646,7 +646,26 @@
     dropdown.hidden = false;
   }
 
-  function openBrowsePegawaiModal() {
+  async function openBrowsePegawaiModal(context = 'potongan') {
+    state.browsePegawaiContext = context;
+    const titleEl = $('#browse-pegawai-title');
+    const descEl = $('#browse-pegawai-desc');
+    if (context === 'penyesuaian') {
+      if (titleEl) titleEl.textContent = 'Pilih Pegawai ASN — Penyesuaian Gaji';
+      if (descEl) descEl.textContent = 'Cari dan pilih pegawai ASN berdasarkan NIP, Nama, atau Pangkat untuk mencatat penyesuaian gaji.';
+    } else {
+      if (titleEl) titleEl.textContent = 'Pilih Pegawai ASN — Potongan';
+      if (descEl) descEl.textContent = 'Cari dan pilih pegawai ASN berdasarkan NIP, Nama, atau Pangkat untuk menampilkan dan mengelola potongan gaji.';
+    }
+
+    if ((!state.employees || !state.employees.length) && (!state.masterGajiList || !state.masterGajiList.length)) {
+      if (state.token) {
+        try {
+          await loadMasterGajiList();
+        } catch (_) {}
+      }
+    }
+
     renderBrowsePegawaiTable('');
     const searchInput = $('#browse-pegawai-search');
     if (searchInput) searchInput.value = '';
@@ -656,13 +675,31 @@
     }
   }
 
+  function handleSelectBrowsePegawai(nip) {
+    if (!nip) return;
+    if (state.browsePegawaiContext === 'penyesuaian') {
+      const list = (state.employees && state.employees.length) ? state.employees : (state.masterGajiList || []);
+      const emp = list.find((e) => e.nip === nip);
+      const nipInput = $('#penyesuaian-nip');
+      const namaInput = $('#penyesuaian-nama');
+      if (nipInput) nipInput.value = nip;
+      if (namaInput) namaInput.value = emp ? emp.nama : '';
+      closeModal();
+      const nominalInput = $('#penyesuaian-nominal');
+      if (nominalInput) nominalInput.focus();
+    } else {
+      selectPotonganEmployee(nip);
+      closeModal();
+    }
+  }
+
   function renderBrowsePegawaiTable(query = '') {
     const tbody = $('#tbody-browse-pegawai');
     const countBadge = $('#browse-pegawai-count');
     if (!tbody) return;
 
     const q = (query || '').trim().toLowerCase();
-    const list = state.employees || [];
+    const list = (state.employees && state.employees.length) ? state.employees : (state.masterGajiList || []);
     const filtered = list.filter((emp) => {
       if (!q) return true;
       return (
@@ -689,8 +726,12 @@
       return;
     }
 
+    const currentNip = state.browsePegawaiContext === 'penyesuaian'
+      ? ($('#penyesuaian-nip')?.value || '')
+      : state.potonganNip;
+
     tbody.innerHTML = filtered.map((emp, idx) => {
-      const isCurrent = emp.nip === state.potonganNip;
+      const isCurrent = emp.nip === currentNip;
       return `
         <tr class="browse-pegawai-row ${isCurrent ? 'selected-row' : ''}" data-nip="${escapeHtml(emp.nip)}" style="cursor: pointer;">
           <td style="text-align: center;">${idx + 1}</td>
@@ -3472,8 +3513,8 @@
     const ket = ketInput ? ketInput.value.trim() : '';
 
     if (!nip) {
-      toast('Validasi Gagal', 'NIP pegawai wajib diisi.', 'error');
-      if (nipInput) nipInput.focus();
+      toast('Validasi Gagal', 'Silakan pilih pegawai ASN terlebih dahulu.', 'error');
+      openBrowsePegawaiModal('penyesuaian');
       return;
     }
     if (!nominal || nominal <= 0) {
@@ -6002,7 +6043,7 @@
     if (btnBrowsePegawai) {
       btnBrowsePegawai.addEventListener('click', (e) => {
         e.preventDefault();
-        openBrowsePegawaiModal();
+        openBrowsePegawaiModal('potongan');
       });
     }
 
@@ -6016,8 +6057,7 @@
           e.preventDefault();
           const firstRowBtn = $('#tbody-browse-pegawai .btn-select-emp');
           if (firstRowBtn && firstRowBtn.dataset.nip) {
-            selectPotonganEmployee(firstRowBtn.dataset.nip);
-            closeModal();
+            handleSelectBrowsePegawai(firstRowBtn.dataset.nip);
           }
         }
       });
@@ -6030,15 +6070,13 @@
         const row = e.target.closest('.browse-pegawai-row');
         const nip = (btn && btn.dataset.nip) || (row && row.dataset.nip);
         if (nip) {
-          selectPotonganEmployee(nip);
-          closeModal();
+          handleSelectBrowsePegawai(nip);
         }
       });
       tableBrowse.addEventListener('dblclick', (e) => {
         const row = e.target.closest('.browse-pegawai-row');
         if (row && row.dataset.nip) {
-          selectPotonganEmployee(row.dataset.nip);
-          closeModal();
+          handleSelectBrowsePegawai(row.dataset.nip);
         }
       });
     }
@@ -6771,25 +6809,19 @@
       formPenyesuaian.addEventListener('submit', savePenyesuaianGaji);
     }
 
+    const btnBrowsePenyesuaian = $('#btn-browse-penyesuaian-pegawai');
+    if (btnBrowsePenyesuaian) {
+      btnBrowsePenyesuaian.addEventListener('click', (e) => {
+        e.preventDefault();
+        openBrowsePegawaiModal('penyesuaian');
+      });
+    }
+
     const penyesuaianNip = $('#penyesuaian-nip');
     if (penyesuaianNip) {
-      const lookupName = () => {
-        const nip = penyesuaianNip.value.trim();
-        const namaInput = $('#penyesuaian-nama');
-        if (!namaInput) return;
-        if (!nip) {
-          return;
-        }
-        if (!namaInput.value.trim()) {
-          const emp = (state.employees || []).find((e) => e.nip === nip) ||
-                      (state.masterGajiList || []).find((e) => e.nip === nip);
-          if (emp && emp.nama) {
-            namaInput.value = emp.nama;
-          }
-        }
-      };
-      penyesuaianNip.addEventListener('input', lookupName);
-      penyesuaianNip.addEventListener('change', lookupName);
+      penyesuaianNip.addEventListener('click', () => {
+        openBrowsePegawaiModal('penyesuaian');
+      });
     }
 
     const btnResetPenyesuaian = $('#btn-reset-penyesuaian');
@@ -6799,6 +6831,8 @@
           const currentPeriod = state.period;
           const periodInput = $('#penyesuaian-period');
           if (periodInput) periodInput.value = currentPeriod;
+          const nipInput = $('#penyesuaian-nip');
+          if (nipInput) nipInput.value = '';
           const namaInput = $('#penyesuaian-nama');
           if (namaInput) namaInput.value = '';
         }, 10);

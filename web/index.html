@@ -597,13 +597,19 @@
                     <form id="form-penyesuaian" novalidate style="padding: 10px 14px;">
                       <input type="hidden" id="penyesuaian-period">
                       <div class="form-grid">
-                        <label class="field">
-                          <span>NIP Pegawai <span class="required">*</span></span>
-                          <input type="text" id="penyesuaian-nip" placeholder="Masukkan 18 digit NIP ASN" autocomplete="off" required>
-                        </label>
+                        <div class="field">
+                          <span>Pegawai ASN <span class="required">*</span></span>
+                          <div class="picker-input-group" style="display: flex; gap: 4px;">
+                            <input type="text" id="penyesuaian-nip" placeholder="Klik 'Pilih Pegawai'…" readonly style="background: #f8fafc; cursor: pointer; flex: 1;" title="Klik untuk memilih pegawai ASN" required>
+                            <button type="button" class="default btn-browse-employee" id="btn-browse-penyesuaian-pegawai" title="Buka dialog pencarian pegawai ASN" style="white-space: nowrap;">
+                              <svg class="icon"><use href="#icon-users"></use></svg>
+                              Pilih Pegawai
+                            </button>
+                          </div>
+                        </div>
                         <label class="field">
                           <span>Nama Pegawai</span>
-                          <input type="text" id="penyesuaian-nama" autocomplete="off">
+                          <input type="text" id="penyesuaian-nama" readonly placeholder="Nama ASN otomatis terisi" style="background: #f8fafc;">
                         </label>
                         <label class="field">
                           <span>Jenis Penyesuaian <span class="required">*</span></span>
@@ -1830,7 +1836,7 @@
       <div class="window-body modal-body">
         <div class="dialog-head">
           <span class="dialog-icon"><svg class="icon"><use href="#icon-users"></use></svg></span>
-          <p>Cari dan pilih pegawai ASN berdasarkan NIP, Nama, atau Pangkat untuk menampilkan dan mengelola potongan gaji.</p>
+          <p id="browse-pegawai-desc">Cari dan pilih pegawai ASN berdasarkan NIP, Nama, atau Pangkat untuk menampilkan dan mengelola potongan gaji.</p>
         </div>
         <div class="browse-pegawai-toolbar">
           <div class="search-box" style="flex: 1;">
