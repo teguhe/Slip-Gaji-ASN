@@ -380,6 +380,14 @@ class MasterUserUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class MasterUserPrintLogRequest(BaseModel):
+    total_users: int = 0
+    filter_role: str | None = None
+    filter_status: str | None = None
+    print_date: str | None = None
+    title: str | None = None
+
+
 # --- PENYESUAIAN GAJI & MONITORING SCHEMAS ---
 
 class PenyesuaianGajiCreate(BaseModel):

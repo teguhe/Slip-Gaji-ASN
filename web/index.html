@@ -699,6 +699,7 @@
                     <option value="AUTH_LOGIN">Login / Autentikasi</option>
                     <option value="CREATE_MASTER_OPD">Master OPD</option>
                     <option value="CREATE_USER_MANAGEMENT">Master Pengguna</option>
+                    <option value="PRINT_USERS_REPORT">Cetak Master Pengguna</option>
                   </select>
                 </div>
               </div>
@@ -1349,6 +1350,10 @@
                 <button type="button" class="default" id="btn-open-add-user">
                   <svg class="icon"><use href="#icon-plus"></use></svg>
                   Tambah Pengguna Baru
+                </button>
+                <button type="button" id="btn-open-print-user" title="Buka form cetak daftar pengguna">
+                  <svg class="icon"><use href="#icon-printer"></use></svg>
+                  Cetak Pengguna
                 </button>
                 <button type="button" class="toolbar-icon-button" id="btn-refresh-master-user" title="Muat ulang pengguna">
                   <svg class="icon"><use href="#icon-refresh"></use></svg>
@@ -2073,6 +2078,69 @@
             <button type="button" class="default" id="btn-save-new-user">
               <svg class="icon"><use href="#icon-check"></use></svg>
               Tambah Bendahara
+            </button>
+            <button type="button" data-close-modal>Batal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL CETAK MASTER PENGGUNA ================= -->
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="modal-master-user-print-title" data-modal="master-user-print" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="modal-master-user-print-title">Form Cetak Master Pengguna</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-printer"></use></svg></span>
+          <p>Cetak laporan resmi daftar akun pengguna dan hak akses sistem. Aksi pencetakan akan otomatis dicatat dalam log audit sistem.</p>
+        </div>
+        <form id="form-master-user-print" novalidate onsubmit="return false;">
+          <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+            <label class="field">
+              <span>Admin yang Mencetak</span>
+              <input type="text" id="master-user-print-admin" readonly style="background: #f1f5f9; cursor: not-allowed; font-weight: 600;">
+            </label>
+            <label class="field">
+              <span>Tanggal &amp; Waktu Cetak</span>
+              <input type="text" id="master-user-print-date" style="background: #f1f5f9;">
+            </label>
+            <label class="field">
+              <span>Judul Laporan</span>
+              <input type="text" id="master-user-print-title-input" value="DAFTAR AKUN PENGGUNA &amp; HAK AKSES SISTEM PENGGAJIAN ASN" autocomplete="off">
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <label class="field">
+                <span>Filter Peran</span>
+                <select id="master-user-print-role">
+                  <option value="all">Semua Peran</option>
+                  <option value="super_admin">Super Admin Saja</option>
+                  <option value="bendahara_opd">Bendahara OPD Saja</option>
+                  <option value="unassigned">Belum Ada OPD Saja</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Filter Status</span>
+                <select id="master-user-print-status">
+                  <option value="all">Semua Status</option>
+                  <option value="active">Hanya Akun Aktif</option>
+                  <option value="inactive">Hanya Akun Nonaktif</option>
+                </select>
+              </label>
+            </div>
+            <div class="callout callout-info" style="margin-top: 4px; padding: 8px 10px; background: #eaf4fb; border: 1px solid #b8daef; border-radius: 3px; font-size: 11px;">
+              <span id="master-user-print-summary">Menyiapkan data cetak…</span>
+            </div>
+          </div>
+          <p class="form-error" id="master-user-print-error" hidden></p>
+          <div class="dialog-actions">
+            <button type="button" class="default" id="btn-do-print-master-user">
+              <svg class="icon"><use href="#icon-printer"></use></svg>
+              Cetak Dokumen
             </button>
             <button type="button" data-close-modal>Batal</button>
           </div>

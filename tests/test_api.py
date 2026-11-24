@@ -549,3 +549,60 @@ def test_special_periods_gaji_13_and_thr():
     assert add_months(d12, 1) == datetime.date(2026, 12, 13)
 
 
+def test_print_master_users_logs_audit_action_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/master/users/print-log",
+            json={
+                "total_users": 5,
+                "filter_role": "bendahara_opd",
+                "filter_status": "active",
+                "print_date": "2026-11-24 10:30:00",
+                "title": "DAFTAR BENDAHARA OPD",
+            },
+            headers={"X-Forwarded-For": "192.168.1.55"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "PRINT_USERS_REPORT")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.user_email == super_admin_profile.email
+        assert log.details["total_users"] == 5
+        assert log.details["filter_role"] == "bendahara_opd"
+        assert log.details["filter_status"] == "active"
+        assert log.details["print_date"] == "2026-11-24 10:30:00"
+        assert log.ip_address == "192.168.1.55"
+
+
+def test_print_master_users_forbidden_for_bendahara(
+    api_app, db_session, seeded, bendahara_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=bendahara_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/master/users/print-log",
+            json={"total_users": 10},
+        )
+        assert res.status_code == 403
+
+
+

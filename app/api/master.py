@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -20,6 +21,7 @@ from app.schemas import (
     MasterOpdUpdate,
     MasterUserCreate,
     MasterUserItem,
+    MasterUserPrintLogRequest,
     MasterUserUpdate,
 )
 from app.services.audit import extract_client_ip, write_audit
@@ -538,3 +540,43 @@ def delete_master_user(
         "status": "success",
         "message": f"Pengguna '{deleted_email}' berhasil dihapus dari sistem.",
     }
+
+
+@router.post(
+    "/users/print-log",
+    summary="Catat log pencetakan daftar pengguna",
+)
+def log_print_master_users(
+    payload: MasterUserPrintLogRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> dict[str, Any]:
+    _assert_super_admin(current_user)
+    admin_name = current_user.display_name or current_user.nama_bendahara or current_user.email
+    print_time_str = payload.print_date or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    details: dict[str, Any] = {
+        "printed_by": admin_name,
+        "admin_email": current_user.email,
+        "total_users": payload.total_users,
+        "filter_role": payload.filter_role or "all",
+        "filter_status": payload.filter_status or "all",
+        "print_date": print_time_str,
+        "title": payload.title or "Daftar Pengguna Sistem",
+    }
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="PRINT_USERS_REPORT",
+        table_name="app_users",
+        record_id=None,
+        details=details,
+        ip_address=extract_client_ip(request),
+    )
+    db.commit()
+    return {
+        "status": "success",
+        "message": "Log pencetakan master pengguna berhasil dicatat.",
+    }
+

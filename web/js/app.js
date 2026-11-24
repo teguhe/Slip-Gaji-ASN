@@ -2079,6 +2079,353 @@
     }
   }
 
+  function formatIndonesianDateTime(d = new Date()) {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dayName = days[d.getDay()];
+    const dateNum = d.getDate();
+    const monthName = MONTH_NAMES[d.getMonth()] || '';
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    const secs = String(d.getSeconds()).padStart(2, '0');
+    return `${dayName}, ${dateNum} ${monthName} ${year} ${hours}:${mins}:${secs} WIB`;
+  }
+
+  function getFilteredMasterUsersForPrint() {
+    const roleFilter = $('#master-user-print-role')?.value || 'all';
+    const statusFilter = $('#master-user-print-status')?.value || 'all';
+
+    return state.masterUserList.filter((u) => {
+      if (roleFilter === 'super_admin' && u.role !== 'super_admin') return false;
+      if (roleFilter === 'bendahara_opd' && u.role !== 'bendahara_opd') return false;
+      if (roleFilter === 'unassigned' && (u.opd_id || u.role === 'super_admin')) return false;
+
+      if (statusFilter === 'active' && !u.is_active) return false;
+      if (statusFilter === 'inactive' && u.is_active) return false;
+
+      return true;
+    });
+  }
+
+  function updateMasterUserPrintSummary() {
+    const summaryNode = $('#master-user-print-summary');
+    if (!summaryNode) return;
+    const users = getFilteredMasterUsersForPrint();
+    summaryNode.innerHTML = `Siap mencetak <strong>${users.length}</strong> akun pengguna dari total <strong>${state.masterUserList.length}</strong> pengguna terdaftar.`;
+  }
+
+  function openMasterUserPrintModal() {
+    if (state.mode !== 'api' || !state.token) return;
+
+    const adminInput = $('#master-user-print-admin');
+    const dateInput = $('#master-user-print-date');
+    const titleInput = $('#master-user-print-title-input');
+    const roleSelect = $('#master-user-print-role');
+    const statusSelect = $('#master-user-print-status');
+    const errorNode = $('#master-user-print-error');
+
+    if (errorNode) errorNode.hidden = true;
+
+    const curAdminName = state.profile?.display_name || state.profile?.nama_bendahara || state.profile?.email || 'Super Admin';
+    const curAdminEmail = state.profile?.email || 'teguhe@gmail.com';
+
+    if (adminInput) adminInput.value = `${curAdminName} (${curAdminEmail})`;
+    if (dateInput) dateInput.value = formatIndonesianDateTime(new Date());
+    if (titleInput && !titleInput.value) {
+      titleInput.value = 'DAFTAR AKUN PENGGUNA & HAK AKSES SISTEM PENGGAJIAN ASN';
+    }
+    if (roleSelect) roleSelect.value = state.masterUserRoleFilter || 'all';
+    if (statusSelect) statusSelect.value = 'all';
+
+    updateMasterUserPrintSummary();
+    openModal('master-user-print');
+  }
+
+  async function doPrintMasterUsers() {
+    if (state.mode !== 'api' || !state.token) return;
+
+    const adminInput = $('#master-user-print-admin');
+    const dateInput = $('#master-user-print-date');
+    const titleInput = $('#master-user-print-title-input');
+    const roleSelect = $('#master-user-print-role');
+    const statusSelect = $('#master-user-print-status');
+    const errorNode = $('#master-user-print-error');
+    const btnPrint = $('#btn-do-print-master-user');
+
+    if (errorNode) errorNode.hidden = true;
+
+    const users = getFilteredMasterUsersForPrint();
+    if (!users.length) {
+      if (errorNode) {
+        errorNode.textContent = 'Tidak ada data pengguna yang memenuhi kriteria filter.';
+        errorNode.hidden = false;
+      }
+      return;
+    }
+
+    const title = titleInput?.value.trim() || 'DAFTAR AKUN PENGGUNA & HAK AKSES SISTEM PENGGAJIAN ASN';
+    const printDate = dateInput?.value.trim() || formatIndonesianDateTime(new Date());
+    const adminName = state.profile?.display_name || state.profile?.nama_bendahara || 'Super Admin';
+    const adminEmail = state.profile?.email || 'teguhe@gmail.com';
+    const roleFilter = roleSelect?.value || 'all';
+    const statusFilter = statusSelect?.value || 'all';
+
+    const roleLabels = {
+      all: 'Semua Peran',
+      super_admin: 'Super Admin Saja',
+      bendahara_opd: 'Bendahara OPD Saja',
+      unassigned: 'Belum Ada OPD (Terkunci)',
+    };
+    const statusLabels = {
+      all: 'Semua Status',
+      active: 'Hanya Akun Aktif',
+      inactive: 'Hanya Akun Nonaktif',
+    };
+
+    if (btnPrint) btnPrint.disabled = true;
+
+    try {
+      // 1. Catat log ke server (AuditLog)
+      await apiRequest('/api/v1/master/users/print-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total_users: users.length,
+          filter_role: roleFilter,
+          filter_status: statusFilter,
+          print_date: printDate,
+          title: title,
+        }),
+      });
+
+      closeModal();
+      toast('Laporan Pengguna Dicetak', `${users.length} akun pengguna siap dicetak. Aksi dicatat dalam log audit.`, 'info');
+
+      // 2. Buat dokumen jendela cetak yang rapi
+      const win = window.open('', '_blank', 'width=900,height=700');
+      if (!win) {
+        toast('Popup Diblokir', 'Mohon izinkan pop-up peramban untuk mencetak laporan.', 'error');
+        return;
+      }
+
+      const now = new Date();
+      const cityDate = `${now.getDate()} ${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+
+      const rowsHtml = users.map((u, idx) => {
+        const isSuper = u.role === 'super_admin';
+        const roleLabel = isSuper ? 'Super Admin' : (u.opd_id ? 'Bendahara OPD' : 'Terkunci (Tanpa OPD)');
+        const roleBadgeClass = isSuper ? 'badge-admin' : 'badge-opd';
+        const opdText = u.opd_name || (isSuper ? 'Seluruh OPD (Pemerintah Kota)' : '— (Belum Ditugaskan)');
+        const statusText = u.is_active ? 'Aktif' : 'Nonaktif';
+        const statusClass = u.is_active ? 'badge-active' : 'badge-inactive';
+        const joined = u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID', {
+          day: '2-digit', month: '2-digit', year: 'numeric'
+        }) : '—';
+
+        return `
+          <tr>
+            <td class="text-center">${idx + 1}</td>
+            <td><strong>${escapeHtml(u.email)}</strong></td>
+            <td>${escapeHtml(u.display_name || '—')}</td>
+            <td><span class="badge ${roleBadgeClass}">${escapeHtml(roleLabel)}</span></td>
+            <td>${escapeHtml(opdText)}</td>
+            <td class="text-center"><span class="${statusClass}">${statusText}</span></td>
+            <td class="text-center">${escapeHtml(joined)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const docHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm 12mm 15mm 12mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      font-size: 9pt;
+      color: #111;
+      margin: 0;
+      padding: 0;
+      line-height: 1.35;
+    }
+    .header-wrap {
+      text-align: center;
+      border-bottom: 2.5px solid #000;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+    .header-wrap h1 {
+      margin: 0;
+      font-size: 13pt;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .header-wrap h2 {
+      margin: 3px 0 0;
+      font-size: 10.5pt;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #0b3d62;
+    }
+    .header-wrap p {
+      margin: 3px 0 0;
+      font-size: 8.5pt;
+      color: #444;
+    }
+    .meta-box {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 8.5pt;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+    }
+    .meta-box td {
+      padding: 4px 8px;
+      vertical-align: top;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      margin-bottom: 16px;
+    }
+    .data-table th, .data-table td {
+      border: 1px solid #475569;
+      padding: 5px 6px;
+      vertical-align: middle;
+    }
+    .data-table th {
+      background-color: #e2e8f0;
+      font-weight: 700;
+      text-align: center;
+      color: #0f172a;
+    }
+    .data-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 7.5pt;
+      font-weight: 600;
+    }
+    .badge-admin { background: #e0e7ff; color: #3730a3; border: 0.5px solid #c7d2fe; }
+    .badge-opd { background: #ecfdf5; color: #065f46; border: 0.5px solid #a7f3d0; }
+    .badge-active { color: #047857; font-weight: 700; }
+    .badge-inactive { color: #b91c1c; font-weight: 700; }
+    .footer-block {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+    }
+    .sign-box {
+      width: 65mm;
+      text-align: center;
+      font-size: 9pt;
+    }
+    .sign-space { height: 16mm; }
+    .sign-name { font-weight: 700; text-decoration: underline; }
+    .sign-role { font-size: 8pt; color: #333; margin-top: 2px; }
+    .print-note {
+      margin-top: 20px;
+      font-size: 7.5pt;
+      color: #64748b;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-wrap">
+    <h1>PEMERINTAH KOTA SALATIGA</h1>
+    <h2>${escapeHtml(title)}</h2>
+    <p>Aplikasi Penggajian dan Cetak Slip Gaji ASN • Modul Manajemen Pengguna</p>
+  </div>
+  <table class="meta-box">
+    <tr>
+      <td style="width: 140px;"><strong>Tanggal &amp; Waktu Cetak</strong></td>
+      <td style="width: 8px;">:</td>
+      <td style="width: 38%;">${escapeHtml(printDate)}</td>
+      <td style="width: 140px;"><strong>Admin yang Mencetak</strong></td>
+      <td style="width: 8px;">:</td>
+      <td><strong>${escapeHtml(adminName)}</strong> (${escapeHtml(adminEmail)})</td>
+    </tr>
+    <tr>
+      <td><strong>Kriteria Filter</strong></td>
+      <td>:</td>
+      <td>Peran: ${escapeHtml(roleLabels[roleFilter] || roleFilter)} | Status: ${escapeHtml(statusLabels[statusFilter] || statusFilter)}</td>
+      <td><strong>Total Data Pengguna</strong></td>
+      <td>:</td>
+      <td><strong>${users.length}</strong> Akun Terdaftar</td>
+    </tr>
+  </table>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 32px;">No</th>
+        <th>Email Akun (Google)</th>
+        <th>Nama Pengguna</th>
+        <th style="width: 110px;">Peran Akses</th>
+        <th>Penugasan OPD</th>
+        <th style="width: 70px;">Status</th>
+        <th style="width: 85px;">Terdaftar</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+  <div class="footer-block">
+    <div class="sign-box">
+      <div>Salatiga, ${escapeHtml(cityDate)}</div>
+      <div style="font-weight: 600; margin-top: 3px;">Admin yang Mencetak,</div>
+      <div class="sign-space"></div>
+      <div class="sign-name">${escapeHtml(adminName)}</div>
+      <div class="sign-role">${escapeHtml(adminEmail)}</div>
+    </div>
+  </div>
+  <div class="print-note">
+    <span>Dicetak melalui Aplikasi Penggajian dan Cetak Slip Gaji ASN • Dokumen Resmi Internal Pemerintah Kota Salatiga</span>
+    <span>ID Sesi / Tanggal: ${escapeHtml(printDate)}</span>
+  </div>
+</body>
+</html>`;
+
+      win.document.open();
+      win.document.write(docHtml);
+      win.document.close();
+      win.onload = () => {
+        win.focus();
+        win.print();
+      };
+    } catch (caught) {
+      if (errorNode) {
+        errorNode.textContent = caught.message || 'Gagal mencatat log cetak atau mencetak dokumen.';
+        errorNode.hidden = false;
+      }
+    } finally {
+      if (btnPrint) btnPrint.disabled = false;
+    }
+  }
+
   function clearAllData() {
     state.mode = 'api';
     state.token = '';
@@ -5561,6 +5908,14 @@
     // Master User
     const openAddUserBtn = $('#btn-open-add-user');
     if (openAddUserBtn) openAddUserBtn.addEventListener('click', openMasterUserAddModal);
+    const openPrintUserBtn = $('#btn-open-print-user');
+    if (openPrintUserBtn) openPrintUserBtn.addEventListener('click', openMasterUserPrintModal);
+    const doPrintUserBtn = $('#btn-do-print-master-user');
+    if (doPrintUserBtn) doPrintUserBtn.addEventListener('click', doPrintMasterUsers);
+    const printUserRole = $('#master-user-print-role');
+    if (printUserRole) printUserRole.addEventListener('change', updateMasterUserPrintSummary);
+    const printUserStatus = $('#master-user-print-status');
+    if (printUserStatus) printUserStatus.addEventListener('change', updateMasterUserPrintSummary);
     const saveNewUserBtn = $('#btn-save-new-user');
     if (saveNewUserBtn) saveNewUserBtn.addEventListener('click', saveMasterUserAdd);
     const refreshMasterUserBtn = $('#btn-refresh-master-user');
