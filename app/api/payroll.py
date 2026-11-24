@@ -876,6 +876,31 @@ def get_asn_payroll_by_period(
     potongan_internal = sum((detail.nominal for detail in rincian), ZERO)
     total_potongan = potongan_simgaji + potongan_internal
 
+    peny_items = db.scalars(
+        select(PayrollPenyesuaian)
+        .where(
+            PayrollPenyesuaian.nip == payroll.nip,
+            PayrollPenyesuaian.period == start_period,
+        )
+        .order_by(PayrollPenyesuaian.created_at)
+    ).all()
+    rincian_penyesuaian = [
+        PenyesuaianGajiItem(
+            id=str(item.id),
+            nip=item.nip,
+            nama=item.nama,
+            period=period_str(item.period),
+            opd_id=item.opd_id,
+            jenis_penyesuaian=item.jenis_penyesuaian,
+            nominal=item.nominal,
+            keterangan=item.keterangan,
+            status=item.status,
+            created_by=item.created_by,
+            created_at=item.created_at,
+        )
+        for item in peny_items
+    ]
+
     response = SlipGajiResponse(
         nip=payroll.nip,
         nama=payroll.nama,
@@ -895,6 +920,7 @@ def get_asn_payroll_by_period(
             column: (getattr(payroll, column) or ZERO) for column in DEDUCTION_COLUMNS
         },
         rincian_potongan_internal=rincian,
+        rincian_penyesuaian=rincian_penyesuaian,
     )
 
     write_audit(

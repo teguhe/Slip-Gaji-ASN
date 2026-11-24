@@ -18,6 +18,30 @@ class PotonganDetail(BaseModel):
     kategori: str | None = None
 
 
+class PenyesuaianGajiCreate(BaseModel):
+    nip: str = Field(..., min_length=1, max_length=30)
+    nama: str | None = Field(None, max_length=255)
+    period: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="Format YYYY-MM")
+    jenis_penyesuaian: str = Field("Tunda Bayar", max_length=100)
+    nominal: Decimal = Field(..., gt=Decimal("0.00"))
+    keterangan: str | None = None
+    status: str = Field("ditunda", max_length=50)
+
+
+class PenyesuaianGajiItem(BaseModel):
+    id: str
+    nip: str
+    nama: str | None = None
+    period: str
+    opd_id: int | None = None
+    jenis_penyesuaian: str
+    nominal: Decimal
+    keterangan: str | None = None
+    status: str
+    created_by: str
+    created_at: datetime
+
+
 class SlipGajiResponse(BaseModel):
     nip: str
     nama: str
@@ -33,6 +57,7 @@ class SlipGajiResponse(BaseModel):
     rincian_penghasilan: dict[str, Decimal] = Field(default_factory=dict)
     rincian_potongan_simgaji: dict[str, Decimal] = Field(default_factory=dict)
     rincian_potongan_internal: list[PotonganDetail]
+    rincian_penyesuaian: list[PenyesuaianGajiItem] = Field(default_factory=list)
 
 
 class ImportExcelResponse(BaseModel):
@@ -403,29 +428,6 @@ class MasterUserPrintLogRequest(BaseModel):
 
 
 # --- PENYESUAIAN GAJI & MONITORING SCHEMAS ---
-
-class PenyesuaianGajiCreate(BaseModel):
-    nip: str = Field(..., min_length=1, max_length=30)
-    nama: str | None = Field(None, max_length=255)
-    period: str = Field(..., pattern=r"^\d{4}-\d{2}$", description="Format YYYY-MM")
-    jenis_penyesuaian: str = Field("Tunda Bayar", max_length=100)
-    nominal: Decimal = Field(..., gt=Decimal("0.00"))
-    keterangan: str | None = None
-    status: str = Field("ditunda", max_length=50)
-
-
-class PenyesuaianGajiItem(BaseModel):
-    id: str
-    nip: str
-    nama: str | None = None
-    period: str
-    opd_id: int | None = None
-    jenis_penyesuaian: str
-    nominal: Decimal
-    keterangan: str | None = None
-    status: str
-    created_by: str
-    created_at: datetime
 
 
 class AuditLogItem(BaseModel):

@@ -444,6 +444,43 @@ def test_create_penyesuaian_gaji_manual_nama(api_app, db_session, seeded, bendah
         assert data["period"] == "2026-10"
 
 
+def test_get_payroll_includes_rincian_penyesuaian(
+    api_app, db_session, seeded, bendahara_profile
+):
+    import_simgaji_excel(
+        content=make_excel([make_row()]),
+        filename="simgaji.xlsx",
+        user=bendahara_profile,
+        db=db_session,
+    )
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user", user=bendahara_profile
+    )
+    with TestClient(api_app) as client:
+        client.post(
+            "/api/v1/payroll/penyesuaian",
+            json={
+                "nip": NIP,
+                "nama": "Ahmad Yani",
+                "period": "2026-10",
+                "jenis_penyesuaian": "Tunda Bayar",
+                "nominal": "500000.00",
+                "status": "ditunda",
+                "keterangan": "Rekening terblokir",
+            },
+        )
+        res = client.get(f"/api/v1/payroll/{NIP}", params={"period": "2026-10"})
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert "rincian_penyesuaian" in data
+        assert len(data["rincian_penyesuaian"]) == 1
+        item = data["rincian_penyesuaian"][0]
+        assert item["jenis_penyesuaian"] == "Tunda Bayar"
+        assert item["keterangan"] == "Rekening terblokir"
+        assert Decimal(str(item["nominal"])) == Decimal("500000.00")
+
+
 def test_endpoint_inspect_excel(api_app, db_session, seeded, bendahara_profile):
     api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
     with TestClient(api_app) as client:

@@ -71,6 +71,32 @@
         .row.total { font-weight: bold; border-top: 1px dashed #aaa; margin-top: 1.5px; padding-top: 1.2px; }
         .row.total.highlight { border-top: 1px solid #79b08f; border-bottom: 1px solid #79b08f; color: #0b5b31; padding: 1.2px 0; margin: 1.5px 0; }
         .footer { font-weight: bold; border-top: 1px solid #79b08f; border-bottom: 1px solid #79b08f; color: #0b5b31; display: flex; justify-content: flex-end; padding: 1.2px 0; font-size: 9.5px; margin-top: 1.5px; margin-bottom: 1.5mm; }
+        .penyesuaian-block {
+            margin-top: 1mm;
+            margin-bottom: 1.5mm;
+            padding: 0.8mm 1.5mm;
+            background: #fffbeb;
+            border: 0.5px dashed #d97706;
+            border-radius: 2px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .penyesuaian-title {
+            font-weight: bold;
+            font-size: 8px;
+            color: #92400e;
+            text-transform: uppercase;
+            border-bottom: 0.5px solid #fde68a;
+            padding-bottom: 0.4mm;
+            margin-bottom: 0.6mm;
+        }
+        .penyesuaian-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 7.8px;
+            color: #78350f;
+            line-height: 1.35;
+        }
         .numeric { text-align: right; font-family: 'Courier New', monospace; font-weight: 600; }
         .sign-block { display: flex; justify-content: flex-end; margin-top: 2.5mm; }
         .sign-box { text-align: center; width: 58mm; font-size: 9px; }
@@ -209,6 +235,24 @@
                             internalHtml = `<div class="row"><span>Tidak ada potongan</span><span class="numeric">${formatRupiah(0)}</span></div>`;
                         }
 
+                        let penyesuaianHtml = '';
+                        const penyList = data.rincian_penyesuaian || data.penyesuaian || [];
+                        if (penyList.length) {
+                            const penyRows = penyList.map((py) => {
+                                const jenis = py.jenis_penyesuaian || py.jenis || 'Penyesuaian';
+                                const alasan = py.keterangan || py.alasan || '';
+                                const nominal = Number(py.nominal) || 0;
+                                const desc = alasan ? `${jenis} — ${alasan}` : jenis;
+                                return `<div class="penyesuaian-row"><span>${desc}</span><span class="numeric">Rp ${formatRupiah(nominal)}</span></div>`;
+                            }).join('');
+                            penyesuaianHtml = `
+                                <div class="penyesuaian-block">
+                                    <div class="penyesuaian-title">Informasi Penyesuaian</div>
+                                    ${penyRows}
+                                </div>
+                            `;
+                        }
+
                         slots.push(`
                             <div class="slip-container">
                                 <div class="header">
@@ -235,6 +279,7 @@
                                 <div class="footer">
                                     <span>DITERIMA BERSIH: Rp ${formatRupiah(thp)}</span>
                                 </div>
+                                ${penyesuaianHtml}
                                 <div class="sign-block">
                                     <div class="sign-box">
                                         <div class="sign-date">Salatiga, .... ${formatPeriodLabel(period)}</div>

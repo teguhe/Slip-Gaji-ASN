@@ -4270,6 +4270,15 @@
 
   async function ensurePrintEmployeesLoaded() {
     if (state.mode !== 'api' || !state.token) return;
+    if (!state.penyesuaianLoadedPeriod || state.penyesuaianLoadedPeriod !== state.period) {
+      try {
+        const pList = await apiRequest(`/api/v1/payroll/penyesuaian?period=${encodeURIComponent(state.period)}`);
+        state.penyesuaianList = Array.isArray(pList) ? pList : [];
+        state.penyesuaianLoadedPeriod = state.period;
+      } catch (e) {
+        console.warn('Gagal memuat penyesuaian gaji untuk slip:', e);
+      }
+    }
     const employeesToPrint = getPrintEmployees();
     const targets = employeesToPrint.filter(
       (e) => Number(e.potonganInternal) > 0 && (!e.internalPotongan || !e.internalPotongan.length)
@@ -4295,6 +4304,9 @@
             keterangan: detail.keterangan || '',
             readOnly: Boolean(detail.cicilan_info || detail.kategori === 'berjangka'),
           }));
+          if (data.rincian_penyesuaian && data.rincian_penyesuaian.length) {
+            emp.rincian_penyesuaian = data.rincian_penyesuaian;
+          }
           emp.basePotonganInternal = 0;
         } catch (e) {
           console.warn(`Gagal memuat rincian potongan ${emp.nip}:`, e);
@@ -4474,6 +4486,32 @@
       ? `NIP. ${escapeHtml(curNip)}`
       : 'NIP. .........................................................';
 
+    let penyesuaianPreviewHtml = '';
+    const penyList = (employee.rincian_penyesuaian && employee.rincian_penyesuaian.length)
+      ? employee.rincian_penyesuaian
+      : (state.penyesuaianList || []).filter((p) => p.nip === employee.nip);
+
+    if (penyList.length) {
+      const penyRows = penyList.map((py) => {
+        const jenis = py.jenis_penyesuaian || py.jenis || 'Penyesuaian';
+        const alasan = py.keterangan || py.alasan || '';
+        const nominal = Number(py.nominal) || 0;
+        const desc = alasan ? `${escapeHtml(jenis)} — ${escapeHtml(alasan)}` : escapeHtml(jenis);
+        return `
+          <div class="slip-penyesuaian-row">
+            <span>${desc}</span>
+            <span>Rp ${formatAmount(nominal)}</span>
+          </div>
+        `;
+      }).join('');
+      penyesuaianPreviewHtml = `
+        <div class="slip-penyesuaian">
+          <div class="slip-penyesuaian-title">Informasi Penyesuaian</div>
+          ${penyRows}
+        </div>
+      `;
+    }
+
     return `
       <article class="slip">
         <div class="slip-header-block">
@@ -4500,6 +4538,7 @@
         <div class="slip-foot">
           <span class="net">DITERIMA BERSIH: <strong>Rp ${formatAmount(employee.thp)}</strong></span>
         </div>
+        ${penyesuaianPreviewHtml}
         <div class="slip-sign">
           <div class="slip-sign-box">
             <div class="sign-date">Salatiga, .... ${escapeHtml(periodLabel(state.period))}</div>
@@ -5287,6 +5326,23 @@
   }
 
   async function doPrint(dataList, period) {
+    if (state.mode === 'api' && state.token && (!state.penyesuaianList || !state.penyesuaianList.length || state.penyesuaianLoadedPeriod !== period)) {
+      try {
+        const pList = await apiRequest(`/api/v1/payroll/penyesuaian?period=${encodeURIComponent(period)}`);
+        state.penyesuaianList = Array.isArray(pList) ? pList : [];
+        state.penyesuaianLoadedPeriod = period;
+      } catch (e) {
+        console.warn('Gagal memuat penyesuaian gaji untuk cetak:', e);
+      }
+    }
+    dataList.forEach((data) => {
+      if (!data.rincian_penyesuaian || !data.rincian_penyesuaian.length) {
+        const matching = (state.penyesuaianList || []).filter((p) => p.nip === data.nip);
+        if (matching.length) {
+          data.rincian_penyesuaian = matching;
+        }
+      }
+    });
     const win = window.open('', '_blank', 'width=800,height=600');
     const template = await (await fetch('/template_slip_f4.html')).text();
     const curJab = state.profile?.jabatan || storageGet('simgaji.jabatan', localStorage) || 'Bendahara Pengeluaran';
