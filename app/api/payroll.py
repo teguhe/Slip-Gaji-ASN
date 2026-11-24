@@ -344,7 +344,7 @@ def get_opd_payroll_summary(
         filter_opd,
     )
     period_recap_data = load_payroll_period_recap(db, filter_opd)
-    trend_data = load_payroll_trend(db, filter_opd, limit=6)
+    trend_data = load_payroll_trend(db, filter_opd, limit=12)
     response = DashboardSummaryResponse(
         period=period_str(start_period),
         opd=filter_opd or "Semua OPD",

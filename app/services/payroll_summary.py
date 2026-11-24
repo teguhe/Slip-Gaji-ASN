@@ -176,7 +176,7 @@ def load_payroll_period_recap(
 def load_payroll_trend(
     db: Session,
     opd_name: str | None = None,
-    limit: int = 6,
+    limit: int = 12,
 ) -> list[dict[str, Any]]:
     """Mengembalikan data tren Take Home Pay per periode (maksimal limit periode terakhir, diurutkan kronologis ASC)."""
     statement = (
