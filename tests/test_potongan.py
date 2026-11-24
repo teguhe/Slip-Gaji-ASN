@@ -474,7 +474,7 @@ def test_potongan_item_crud_and_isolation(
         assert Decimal(str(data["nominal"])) == Decimal("75000")
         item_id = data["id"]
 
-        # 2. Update item
+        # 2. Update item via POST
         res_update = client.post(
             "/api/v1/potongan/item",
             json={
@@ -487,6 +487,17 @@ def test_potongan_item_crud_and_isolation(
         assert res_update.status_code == 200
         assert Decimal(str(res_update.json()["nominal"])) == Decimal("85000")
         assert res_update.json()["id"] == item_id
+
+        # 2b. Update item via PATCH
+        res_patch = client.patch(
+            f"/api/v1/potongan/item/{item_id}",
+            json={
+                "nominal": "95000.00",
+            },
+        )
+        assert res_patch.status_code == 200, res_patch.text
+        assert Decimal(str(res_patch.json()["nominal"])) == Decimal("95000.00")
+        assert res_patch.json()["id"] == item_id
 
         # 3. Delete item
         res_del = client.delete(f"/api/v1/potongan/item/{item_id}")
@@ -503,7 +514,7 @@ def test_potongan_item_crud_and_isolation(
         .where(AuditLog.action.in_(["CREATE_POTONGAN_MANUAL_ITEM", "UPDATE_POTONGAN_MANUAL_ITEM", "DELETE_POTONGAN_MANUAL_ITEM"]))
         .order_by(AuditLog.id)
     ).all()
-    assert len(audits) == 3
+    assert len(audits) == 4
 
 
 def test_rekap_potongan_bulanan_endpoint(

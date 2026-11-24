@@ -2217,6 +2217,55 @@
       </div>
     </div>
 
+    <!-- ================= MODAL UBAH POTONGAN PEGAWAI ================= -->
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="modal-edit-potongan-title" data-modal="edit-potongan" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="modal-edit-potongan-title">Ubah Data Potongan ASN</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <p class="dialog-title">Perbarui Potongan Internal ASN</p>
+          <p class="dialog-sub">Sesuaikan pos potongan, nominal, atau keterangan potongan pegawai.</p>
+        </div>
+        <div class="user-meta-box" style="margin-bottom: 12px; font-size: 11px;">
+          <div><span>Nama ASN</span><strong id="edit-potongan-nama">—</strong></div>
+          <div><span>NIP</span><strong id="edit-potongan-nip">—</strong></div>
+          <div><span>Periode</span><strong id="edit-potongan-period-text">—</strong></div>
+          <div><span>Jenis Potongan</span><strong id="edit-potongan-jenis-text">—</strong></div>
+        </div>
+        <form id="form-edit-potongan" novalidate>
+          <input type="hidden" id="edit-potongan-id">
+          <input type="hidden" id="edit-potongan-raw-nip">
+          <input type="hidden" id="edit-potongan-period">
+          <div class="asn-form-grid">
+            <label class="field col-span-2">
+              <span>Pos Potongan</span>
+              <select id="edit-potongan-pos" required></select>
+            </label>
+            <label class="field col-span-2">
+              <span>Nominal Potongan (Rp)</span>
+              <input type="text" id="edit-potongan-nominal" inputmode="decimal" placeholder="Contoh: 50.000" autocomplete="off" required>
+            </label>
+            <label class="field col-span-2">
+              <span>Keterangan <em>(opsional)</em></span>
+              <input type="text" id="edit-potongan-keterangan" placeholder="Contoh: penyesuaian iuran" autocomplete="off">
+            </label>
+          </div>
+          <p class="form-error" id="edit-potongan-error" hidden style="margin-top: 8px;"></p>
+          <div class="dialog-actions" style="margin-top: 14px;">
+            <button type="submit" class="default" id="btn-save-edit-potongan">
+              <svg class="icon"><use href="#icon-check"></use></svg> Simpan Perubahan
+            </button>
+            <button type="button" data-close-modal>Batal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- ================= MODAL MASTER OPD ================= -->
     <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
          aria-labelledby="modal-master-opd-title" data-modal="master-opd" hidden>

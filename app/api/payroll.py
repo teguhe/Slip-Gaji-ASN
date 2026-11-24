@@ -835,6 +835,7 @@ def get_asn_payroll_by_period(
         rincian.append(
             PotonganDetail(
                 id=str(item.id),
+                pos_id=pos.id,
                 pos_nama=pos.nama_pos,
                 nominal=item.nominal or ZERO,
                 keterangan=keterangan,
@@ -863,6 +864,7 @@ def get_asn_payroll_by_period(
                 rincian.append(
                     PotonganDetail(
                         id=f"pos-{pos.id}",
+                        pos_id=pos.id,
                         pos_nama=pos.nama_pos,
                         nominal=ZERO,
                         keterangan=None,

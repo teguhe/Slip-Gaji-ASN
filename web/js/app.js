@@ -841,21 +841,50 @@
         </div>`);
     }
 
-    items.forEach((item) => {
+    // Urutkan data potongan: bulanan dulu baru berjangka
+    const sortedItems = [...items].sort((a, b) => {
+      const katA = (a.kategori || (a.readOnly || a.cicilan_info ? 'berjangka' : 'bulanan')).toLowerCase();
+      const katB = (b.kategori || (b.readOnly || b.cicilan_info ? 'berjangka' : 'bulanan')).toLowerCase();
+      if (katA !== katB) {
+        if (katA === 'bulanan') return -1;
+        if (katB === 'bulanan') return 1;
+      }
+      return String(a.pos || a.pos_nama || '').localeCompare(String(b.pos || b.pos_nama || ''));
+    });
+
+    sortedItems.forEach((item) => {
+      const badgeKat = (item.kategori || (item.readOnly || item.cicilan_info ? 'berjangka' : 'bulanan')).toLowerCase();
+      const badgeHtml = badgeKat === 'bulanan'
+        ? '<span class="deduction-badge bulanan">Bulanan</span>'
+        : '<span class="deduction-badge berjangka">Berjangka</span>';
+
+      const editControl = `
+        <button type="button" class="edit-deduction" data-edit-potongan="${escapeHtml(item.id)}"
+                title="Ubah data potongan" aria-label="Ubah ${escapeHtml(item.pos)}">
+          <svg class="icon"><use href="#icon-edit"></use></svg>
+        </button>`;
+
       const deleteControl = item.readOnly ? '' : `
-          <button type="button" class="delete-deduction" data-delete-potongan="${escapeHtml(item.id)}"
-                  title="Hapus potongan" aria-label="Hapus ${escapeHtml(item.pos)}">
-            <svg class="icon"><use href="#icon-trash"></use></svg>
-          </button>`;
+        <button type="button" class="delete-deduction" data-delete-potongan="${escapeHtml(item.id)}"
+                title="Hapus potongan" aria-label="Hapus ${escapeHtml(item.pos)}">
+          <svg class="icon"><use href="#icon-trash"></use></svg>
+        </button>`;
+
       rows.push(`
         <div class="deduction-item">
           <span class="deduction-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
           <div class="deduction-copy">
-            <strong title="${escapeHtml(item.pos)}">${escapeHtml(item.pos)}</strong>
-            <span>${escapeHtml(item.info || 'Bulanan')}</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              ${badgeHtml}
+              <strong title="${escapeHtml(item.pos)}">${escapeHtml(item.pos)}</strong>
+            </div>
+            <span>${escapeHtml(item.info || (badgeKat === 'bulanan' ? 'Bulanan' : 'Cicilan'))}</span>
           </div>
           <span class="deduction-amount">${formatRupiah(item.nominal, 0)}</span>
-          ${deleteControl}
+          <div class="deduction-actions">
+            ${editControl}
+            ${deleteControl}
+          </div>
         </div>`);
     });
 
@@ -4998,6 +5027,198 @@
     });
   }
 
+  function openEditPotonganModal(id) {
+    const employee = currentPotonganEmployee();
+    if (!employee) return;
+    const items = employee.internalPotongan || [];
+    const item = items.find((it) => it.id === id);
+    if (!item) return;
+
+    const idInput = $('#edit-potongan-id');
+    const rawNipInput = $('#edit-potongan-raw-nip');
+    const periodInput = $('#edit-potongan-period');
+    const namaNode = $('#edit-potongan-nama');
+    const nipNode = $('#edit-potongan-nip');
+    const periodTextNode = $('#edit-potongan-period-text');
+    const jenisTextNode = $('#edit-potongan-jenis-text');
+    const posSelect = $('#edit-potongan-pos');
+    const nominalInput = $('#edit-potongan-nominal');
+    const ketInput = $('#edit-potongan-keterangan');
+    const errNode = $('#edit-potongan-error');
+
+    if (idInput) idInput.value = item.id;
+    if (rawNipInput) rawNipInput.value = employee.nip;
+    if (periodInput) periodInput.value = item.period || state.period;
+    if (namaNode) namaNode.textContent = employee.nama;
+    if (nipNode) nipNode.textContent = employee.nip;
+    if (periodTextNode) periodTextNode.textContent = periodLabel(item.period || state.period);
+
+    const isBerjangka = Boolean(item.readOnly || item.cicilan_info || item.kategori === 'berjangka');
+    if (jenisTextNode) {
+      jenisTextNode.textContent = isBerjangka
+        ? `Berjangka (${item.info || 'Cicilan'})`
+        : 'Bulanan';
+    }
+
+    if (posSelect) {
+      posSelect.innerHTML = '';
+      if (isBerjangka) {
+        const opt = document.createElement('option');
+        opt.value = item.pos_id || '';
+        opt.textContent = `${item.pos} (Berjangka)`;
+        opt.selected = true;
+        posSelect.appendChild(opt);
+        posSelect.disabled = true;
+      } else {
+        posSelect.disabled = false;
+        const bulananPos = (state.posList || []).filter(
+          (p) => p.kategori === 'bulanan' && (p.is_active !== false || String(p.id) === String(item.pos_id))
+        );
+        bulananPos.forEach((p) => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.nama_pos;
+          if (String(p.id) === String(item.pos_id) || (p.nama_pos && p.nama_pos === item.pos)) {
+            opt.selected = true;
+          }
+          posSelect.appendChild(opt);
+        });
+        if (!posSelect.value && item.pos_id) {
+          posSelect.value = item.pos_id;
+        }
+      }
+    }
+
+    if (nominalInput) {
+      nominalInput.value = formatMoneyInput(item.nominal || 0);
+    }
+    if (ketInput) {
+      ketInput.value = item.keterangan || '';
+    }
+    if (errNode) errNode.hidden = true;
+
+    // Sinkronkan juga ke form bulanan cepat di sebelah kanan untuk kenyamanan pengguna
+    const bulananPos = $('#bulanan-pos');
+    const bulananNominal = $('#bulanan-nominal');
+    const bulananPeriod = $('#bulanan-period');
+    const bulananKet = $('#bulanan-keterangan');
+    if (bulananPos && item.pos_id) bulananPos.value = item.pos_id;
+    if (bulananNominal) bulananNominal.value = formatMoneyInput(item.nominal || 0);
+    if (bulananPeriod) bulananPeriod.value = item.period || state.period;
+    if (bulananKet) bulananKet.value = item.keterangan || '';
+
+    openModal('edit-potongan');
+  }
+
+  async function submitEditPotongan(event) {
+    if (event) event.preventDefault();
+    const employee = currentPotonganEmployee();
+    if (!employee) return;
+
+    const id = $('#edit-potongan-id')?.value;
+    const rawNip = $('#edit-potongan-raw-nip')?.value || employee.nip;
+    const period = $('#edit-potongan-period')?.value || state.period;
+    const posSelect = $('#edit-potongan-pos');
+    const nominalInput = $('#edit-potongan-nominal');
+    const ketInput = $('#edit-potongan-keterangan');
+    const errNode = $('#edit-potongan-error');
+
+    const nominal = parseMoneyInput(nominalInput ? nominalInput.value : '0');
+    if (nominal <= 0 || isNaN(nominal)) {
+      if (errNode) {
+        errNode.textContent = 'Nominal potongan harus lebih besar dari 0.';
+        errNode.hidden = false;
+      }
+      return;
+    }
+
+    const posId = posSelect ? posSelect.value : null;
+    const keterangan = ketInput ? ketInput.value.trim() : '';
+
+    const items = employee.internalPotongan || [];
+    const item = items.find((it) => it.id === id);
+    if (!item) {
+      if (errNode) {
+        errNode.textContent = 'Item potongan tidak ditemukan.';
+        errNode.hidden = false;
+      }
+      return;
+    }
+
+    const isBerjangka = Boolean(item.readOnly || item.cicilan_info || item.kategori === 'berjangka');
+    const targetPosId = posId || item.pos_id;
+
+    if (!targetPosId && !isBerjangka) {
+      if (errNode) {
+        errNode.textContent = 'Pilih pos potongan terlebih dahulu.';
+        errNode.hidden = false;
+      }
+      return;
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+
+    try {
+      if (errNode) errNode.hidden = true;
+      setStatus('Menyimpan perubahan potongan…');
+
+      let updatedData = null;
+      if (isUuid) {
+        updatedData = await apiRequest(`/api/v1/potongan/item/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pos_id: targetPosId ? Number(targetPosId) : undefined,
+            nominal: nominal,
+          }),
+        });
+      } else {
+        updatedData = await apiRequest('/api/v1/potongan/item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nip: rawNip,
+            pos_id: Number(targetPosId),
+            period: period,
+            nominal: nominal,
+          }),
+        });
+      }
+
+      if (updatedData && updatedData.id) {
+        item.id = updatedData.id;
+      }
+      item.nominal = nominal;
+      if (!isBerjangka && targetPosId) {
+        item.pos_id = targetPosId;
+        const matchingPos = (state.posList || []).find((p) => String(p.id) === String(targetPosId));
+        if (matchingPos) {
+          item.pos = matchingPos.nama_pos;
+          item.pos_nama = matchingPos.nama_pos;
+        }
+      }
+      if (keterangan) {
+        item.keterangan = keterangan;
+        item.info = isBerjangka ? item.info : `Bulanan • ${periodLabel(period)} • ${keterangan}`;
+      }
+
+      recomputeEmployee(employee);
+      addActivity('potongan', 'Data potongan berhasil diperbarui', `${employee.nama} • ${item.pos}`, 'amber');
+      renderAll();
+      closeModal('edit-potongan');
+      toast('Potongan Diperbarui', `${item.pos} sebesar ${formatRupiah(nominal, 0)} berhasil disimpan.`, 'success');
+      void loadPotonganReferenceData();
+    } catch (err) {
+      if (errNode) {
+        errNode.textContent = err.message || 'Gagal menyimpan perubahan ke server.';
+        errNode.hidden = false;
+      }
+      toast('Gagal Menyimpan', err.message || 'Terjadi kesalahan saat menyimpan.', 'error');
+    } finally {
+      setStatus('Siap');
+    }
+  }
+
   function deletePotongan(id) {
     const employee = currentPotonganEmployee();
     if (!employee) return;
@@ -5886,6 +6107,13 @@
         return;
       }
 
+      const editButton = event.target.closest('[data-edit-potongan]');
+      if (editButton) {
+        event.preventDefault();
+        openEditPotonganModal(editButton.dataset.editPotongan);
+        return;
+      }
+
       const deleteButton = event.target.closest('[data-delete-potongan]');
       if (deleteButton) {
         event.preventDefault();
@@ -6247,7 +6475,11 @@
         hideFormError('bulanan');
       }, 0));
     }
-    ['#bulanan-nominal', '#loan-nominal'].forEach((selector) => {
+    const formEditPotongan = $('#form-edit-potongan');
+    if (formEditPotongan) {
+      formEditPotongan.addEventListener('submit', submitEditPotongan);
+    }
+    ['#bulanan-nominal', '#loan-nominal', '#edit-potongan-nominal'].forEach((selector) => {
       const input = $(selector);
       if (!input) return;
       input.addEventListener('blur', () => {

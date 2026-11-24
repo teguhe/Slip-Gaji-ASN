@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class PotonganDetail(BaseModel):
     id: str | None = None
+    pos_id: int | None = None
     pos_nama: str
     nominal: Decimal
     keterangan: str | None = None
@@ -216,6 +217,11 @@ class PotonganItemCreate(BaseModel):
     period: str = Field(..., pattern=r"^\d{4}-\d{2}$")
     nominal: Decimal = Field(..., gt=0, le=Decimal("9999999999999.99"))
     opd_id: int | None = None
+
+
+class PotonganItemUpdate(BaseModel):
+    pos_id: int | None = None
+    nominal: Decimal = Field(..., gt=0, le=Decimal("9999999999999.99"))
 
 
 class PotonganItemResponse(BaseModel):

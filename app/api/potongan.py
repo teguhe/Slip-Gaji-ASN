@@ -57,6 +57,7 @@ from app.schemas import (
     PotonganItemCreate,
     PotonganItemDeleteResponse,
     PotonganItemResponse,
+    PotonganItemUpdate,
     RekapBerjangkaResponse,
     RekapBulananResponse,
 )
@@ -1013,6 +1014,108 @@ def create_or_update_potongan_item(
             "pos_nama": pos.nama_pos,
             "nominal": str(payload.nominal),
             "opd": opd.nmskpd.strip(),
+        },
+        request=request,
+    )
+    db.commit()
+
+    return PotonganItemResponse(
+        id=str(item.id),
+        nip=item.nip,
+        period=period_str(item.period),
+        pos_id=pos.id,
+        pos_nama=pos.nama_pos,
+        nominal=item.nominal,
+        created_by=item.created_by,
+    )
+
+
+@router.patch(
+    "/item/{item_id}",
+    response_model=PotonganItemResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ubah data item potongan manual perorangan",
+)
+def update_potongan_item(
+    item_id: str,
+    payload: PotonganItemUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> PotonganItemResponse:
+    try:
+        uid = uuid.UUID(item_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Format ID potongan tidak valid (harus UUID).",
+        )
+
+    item = db.get(PayrollPotonganItem, uid)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item potongan tidak ditemukan.",
+        )
+
+    pos = db.get(RefPosPotongan, item.pos_id)
+    if pos is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pos potongan tidak ditemukan.",
+        )
+
+    if current_user.role != "super_admin":
+        if pos.opd_id != current_user.opd_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Anda tidak memiliki hak akses untuk mengubah potongan OPD lain.",
+            )
+
+    opd = _resolve_opd(db, current_user, pos.opd_id)
+    old_nominal = item.nominal
+    old_pos_id = item.pos_id
+
+    # Jika pos_id diubah
+    if payload.pos_id is not None and payload.pos_id != item.pos_id:
+        if item.berjangka_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Pos potongan cicilan berjangka tidak dapat diubah.",
+            )
+        new_pos = _pos_or_404(db, payload.pos_id, opd)
+        if not new_pos.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Pos potongan tujuan tidak aktif.",
+            )
+        if new_pos.kategori != "bulanan":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Pos potongan harus berkategori bulanan.",
+            )
+        item.pos_id = new_pos.id
+        pos = new_pos
+
+    item.nominal = quantize_money(payload.nominal)
+    item.created_by = current_user.email
+    db.flush()
+
+    _audit(
+        db,
+        current_user,
+        action="UPDATE_POTONGAN_MANUAL_ITEM",
+        table_name="payroll_potongan_item",
+        record_id=str(item.id),
+        details={
+            "item_id": str(item.id),
+            "nip": item.nip,
+            "period": period_str(item.period),
+            "old_pos_id": old_pos_id,
+            "new_pos_id": item.pos_id,
+            "pos_nama": pos.nama_pos,
+            "old_nominal": str(old_nominal),
+            "new_nominal": str(item.nominal),
         },
         request=request,
     )

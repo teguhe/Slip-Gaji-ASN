@@ -1983,6 +1983,58 @@ code {
 .deduction-copy span { display: block; margin-top: 1px; color: #8a9ead; font-size: 9px; }
 .deduction-amount { flex: none; color: #7c4d0b; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; }
 
+.deduction-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.deduction-badge {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 2px;
+  line-height: 1.2;
+}
+.deduction-badge.bulanan {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+.deduction-badge.berjangka {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.edit-deduction {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 21px;
+  padding: 0;
+  color: #1e6492;
+  background: linear-gradient(#fff, #f0f6fa);
+  border: 1px solid #b5d1e4;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.edit-deduction:hover {
+  color: #0b4975;
+  border-color: #79aecd;
+  box-shadow: 0 0 6px rgba(45, 125, 175, 0.3);
+}
+
+.edit-deduction .icon {
+  width: 12px;
+  height: 12px;
+}
+
 .delete-deduction {
   display: grid;
   place-items: center;
@@ -1994,6 +2046,7 @@ code {
   background: linear-gradient(#fff, #fdf1f0);
   border: 1px solid #dfb8b4;
   border-radius: 2px;
+  cursor: pointer;
 }
 
 .delete-deduction:hover { color: #b02217; border-color: #c97b73; box-shadow: 0 0 6px rgba(210, 70, 55, 0.3); }
