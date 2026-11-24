@@ -1849,8 +1849,8 @@ code {
 
 .slip {
   position: relative;
-  height: 102mm;
-  padding: 2.5mm 0 2mm;
+  height: 155mm;
+  padding: 3.5mm 0 3mm;
   box-sizing: border-box;
   overflow: hidden;
   border-bottom: 1px dashed #9aa8b2;
@@ -1966,20 +1966,20 @@ code {
 .slip-sign {
   display: flex;
   justify-content: flex-end;
-  margin-top: 3.5mm;
-  padding-right: 5mm;
+  margin-top: 5mm;
+  padding-right: 6mm;
 }
 
 .slip-sign-box {
-  width: 65mm;
+  width: 70mm;
   text-align: center;
-  font-size: 7.2pt;
+  font-size: 7.8pt;
   color: #1e2a32;
 }
 
 .slip-sign-box .sign-title {
   font-weight: 600;
-  margin-bottom: 13mm;
+  margin-bottom: 16mm;
 }
 
 .slip-sign-box .sign-name {
@@ -2502,8 +2502,8 @@ code {
   }
 
   #print-root .slip {
-    height: 102mm;
-    padding: 2.5mm 0 2mm;
+    height: 155mm;
+    padding: 3.5mm 0 3mm;
     box-sizing: border-box;
     border-bottom: 1px dashed #9aa8b2;
     page-break-inside: avoid;

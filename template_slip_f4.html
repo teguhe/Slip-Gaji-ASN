@@ -6,9 +6,9 @@
         @page { size: 215mm 330mm; margin: 8mm 10mm; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 10px; margin: 0; }
         .slip-container {
-            height: 100mm; width: 195mm; border: 1px dashed #777;
-            padding: 2.5mm; box-sizing: border-box; page-break-inside: avoid;
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm;
+            height: 154mm; width: 195mm; border: 1px dashed #777;
+            padding: 3mm; box-sizing: border-box; page-break-inside: avoid;
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm;
         }
         .header { grid-column: span 3; font-weight: bold; text-align: center; border-bottom: 1px solid #000; }
         .info { grid-column: span 3; display: flex; justify-content: space-between; }
@@ -36,7 +36,7 @@
             const signName = (signerInfo && signerInfo.nama_bendahara) ? signerInfo.nama_bendahara : '( ............................................................ )';
             const signNip = (signerInfo && signerInfo.nip_bendahara) ? ('NIP. ' + signerInfo.nip_bendahara) : 'NIP. .........................................................';
             dataList.forEach((data, index) => {
-                if (index > 0 && index % 3 === 0) root.innerHTML += '<div class="page-break"></div>';
+                if (index > 0 && index % 2 === 0) root.innerHTML += '<div class="page-break"></div>';
                 
                 let internalHtml = data.rincian_potongan_internal.map(i => `
                     <div class="row"><span>${i.pos_nama} ${i.cicilan_info ? '('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>

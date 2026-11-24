@@ -3225,7 +3225,7 @@
     if (!preview || !printRoot) return;
 
     const employees = getPrintEmployees();
-    const pages = chunk(employees, 3);
+    const pages = chunk(employees, 2);
 
     if (!employees.length) {
       preview.innerHTML = `
@@ -3239,7 +3239,7 @@
       preview.innerHTML = pages.map((page, pageIndex) => `
         <section class="paper">
           <div class="paper-label">Halaman ${pageIndex + 1} dari ${pages.length} • F4 215 × 330 mm</div>
-          ${page.map((employee, index) => renderSlip(employee, pageIndex * 3 + index)).join('')}
+          ${page.map((employee, index) => renderSlip(employee, pageIndex * 2 + index)).join('')}
         </section>`).join('') + `
         <div class="print-help">Pratinjau diperkecil. Klik <strong>Cetak</strong> untuk output F4 215 × 330 mm.</div>`;
 
@@ -3258,7 +3258,7 @@
         : '0 pegawai • 0 halaman';
     }
     const pageCount = $('#print-page-count');
-    if (pageCount) pageCount.textContent = '3 slip / halaman';
+    if (pageCount) pageCount.textContent = '2 slip / halaman';
 
     const useSelected = $('#print-use-selected');
     if (useSelected) useSelected.checked = state.printUseSelected;
