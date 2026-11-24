@@ -545,22 +545,25 @@ code {
 
 .paper-mini {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
   gap: 2px;
   flex: none;
-  width: 27px;
-  height: 38px;
-  padding: 4px 3px;
+  width: 38px;
+  height: 25px;
+  padding: 3px;
   background: #fff;
   border: 1px solid #9fb6c8;
   box-shadow: 1px 1px 2px rgba(0, 20, 40, 0.12);
 }
 
-.paper-mini span { display: block; height: 2px; background: #9fc4de; }
-.paper-mini span:nth-child(2) { width: 75%; }
-.paper-mini span:nth-child(3) { width: 88%; }
-.paper-mini span:nth-child(4) { width: 62%; }
-.paper-mini span:nth-child(5) { width: 80%; }
+.paper-mini span {
+  display: block;
+  width: 14px;
+  height: 100%;
+  background: #eaf3fa;
+  border: 1px dashed #9fc4de;
+}
 
 .sidebar-paper-card strong { display: block; font-size: 10.5px; color: #2a506a; }
 .sidebar-paper-card p { margin: 2px 0 0; color: #6f8798; font-size: 9.5px; line-height: 1.3; }
@@ -1826,15 +1829,20 @@ code {
 }
 
 .paper {
-  width: 215mm;
-  min-height: 330mm;
-  padding: 5mm 7mm;
+  width: 330mm;
+  height: 215mm;
+  min-height: 215mm;
+  padding: 6mm 8mm;
+  box-sizing: border-box;
   color: #111;
   background: #fff;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.36), 0 2px 4px rgba(0, 0, 0, 0.18);
-  zoom: var(--print-zoom, 0.78);
+  zoom: var(--print-zoom, 0.65);
   transform-origin: top center;
   transition: zoom 120ms ease;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8mm;
 }
 
 .paper-label {
@@ -1845,19 +1853,16 @@ code {
 
 .slip {
   position: relative;
-  height: 155mm;
-  padding: 3.5mm 0 3mm;
+  height: 100%;
+  padding: 3.5mm;
   box-sizing: border-box;
   overflow: hidden;
-  border-bottom: 1px dashed #9aa8b2;
+  border: 1px dashed #9aa8b2;
   break-inside: avoid;
   page-break-inside: avoid;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
 }
-
-.slip:last-child { border-bottom: 0; }
 
 .slip-header-block {
   margin-bottom: 1.5mm;
@@ -1953,11 +1958,11 @@ code {
 
 .slip-grid {
   display: grid;
-  grid-template-columns: 1.18fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 4mm;
   padding: 0.6mm 0 1mm;
   border-top: 1px solid #c4ccd2;
-  flex: 1;
+  margin-bottom: 2mm;
 }
 
 .slip-col { min-width: 0; }
@@ -2008,6 +2013,7 @@ code {
   font-weight: 700;
   background: #f2f5f7;
   border: 0.5px solid #c9d2d8;
+  margin-bottom: 2mm;
 }
 
 .slip-foot .net { color: #0b5b31; font-size: 7.4pt; }
@@ -2016,8 +2022,9 @@ code {
 .slip-sign {
   display: flex;
   justify-content: flex-end;
-  margin-top: 5mm;
-  padding-right: 6mm;
+  margin-top: auto;
+  padding-right: 4mm;
+  padding-bottom: 1mm;
 }
 
 .slip-sign-box {
@@ -2511,16 +2518,16 @@ code {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
-/* ============================== PRINT (F4) ============================== */
+/* ============================== PRINT (F4 LANDSCAPE) ============================== */
 
 @page {
-  size: 215mm 330mm;
+  size: 330mm 215mm;
   margin: 0;
 }
 
 @media print {
   html, body {
-    width: 215mm;
+    width: 330mm;
     height: auto;
     overflow: visible !important;
     background: #fff !important;
@@ -2530,20 +2537,24 @@ code {
 
   #print-root {
     display: block !important;
-    width: 215mm;
+    width: 330mm;
     margin: 0;
     padding: 0;
     background: #fff;
   }
 
   #print-root .print-page {
-    width: 215mm;
-    height: 330mm;
-    padding: 5mm 7mm;
+    width: 330mm;
+    height: 215mm;
+    padding: 6mm 8mm;
+    box-sizing: border-box;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
     background: #fff;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
   }
 
   #print-root .print-page:last-child {
@@ -2552,15 +2563,16 @@ code {
   }
 
   #print-root .slip {
-    height: 155mm;
-    padding: 3.5mm 0 3mm;
+    height: 100%;
+    padding: 3.5mm;
     box-sizing: border-box;
-    border-bottom: 1px dashed #9aa8b2;
+    border: 1px dashed #9aa8b2;
     page-break-inside: avoid;
     break-inside: avoid;
+    display: flex;
+    flex-direction: column;
   }
 
-  #print-root .slip:last-child { border-bottom: 0; }
   #print-root .slip-foot { background: #f2f5f7 !important; }
   #print-root .slip-foot .net { color: #0b5b31 !important; }
 }

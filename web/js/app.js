@@ -3161,20 +3161,20 @@
     return state.employees;
   }
 
-  const PRINT_ZOOM_STEPS = [0.5, 0.65, 0.78, 0.9, 1.0, 1.25, 1.5];
+  const PRINT_ZOOM_STEPS = [0.4, 0.5, 0.65, 0.78, 0.9, 1.0, 1.25, 1.5];
 
   function getEffectivePrintZoom(val) {
     if (val === 'fit') {
       const viewport = $('#print-paper-viewport') || $('.paper-viewport');
       if (viewport && viewport.clientWidth > 0) {
         const availableWidth = viewport.clientWidth - 35;
-        const fitRatio = availableWidth / 815;
+        const fitRatio = availableWidth / 1248;
         return Math.min(1.5, Math.max(0.35, Number(fitRatio.toFixed(2))));
       }
-      return 0.78;
+      return 0.65;
     }
     const num = Number(val);
-    return Number.isFinite(num) && num > 0 ? num : 0.78;
+    return Number.isFinite(num) && num > 0 ? num : 0.65;
   }
 
   function applyPrintZoom(val) {
@@ -3189,7 +3189,7 @@
         if (!isZoomSupported) {
           p.style.transform = `scale(${effective})`;
           p.style.transformOrigin = 'top center';
-          const baseHeightPx = 330 * 3.7795;
+          const baseHeightPx = 215 * 3.7795;
           const heightDiff = (effective - 1) * baseHeightPx;
           p.style.marginBottom = `${Math.round(heightDiff + 18)}px`;
         } else {
@@ -3242,7 +3242,7 @@
         <section class="paper">
           ${page.map((employee, index) => renderSlip(employee, pageIndex * 2 + index)).join('')}
         </section>`).join('') + `
-        <div class="print-help">Pratinjau diperkecil. Klik <strong>Cetak</strong> untuk output F4 215 × 330 mm.</div>`;
+        <div class="print-help">Pratinjau diperkecil. Klik <strong>Cetak</strong> untuk output F4 Landscape 330 × 215 mm.</div>`;
 
       printRoot.innerHTML = pages.map((page) => `
         <div class="print-page">
@@ -3259,7 +3259,7 @@
         : '0 pegawai • 0 halaman';
     }
     const pageCount = $('#print-page-count');
-    if (pageCount) pageCount.textContent = '2 slip / halaman';
+    if (pageCount) pageCount.textContent = '2 slip / halaman (kiri - kanan)';
 
     const useSelected = $('#print-use-selected');
     if (useSelected) useSelected.checked = state.printUseSelected;
@@ -3316,7 +3316,6 @@
   function renderSlip(employee, index) {
     const opd = employee.opd || state.opdRaw || state.opd || '—';
     const incomeRows = [];
-    const deductionRows = [];
     const internalRows = [];
 
     if (employee.income) {
@@ -3330,18 +3329,6 @@
         .reduce((sum, key) => sum + (Number(income[key]) || 0), 0);
       const other = (Number(employee.kotor) || 0) - known;
       if (Math.abs(other) >= 0.005) incomeRows.push(['Tunjangan Lain', other]);
-    }
-
-    if (employee.resmi) {
-      const resmi = employee.resmi;
-      if (Number(resmi.iwpPegawai)) deductionRows.push(['IWP Beban Pegawai', resmi.iwpPegawai]);
-      if (Number(resmi.iwpTaspen)) deductionRows.push(['IWP Taspen', resmi.iwpTaspen]);
-      if (Number(resmi.pph)) deductionRows.push(['PPh 21', resmi.pph]);
-      if (Number(resmi.jkkJkm)) deductionRows.push(['JKK & JKM', resmi.jkkJkm]);
-      const known = ['iwpPegawai', 'iwpTaspen', 'pph', 'jkkJkm']
-        .reduce((sum, key) => sum + (Number(resmi[key]) || 0), 0);
-      const other = (Number(employee.potonganSimgaji) || 0) - known;
-      if (Math.abs(other) >= 0.005) deductionRows.push(['Potongan Lain', other]);
     }
 
     const baseInternal = Number(employee.basePotonganInternal) || 0;
@@ -3393,11 +3380,6 @@
             <div class="slip-row total"><span>Penghasilan Kotor</span><span>${formatAmount(kotor)}</span></div>
             <div class="slip-row"><span>Potongan SIMGAJI</span><span>${formatAmount(simgaji)}</span></div>
             <div class="slip-row total"><span>Gaji Bersih</span><span>${formatAmount(gajiBersih)}</span></div>
-          </div>
-          <div class="slip-col">
-            <div class="slip-col-title">POTONGAN RESMI</div>
-            ${slipRows(deductionRows)}
-            <div class="slip-row total"><span>Total Resmi</span><span>${formatAmount(simgaji)}</span></div>
           </div>
           <div class="slip-col">
             <div class="slip-col-title">POTONGAN LAINNYA</div>
