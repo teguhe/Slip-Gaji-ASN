@@ -2734,7 +2734,7 @@
     const start = $('#loan-start');
     const tenorNode = $('#loan-tenor');
     if (!start || !tenorNode) return;
-    const tenor = Math.max(1, Math.min(120, Number(tenorNode.value) || 1));
+    const tenor = Math.max(1, Math.min(240, Number(tenorNode.value) || 1));
     const endNode = $('#loan-end');
     const previewNode = $('#loan-preview');
     if (endNode) endNode.textContent = periodLabel(addMonths(start.value || state.period, tenor - 1));
@@ -2799,8 +2799,8 @@
     }
     const start = $('#loan-start').value || state.period;
     const tenor = Number($('#loan-tenor').value);
-    if (!Number.isInteger(tenor) || tenor < 1 || tenor > 120) {
-      showInlineError('loan', 'Tenor harus antara 1 dan 120 bulan.');
+    if (!Number.isInteger(tenor) || tenor < 1 || tenor > 240) {
+      showInlineError('loan', 'Tenor harus antara 1 dan 240 bulan.');
       return;
     }
     const keterangan = $('#loan-keterangan').value.trim();

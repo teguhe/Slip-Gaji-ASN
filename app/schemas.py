@@ -133,7 +133,7 @@ class BerjangkaCreate(BaseModel):
     pos_id: int
     nominal_per_bulan: Decimal = Field(gt=0, max_digits=15, decimal_places=2)
     start_period: str = Field(pattern=r"^\d{4}-\d{2}$")
-    tenor_bulan: int = Field(ge=1, le=120)
+    tenor_bulan: int = Field(ge=1, le=240)
     keterangan: str | None = Field(default=None, max_length=1000)
     opd_id: int | None = None
 

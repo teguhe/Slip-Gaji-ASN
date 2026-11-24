@@ -600,4 +600,57 @@ def test_rekap_potongan_berjangka_endpoint(
         assert "Cicilan 3 dari 12" in detail["items"][0]["progres_label"]
 
 
+def test_pinjaman_berjangka_tenor_validation(api_app, db_session, seeded, bendahara_profile):
+    _import_payroll(db_session, bendahara_profile, period=date(2026, 10, 1))
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+
+    with TestClient(api_app) as client:
+        pos = _pos(client, "Kredit Rumah Bank Jateng", "berjangka")
+
+        # Tenor 240 (20 tahun) valid
+        res_240 = client.post(
+            "/api/v1/potongan/berjangka",
+            json={
+                "nip": NIP,
+                "pos_id": pos["id"],
+                "nominal_per_bulan": "2500000.00",
+                "start_period": "2026-10",
+                "tenor_bulan": 240,
+                "keterangan": "Kredit 240 bulan",
+            },
+        )
+        assert res_240.status_code == 201, res_240.text
+        data_240 = res_240.json()
+        assert data_240["tenor_bulan"] == 240
+
+        # Tenor > 240 invalid (422)
+        res_241 = client.post(
+            "/api/v1/potongan/berjangka",
+            json={
+                "nip": NIP,
+                "pos_id": pos["id"],
+                "nominal_per_bulan": "2500000.00",
+                "start_period": "2026-10",
+                "tenor_bulan": 241,
+                "keterangan": "Kredit 241 bulan",
+            },
+        )
+        assert res_241.status_code == 422
+
+        # Tenor < 1 invalid (422)
+        res_0 = client.post(
+            "/api/v1/potongan/berjangka",
+            json={
+                "nip": NIP,
+                "pos_id": pos["id"],
+                "nominal_per_bulan": "2500000.00",
+                "start_period": "2026-10",
+                "tenor_bulan": 0,
+                "keterangan": "Kredit 0 bulan",
+            },
+        )
+        assert res_0.status_code == 422
+
+
+
 

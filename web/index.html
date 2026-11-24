@@ -1044,7 +1044,7 @@
 
               <!-- TAB 2: POTONGAN BERJANGKA (PINJAMAN DENGAN TENOR) -->
               <div role="tabpanel" id="tab-panel-berjangka" aria-labelledby="tab-btn-berjangka" hidden>
-                <section class="panel loan-panel">
+                <section class="panel loan-panel" style="margin-bottom: 12px;">
                   <div class="panel-head">
                     <div>
                       <h2>Rekap Potongan Berjangka</h2>
@@ -1055,10 +1055,6 @@
                       <button type="button" id="btn-generate-berjangka" title="Realisasikan cicilan untuk periode terpilih">
                         <svg class="icon"><use href="#icon-refresh"></use></svg>
                         Realisasi Periode
-                      </button>
-                      <button type="button" class="default" data-open-modal="loan" title="Daftarkan pinjaman berjangka baru">
-                        <svg class="icon"><use href="#icon-plus"></use></svg>
-                        Pinjaman Baru
                       </button>
                     </div>
                   </div>
@@ -1084,6 +1080,23 @@
                     </div>
                   </div>
                 </section>
+
+                <div class="loan-launcher">
+                  <span class="loan-launcher-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
+                  <div class="loan-launcher-copy">
+                    <h3>Pendaftaran Pinjaman Berjangka</h3>
+                    <p>Masukkan NIP, pos potongan, nominal per bulan, periode mulai, dan tenor. Periode akhir dihitung otomatis.</p>
+                  </div>
+                  <button type="button" class="default" data-open-modal="loan">
+                    <svg class="icon"><use href="#icon-plus"></use></svg>
+                    Buka Form Pinjaman
+                  </button>
+                </div>
+                <div class="tenor-preview">
+                  <div><span>Rentang tenor</span><strong>1 – 240 bulan</strong></div>
+                  <div><span>Realisasi</span><strong>Otomatis saat payroll diproses</strong></div>
+                  <div><span>Format progres</span><strong>“Cicilan 14 dari 36”</strong></div>
+                </div>
               </div>
             </div>
           </section>
@@ -1636,7 +1649,7 @@
           </label>
           <label class="field">
             <span>Tenor (bulan)</span>
-            <input type="number" id="loan-tenor" min="1" max="120" value="36" inputmode="numeric">
+            <input type="number" id="loan-tenor" min="1" max="240" value="36" inputmode="numeric">
           </label>
           <label class="field field-wide">
             <span>Keterangan</span>
