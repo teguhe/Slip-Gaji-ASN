@@ -1787,7 +1787,7 @@
     </div>
 
     <!-- Modal Rincian Pegawai Terpotong per Pos Potongan Bulanan -->
-    <div class="window glass active modal-window modal-wide" role="dialog" aria-modal="true"
+    <div class="window glass active modal-window modal-rekap-detail" role="dialog" aria-modal="true"
          aria-labelledby="rekap-pos-detail-title" data-modal="rekap-pos-detail" hidden>
       <div class="title-bar">
         <div class="title-bar-text" id="rekap-pos-detail-title">Rincian ASN per Pos Potongan</div>
@@ -1803,14 +1803,14 @@
             <p id="rekap-pos-detail-meta" style="margin:0; font-size:10px; color:#688195;">—</p>
           </div>
         </div>
-        <div class="table-wrap" style="max-height: 320px; overflow-y: auto; margin-top: 8px;">
+        <div class="table-wrap" style="flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px;">
           <table class="listview" id="table-rekap-pos-detail">
             <thead>
               <tr>
                 <th style="width: 170px;">NIP</th>
                 <th>Nama ASN</th>
                 <th class="money-col" style="width: 140px;">Nominal (Rp)</th>
-                <th style="width: 70px; text-align: center;">Aksi</th>
+                <th style="width: 140px; text-align: center;">Aksi</th>
               </tr>
             </thead>
             <tbody id="rekap-pos-detail-table-body"></tbody>
@@ -1829,7 +1829,7 @@
     </div>
 
     <!-- Modal Rincian ASN Pinjaman per Pos Potongan Berjangka -->
-    <div class="window glass active modal-window modal-wide" role="dialog" aria-modal="true"
+    <div class="window glass active modal-window modal-rekap-detail" role="dialog" aria-modal="true"
          aria-labelledby="rekap-berjangka-detail-title" data-modal="rekap-berjangka-detail" hidden>
       <div class="title-bar">
         <div class="title-bar-text" id="rekap-berjangka-detail-title">Rincian ASN per Pos Potongan Berjangka</div>
@@ -1845,7 +1845,7 @@
             <p id="rekap-berjangka-detail-meta" style="margin:0; font-size:10px; color:#688195;">—</p>
           </div>
         </div>
-        <div class="table-wrap" style="max-height: 320px; overflow-y: auto; margin-top: 8px;">
+        <div class="table-wrap" style="flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px;">
           <table class="listview" id="table-rekap-berjangka-detail">
             <thead>
               <tr>
@@ -1853,7 +1853,7 @@
                 <th>Nama ASN</th>
                 <th class="money-col" style="width: 130px;">Nominal / Bln (Rp)</th>
                 <th style="width: 135px; text-align: center;">Progres Tenor</th>
-                <th style="width: 80px; text-align: center;">Aksi</th>
+                <th style="width: 90px; text-align: center;">Aksi</th>
               </tr>
             </thead>
             <tbody id="rekap-berjangka-detail-table-body"></tbody>

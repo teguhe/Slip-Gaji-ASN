@@ -2994,6 +2994,32 @@ code {
   width: min(780px, calc(100vw - 40px));
 }
 
+.window.glass.modal-window.modal-rekap-detail {
+  width: 50vw;
+  min-width: min(560px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  height: 70vh;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.window.glass.modal-window.modal-rekap-detail .window-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin: 6px;
+  overflow: hidden;
+}
+
+.window.glass.modal-window.modal-rekap-detail .table-wrap {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
 .loan-dialog-grid {
   grid-template-columns: 1fr 1fr;
   gap: 9px 12px;
