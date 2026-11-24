@@ -358,82 +358,21 @@
               </div>
             </section>
 
-            <div class="metric-grid">
-              <article class="metric-card tone-blue">
-                <div class="metric-top">
-                  <span class="metric-icon"><svg class="icon"><use href="#icon-user"></use></svg></span>
-                  <span class="metric-label">Total Pegawai</span>
+            <section class="panel chart-panel" style="margin-bottom: 16px;">
+              <div class="panel-head">
+                <div>
+                  <h2>Tren Take Home Pay</h2>
+                  <p class="panel-sub">Enam periode terakhir</p>
                 </div>
-                <div class="metric-value" id="metric-pegawai">0</div>
-                <div class="metric-sub" id="metric-pegawai-sub">Pegawai aktif OPD</div>
-              </article>
-              <article class="metric-card tone-cyan">
-                <div class="metric-top">
-                  <span class="metric-icon"><svg class="icon"><use href="#icon-logo"></use></svg></span>
-                  <span class="metric-label">Penghasilan Kotor</span>
+                <span class="pill-soft" id="chart-caption">2026</span>
+              </div>
+              <div class="chart-wrap">
+                <div class="chart-y" aria-hidden="true">
+                  <span>Rp 30 jt</span><span>Rp 20 jt</span><span>Rp 10 jt</span><span>Rp 0</span>
                 </div>
-                <div class="metric-value" id="metric-kotor">Rp 0</div>
-                <div class="metric-sub" id="metric-kotor-sub">Sebelum potongan</div>
-              </article>
-              <article class="metric-card tone-amber">
-                <div class="metric-top">
-                  <span class="metric-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
-                  <span class="metric-label">Total Potongan</span>
-                </div>
-                <div class="metric-value" id="metric-potongan">Rp 0</div>
-                <div class="metric-sub" id="metric-potongan-sub">SIMGAJI + internal</div>
-              </article>
-              <article class="metric-card tone-green">
-                <div class="metric-top">
-                  <span class="metric-icon"><svg class="icon"><use href="#icon-check"></use></svg></span>
-                  <span class="metric-label">Take Home Pay</span>
-                </div>
-                <div class="metric-value" id="metric-thp">Rp 0</div>
-                <div class="metric-sub" id="metric-thp-sub">Bersih diterima ASN</div>
-              </article>
-            </div>
-
-            <div class="dashboard-mid">
-              <section class="panel chart-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2>Tren Take Home Pay</h2>
-                    <p class="panel-sub">Enam periode terakhir</p>
-                  </div>
-                  <span class="pill-soft" id="chart-caption">2026</span>
-                </div>
-                <div class="chart-wrap">
-                  <div class="chart-y" aria-hidden="true">
-                    <span>Rp 30 jt</span><span>Rp 20 jt</span><span>Rp 10 jt</span><span>Rp 0</span>
-                  </div>
-                  <div class="chart-bars" id="chart-bars" role="img" aria-label="Grafik tren take home pay enam bulan"></div>
-                </div>
-              </section>
-
-              <section class="panel compose-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2>Komposisi Potongan</h2>
-                    <p class="panel-sub">Periode berjalan</p>
-                  </div>
-                  <span class="pill-soft" id="compose-total">Rp 0</span>
-                </div>
-                <div class="compose-list">
-                  <div class="compose-item">
-                    <div class="compose-label"><span>Potongan SIMGAJI</span><strong id="compose-resmi-value">Rp 0</strong></div>
-                    <div class="progress-track"><span id="compose-resmi-bar" style="width:0%"></span></div>
-                  </div>
-                  <div class="compose-item">
-                    <div class="compose-label"><span>Potongan Internal</span><strong id="compose-internal-value">Rp 0</strong></div>
-                    <div class="progress-track amber"><span id="compose-internal-bar" style="width:0%"></span></div>
-                  </div>
-                </div>
-                <div class="compose-note">
-                  <svg class="icon"><use href="#icon-info"></use></svg>
-                  <span>Potongan internal mencakup iuran, koperasi, dan cicilan berjangka.</span>
-                </div>
-              </section>
-            </div>
+                <div class="chart-bars" id="chart-bars" role="img" aria-label="Grafik tren take home pay enam bulan"></div>
+              </div>
+            </section>
           </section>
 
           <!-- ================= MASTER GAJI ================= -->
@@ -511,6 +450,30 @@
                     <div class="metric-sub" id="stats-sub-penyesuaian">Penyesuaian: Rp 0</div>
                   </article>
                 </div>
+
+                <section class="panel compose-panel" style="margin-bottom: 16px;">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Komposisi Potongan</h2>
+                      <p class="panel-sub">Periode berjalan</p>
+                    </div>
+                    <span class="pill-soft" id="compose-total">Rp 0</span>
+                  </div>
+                  <div class="compose-list">
+                    <div class="compose-item">
+                      <div class="compose-label"><span>Potongan SIMGAJI</span><strong id="compose-resmi-value">Rp 0</strong></div>
+                      <div class="progress-track"><span id="compose-resmi-bar" style="width:0%"></span></div>
+                    </div>
+                    <div class="compose-item">
+                      <div class="compose-label"><span>Potongan Internal</span><strong id="compose-internal-value">Rp 0</strong></div>
+                      <div class="progress-track amber"><span id="compose-internal-bar" style="width:0%"></span></div>
+                    </div>
+                  </div>
+                  <div class="compose-note">
+                    <svg class="icon"><use href="#icon-info"></use></svg>
+                    <span>Potongan internal mencakup iuran, koperasi, dan cicilan berjangka.</span>
+                  </div>
+                </section>
 
                 <div class="stats-detail-grid">
                   <section class="panel">

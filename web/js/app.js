@@ -379,28 +379,6 @@
   }
 
   function renderDashboard(totals) {
-    const setText = (selector, value) => {
-      const node = $(selector);
-      if (node) node.textContent = value;
-    };
-
-    setText('#metric-pegawai', String(totals.pegawai));
-    setText('#metric-kotor', formatRupiah(totals.kotor, 0));
-    setText('#metric-potongan', formatRupiah(totals.totalPotongan, 0));
-    setText('#metric-thp', formatRupiah(totals.thp, 0));
-    setText('#metric-pegawai-sub', `Periode ${periodLabel(state.period)}`);
-    setText('#metric-kotor-sub', `${totals.pegawai} pegawai • sebelum potongan`);
-    setText(
-      '#metric-potongan-sub',
-      `SIMGAJI ${formatRupiah(totals.potonganSimgaji, 0)} • internal ${formatRupiah(totals.potonganInternal, 0)}`,
-    );
-    setText(
-      '#metric-thp-sub',
-      totals.pegawai
-        ? `Rata-rata ${formatRupiah(totals.thp / totals.pegawai, 0)}`
-        : 'Bersih diterima ASN',
-    );
-
     renderChart(totals);
     renderComposition(totals);
     renderPeriodRecap();
@@ -2306,6 +2284,12 @@
 
       setText('#stats-total-thp', formatRupiah(stats.total_thp || 0));
       setText('#stats-sub-penyesuaian', `Penyesuaian: ${formatRupiah(stats.total_penyesuaian || 0)}`);
+
+      renderComposition({
+        totalPotongan,
+        potonganSimgaji: Number(stats.total_potongan_simgaji || 0),
+        potonganInternal: Number(stats.total_potongan_internal || 0),
+      });
 
       // Render breakdown tunjangan
       const tbodyTj = $('#tbody-breakdown-tunjangan');
