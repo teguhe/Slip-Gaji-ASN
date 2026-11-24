@@ -1138,17 +1138,27 @@
             </header>
 
             <div class="print-workspace">
-              <aside class="panel print-employee-panel no-print">
+              <aside class="panel print-employee-panel no-print" id="print-employee-panel">
                 <div class="panel-head">
                   <div>
                     <h2>Pilih Pegawai</h2>
                     <p class="panel-sub" id="print-list-sub">0 dipilih</p>
                   </div>
                 </div>
+                <div class="print-filter-wrap">
+                  <input type="search" id="print-employee-search" placeholder="Cari nama atau NIP…" autocomplete="off" aria-label="Cari nama atau NIP pegawai">
+                </div>
                 <ul role="listbox" id="print-employee-listbox" class="has-shadow has-hover"
                     aria-label="Pilih pegawai untuk dicetak" aria-multiselectable="true" tabindex="0"></ul>
-                <p class="print-list-hint">Klik nama untuk memilih lebih dari satu.</p>
+                <div class="print-panel-foot">
+                  <p class="print-list-hint">Klik nama untuk memilih lebih dari satu.</p>
+                </div>
               </aside>
+
+              <div class="print-splitter no-print" id="print-splitter" role="separator" aria-orientation="vertical"
+                   title="Geser untuk mengatur lebar panel Pilih Pegawai (Klik ganda untuk reset lebar)">
+                <div class="print-splitter-grip"></div>
+              </div>
 
               <div class="print-main">
                 <div class="print-toolbar no-print">

@@ -69,6 +69,7 @@
     profileChangeMode: false,
     printUseSelected: true,
     printZoom: storageGet('simgaji.printZoom', 'fit', localStorage) || 'fit',
+    printEmployeeFilter: '',
     pendingConnection: false,
     masterOpdList: [],
     masterOpdFilter: '',
@@ -3110,7 +3111,14 @@
     const list = $('#print-employee-listbox');
     if (!list) return;
 
-    list.innerHTML = state.employees.map((employee) => {
+    const query = (state.printEmployeeFilter || '').toLowerCase().trim();
+    const filteredEmployees = query
+      ? state.employees.filter((emp) =>
+          (emp.nama || '').toLowerCase().includes(query) || (emp.nip || '').includes(query)
+        )
+      : state.employees;
+
+    list.innerHTML = filteredEmployees.map((employee) => {
       const selected = state.selected.has(employee.nip);
       return `
         <li role="option" tabindex="0" data-nip="${escapeHtml(employee.nip)}"
@@ -3122,9 +3130,10 @@
 
     const sub = $('#print-list-sub');
     if (sub) {
-      sub.textContent = state.selected.size
-        ? `${state.selected.size} dipilih`
-        : 'Semua pegawai';
+      const selectedCount = state.selected.size ? `${state.selected.size} dipilih` : 'Semua pegawai';
+      sub.textContent = query
+        ? `${selectedCount} • ${filteredEmployees.length}/${state.employees.length} ASN`
+        : selectedCount;
     }
   }
 
@@ -4819,6 +4828,95 @@
         applyPrintZoom('fit');
       }
     });
+
+    const printSearchInput = $('#print-employee-search');
+    if (printSearchInput) {
+      printSearchInput.addEventListener('input', (e) => {
+        state.printEmployeeFilter = e.target.value;
+        renderPrintListbox();
+      });
+    }
+
+    const printSplitter = $('#print-splitter');
+    const printPanel = $('#print-employee-panel');
+    if (printSplitter && printPanel) {
+      const savedWidth = storageGet('simgaji.printPanelWidth', localStorage);
+      if (savedWidth) {
+        const parsed = Number(savedWidth);
+        if (parsed >= 180 && parsed <= 750) {
+          printPanel.style.width = `${parsed}px`;
+        }
+      }
+
+      let isDragging = false;
+      let startX = 0;
+      let startWidth = 0;
+
+      printSplitter.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startWidth = printPanel.getBoundingClientRect().width;
+        printSplitter.classList.add('is-dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const onMouseMove = (moveEvent) => {
+          if (!isDragging) return;
+          const deltaX = moveEvent.clientX - startX;
+          const maxAllowed = Math.min(650, window.innerWidth - 320);
+          const newWidth = Math.max(190, Math.min(maxAllowed, startWidth + deltaX));
+          printPanel.style.width = `${newWidth}px`;
+          if (state.view === 'print' && state.printZoom === 'fit') {
+            applyPrintZoom('fit');
+          }
+        };
+
+        const onMouseUp = () => {
+          if (!isDragging) return;
+          isDragging = false;
+          printSplitter.classList.remove('is-dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          const finalWidth = Math.round(printPanel.getBoundingClientRect().width);
+          storageSet('simgaji.printPanelWidth', String(finalWidth), localStorage);
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+          if (state.view === 'print' && state.printZoom === 'fit') {
+            applyPrintZoom('fit');
+          }
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+      });
+
+      printSplitter.addEventListener('dblclick', () => {
+        printPanel.style.width = '';
+        storageRemove('simgaji.printPanelWidth', localStorage);
+        if (state.view === 'print' && state.printZoom === 'fit') {
+          applyPrintZoom('fit');
+        }
+        toast('Lebar Panel Reset', 'Lebar panel Pilih Pegawai dikembalikan ke ukuran standar.', 'info');
+      });
+
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.target === printPanel && !isDragging) {
+              const w = Math.round(entry.contentRect.width);
+              if (w >= 180 && w <= 750) {
+                storageSet('simgaji.printPanelWidth', String(w), localStorage);
+              }
+              if (state.view === 'print' && state.printZoom === 'fit') {
+                applyPrintZoom('fit');
+              }
+            }
+          }
+        });
+        ro.observe(printPanel);
+      }
+    }
 
     const printListbox = $('#print-employee-listbox');
     if (printListbox) {
