@@ -663,5 +663,32 @@ def test_pinjaman_berjangka_tenor_validation(api_app, db_session, seeded, bendah
         assert res_0.status_code == 422
 
 
+def test_super_admin_without_opd_can_read_potongan_empty(
+    api_app,
+    db_session,
+    seeded,
+    super_admin_profile,
+):
+    # Super Admin yang tidak terikat OPD (opd_id is None) tidak boleh melempar error 422
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    with TestClient(api_app) as client:
+        res_pos = client.get("/api/v1/potongan/pos")
+        assert res_pos.status_code == 200
+        assert res_pos.json() == []
+
+        res_berjangka = client.get("/api/v1/potongan/berjangka?period=2026-10")
+        assert res_berjangka.status_code == 200
+        assert res_berjangka.json() == []
+
+        res_rekap_bulanan = client.get("/api/v1/potongan/rekap-bulanan?period=2026-10")
+        assert res_rekap_bulanan.status_code == 200
+        assert res_rekap_bulanan.json()["items"] == []
+
+        res_rekap_berjangka = client.get("/api/v1/potongan/rekap-berjangka?period=2026-10")
+        assert res_rekap_berjangka.status_code == 200
+        assert res_rekap_berjangka.json()["items"] == []
+
+
+
 
 

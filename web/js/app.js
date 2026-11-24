@@ -3967,12 +3967,21 @@
 
     const data = await loadApiData(token);
     applyApiData(data, token);
-    await loadPotonganReferenceData();
+    if (!profile.is_super_admin) {
+      await loadPotonganReferenceData();
+    }
     return profile;
   }
 
   async function loadPotonganReferenceData() {
     if (!state.token) return;
+    if (state.profile && state.profile.is_super_admin) {
+      state.posList = [];
+      state.loans = [];
+      state.rekapBulanan = null;
+      state.rekapBerjangka = null;
+      return;
+    }
 
     try {
       const query = new URLSearchParams({ period: state.period });
@@ -5610,7 +5619,9 @@
     storageSet('simgaji.mode', 'api', localStorage);
     storageSet('simgaji.token', token, sessionStorage);
     renderAll();
-    void loadPotonganReferenceData();
+    if (!isSuperAdmin) {
+      void loadPotonganReferenceData();
+    }
   }
 
   async function loadAvailablePeriods() {

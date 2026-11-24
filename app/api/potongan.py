@@ -352,6 +352,8 @@ def list_pos(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> list[PosPotonganResponse]:
+    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
+        return []
     opd = _resolve_opd(db, current_user, opd_id)
     rows = db.scalars(
         select(RefPosPotongan)
@@ -519,6 +521,8 @@ def list_berjangka(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> list[BerjangkaResponse]:
+    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
+        return []
     opd = _resolve_opd(db, current_user, opd_id)
     period_date = _validate_period(
         period or f"{date.today().year:04d}-{date.today().month:02d}"
@@ -1213,6 +1217,17 @@ def get_rekap_bulanan(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> RekapBulananResponse:
+    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
+        period_date = _validate_period(period)
+        return RekapBulananResponse(
+            period=period_str(period_date),
+            opd_id=0,
+            opd_nama="Semua OPD",
+            total_pos=0,
+            total_pegawai=0,
+            total_nominal=Decimal("0.00"),
+            items=[],
+        )
     opd = _resolve_opd(db, current_user, opd_id)
     period_date = _validate_period(period)
     next_month = add_months(period_date, 1)
@@ -1358,6 +1373,18 @@ def get_rekap_berjangka(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> RekapBerjangkaResponse:
+    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
+        period_date = _validate_period(period)
+        return RekapBerjangkaResponse(
+            period=period_str(period_date),
+            opd_id=0,
+            opd_nama="Semua OPD",
+            total_pos=0,
+            total_pegawai=0,
+            total_pinjaman=0,
+            total_nominal=Decimal("0.00"),
+            items=[],
+        )
     opd = _resolve_opd(db, current_user, opd_id)
     period_date = _validate_period(period)
 
