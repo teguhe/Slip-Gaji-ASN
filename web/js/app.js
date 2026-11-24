@@ -7,7 +7,15 @@
 (function () {
   'use strict';
 
-  const DEFAULT_PERIOD = '2026-10';
+  function getDefaultPeriod() {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const year = nextMonth.getFullYear();
+    const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  const DEFAULT_PERIOD = getDefaultPeriod();
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const API_BASE = '';
   const FIREBASE_CONFIG = {
@@ -27,9 +35,10 @@
 
   const PERIODS = (() => {
     const out = [];
-    for (let year = 2026; year <= 2027; year += 1) {
-      const maxMonth = year === 2026 ? 12 : 6;
-      for (let month = 1; month <= maxMonth; month += 1) {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    for (let year = Math.min(2025, currentYear - 1); year <= Math.max(2027, currentYear + 1); year += 1) {
+      for (let month = 1; month <= 12; month += 1) {
         out.push(`${year}-${String(month).padStart(2, '0')}`);
       }
     }
@@ -353,6 +362,7 @@
       ['#status-opd', `OPD: ${shortOpd(state.opd || '—', 46)}`],
       ['#status-period', `Periode: ${period}`],
       ['#dashboard-period', period],
+      ['#toolbar-period-val', period],
       ['#data-mode-label', modeLabel],
       ['#status-data-mode', 'API'],
       ['#chart-caption', state.period ? state.period.slice(0, 4) : ''],
@@ -4422,6 +4432,174 @@
 
   /* ============================== EVENTS ============================== */
 
+  let pickerYear = parseInt((state.period || DEFAULT_PERIOD).split('-')[0], 10) || new Date().getFullYear();
+
+  function updateToolbarPeriodUI() {
+    const label = $('#toolbar-period-val');
+    if (label) label.textContent = periodLabel(state.period);
+    const ind = $('#period-active-indicator');
+    if (ind) ind.innerHTML = `Periode Aktif: <strong>${escapeHtml(periodLabel(state.period))}</strong>`;
+  }
+
+  function renderPeriodPicker(year) {
+    pickerYear = Number(year) || pickerYear;
+    const yearDisplay = $('#period-display-year');
+    if (yearDisplay) yearDisplay.textContent = String(pickerYear);
+
+    const grid = $('#period-month-grid');
+    if (!grid) return;
+
+    const available = new Set(state.availablePeriods || []);
+    let html = '';
+    for (let m = 1; m <= 12; m += 1) {
+      const pStr = `${pickerYear}-${String(m).padStart(2, '0')}`;
+      const isActive = pStr === state.period;
+      const hasData = available.has(pStr);
+      const mName = MONTH_SHORT[m - 1] || String(m);
+
+      html += `
+        <button type="button" class="month-cell-btn ${isActive ? 'is-active' : ''}" data-period="${pStr}" title="${MONTH_NAMES[m - 1]} ${pickerYear}${hasData ? ' (Ada Data)' : ''}">
+          <span>${escapeHtml(mName)}</span>
+          ${hasData ? '<span class="has-data-dot" title="Data tersedia"></span>' : ''}
+        </button>
+      `;
+    }
+    grid.innerHTML = html;
+    updateToolbarPeriodUI();
+  }
+
+  function setPeriod(newPeriod) {
+    if (!newPeriod) return;
+    state.period = newPeriod;
+    state.selected = new Set();
+    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+      const el = $(selector);
+      if (el) el.value = state.period;
+    });
+
+    const [y] = state.period.split('-').map(Number);
+    if (y) pickerYear = y;
+
+    updateToolbarPeriodUI();
+    renderPeriodPicker(pickerYear);
+    renderAll();
+    if (state.view === 'master-gaji') {
+      void loadMasterGaji();
+    }
+    if (state.token) {
+      loadApiData(state.token).then((data) => {
+        applyApiData(data, state.token);
+        renderAll();
+        if (state.view === 'master-gaji') {
+          void loadMasterGaji();
+        }
+        if (state.view === 'potongan' || state.view === 'potongan-asn') {
+          void loadPotonganReferenceData();
+        }
+        toast('Periode diperbarui', periodLabel(state.period), 'info');
+      }).catch((caught) => {
+        toast('Gagal memuat periode', caught.message || 'Periksa koneksi.', 'error');
+      });
+    }
+  }
+
+  function initPeriodPicker() {
+    const trigger = $('#btn-period-trigger');
+    const panel = $('#period-floating-panel');
+    const closeBtn = $('#period-panel-close');
+    const prevYear = $('#period-prev-year');
+    const nextYear = $('#period-next-year');
+    const btnNextMonth = $('#btn-period-next-month');
+    const btnCurrentMonth = $('#btn-period-current-month');
+    const grid = $('#period-month-grid');
+
+    if (trigger && panel) {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = panel.hidden;
+        panel.hidden = !isHidden;
+        trigger.setAttribute('aria-expanded', String(isHidden));
+        if (isHidden) {
+          const [y] = (state.period || '').split('-').map(Number);
+          if (y) pickerYear = y;
+          renderPeriodPicker(pickerYear);
+        }
+      });
+    }
+
+    if (closeBtn && panel && trigger) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    if (prevYear) {
+      prevYear.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pickerYear -= 1;
+        renderPeriodPicker(pickerYear);
+      });
+    }
+
+    if (nextYear) {
+      nextYear.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pickerYear += 1;
+        renderPeriodPicker(pickerYear);
+      });
+    }
+
+    if (btnNextMonth && panel && trigger) {
+      btnNextMonth.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setPeriod(getDefaultPeriod());
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    if (btnCurrentMonth && panel && trigger) {
+      btnCurrentMonth.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const now = new Date();
+        const curPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        setPeriod(curPeriod);
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    if (grid && panel && trigger) {
+      grid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-period]');
+        if (btn) {
+          e.stopPropagation();
+          setPeriod(btn.dataset.period);
+          panel.hidden = true;
+          trigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (panel && !panel.hidden && !e.target.closest('#period-floating-wrapper')) {
+        panel.hidden = true;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && panel && !panel.hidden) {
+        panel.hidden = true;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    updateToolbarPeriodUI();
+  }
+
   function buildPeriodSelects() {
     const all = getAllPeriods();
     const options = all.map((period) => (
@@ -4434,6 +4612,8 @@
         select.value = state.period;
       }
     });
+    updateToolbarPeriodUI();
+    renderPeriodPicker(pickerYear);
   }
 
   function bindEvents() {
@@ -4529,33 +4709,10 @@
     const periodSelect = $('#period-select');
     if (periodSelect) {
       periodSelect.addEventListener('change', () => {
-        state.period = periodSelect.value;
-        state.selected = new Set();
-        ['#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
-          const el = $(selector);
-          if (el) el.value = state.period;
-        });
-        renderAll();
-        if (state.view === 'master-gaji') {
-          void loadMasterGaji();
-        }
-        if (state.token) {
-          loadApiData(state.token).then((data) => {
-            applyApiData(data, state.token);
-            renderAll();
-            if (state.view === 'master-gaji') {
-              void loadMasterGaji();
-            }
-            if (state.view === 'potongan' || state.view === 'potongan-asn') {
-              void loadPotonganReferenceData();
-            }
-            toast('Periode diperbarui', periodLabel(state.period), 'info');
-          }).catch((caught) => {
-            toast('Gagal memuat periode', caught.message || 'Periksa koneksi.', 'error');
-          });
-        }
+        setPeriod(periodSelect.value);
       });
     }
+    initPeriodPicker();
 
     // Pencarian pegawai
     const search = $('#employee-search');

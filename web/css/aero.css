@@ -332,6 +332,229 @@ code {
   padding: 1px 4px;
 }
 
+/* ==================== FLOATING PERIOD PICKER ==================== */
+
+.period-floating-wrapper {
+  position: relative;
+}
+
+.period-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  color: #1a3c54;
+  font-size: 11px;
+  background: linear-gradient(180deg, #ffffff, #eaf4fb 55%, #d8ebf7);
+  border: 1px solid #7eaac7;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0, 30, 60, 0.12);
+  cursor: pointer;
+  transition: all 120ms ease;
+  min-width: 0;
+}
+
+.period-trigger-btn:hover {
+  background: linear-gradient(180deg, #ffffff, #dff0fc 55%, #cce6f8);
+  border-color: #5896be;
+  box-shadow: inset 0 1px 0 #fff, 0 0 6px rgba(70, 160, 230, 0.4);
+}
+
+.period-trigger-btn .icon {
+  width: 13px;
+  height: 13px;
+  color: #25618b;
+  flex: none;
+}
+
+.period-trigger-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.period-trigger-label {
+  color: #557287;
+  font-size: 10.5px;
+}
+
+.period-trigger-val {
+  color: #0c3656;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.period-trigger-caret {
+  font-size: 9px;
+  color: #4b6e85;
+  margin-left: 1px;
+}
+
+.period-floating-panel {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  width: 260px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  background: rgba(240, 246, 252, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #7aa6c5;
+  border-radius: 5px;
+  box-shadow: 0 10px 28px rgba(0, 25, 50, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+  animation: aeroFloatIn 140ms ease-out;
+}
+
+@keyframes aeroFloatIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.period-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #c9dce9;
+}
+
+.period-year-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.year-nav-btn {
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+  color: #1a4260;
+  background: linear-gradient(#fff, #e4eff7);
+  border: 1px solid #9db8cc;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.year-nav-btn:hover {
+  background: #d8ecf8;
+  border-color: #5896be;
+}
+
+.period-current-year {
+  font-size: 13px;
+  color: #0f395a;
+}
+
+.period-close-btn {
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 11px;
+  color: #668399;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.period-close-btn:hover {
+  color: #a02020;
+  background: rgba(220, 50, 50, 0.12);
+}
+
+.period-quick-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.quick-period-btn {
+  flex: 1;
+  height: 22px;
+  font-size: 9.5px;
+  padding: 0 4px;
+  color: #235477;
+  background: linear-gradient(#fff, #e9f2f8);
+  border: 1px solid #a8c4d8;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.quick-period-btn:hover {
+  background: #d7eaf7;
+  border-color: #5594be;
+  color: #0c3656;
+}
+
+.period-month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.month-cell-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 28px;
+  padding: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #1e3d54;
+  background: #ffffff;
+  border: 1px solid #bfd3e2;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+
+.month-cell-btn:hover {
+  background: #e2f1fb;
+  border-color: #6da7cc;
+  color: #094775;
+}
+
+.month-cell-btn.is-active {
+  background: linear-gradient(180deg, #4da4e0, #2279b9) !important;
+  border-color: #145e94 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 3px rgba(10, 60, 110, 0.3);
+}
+
+.month-cell-btn .has-data-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22a050;
+}
+
+.month-cell-btn.is-active .has-data-dot {
+  background: #afffca;
+}
+
+.period-panel-foot {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #c9dce9;
+  font-size: 9.5px;
+  color: #4b6a80;
+  text-align: center;
+}
+
 .mode-chip {
   display: inline-flex;
   align-items: center;
@@ -2543,7 +2766,8 @@ code {
   .app-toolbar { flex-wrap: wrap; min-height: 0; padding: 6px 8px; }
   .toolbar-left { width: 100%; }
   .toolbar-right { width: 100%; justify-content: flex-end; }
-  .toolbar-field span { display: none; }
+  .toolbar-field span,
+  .period-trigger-label { display: none; }
   .view-head { flex-direction: column; align-items: stretch; }
   .head-actions { justify-content: flex-start; }
   .metric-grid { grid-template-columns: 1fr 1fr; }

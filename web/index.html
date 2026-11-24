@@ -195,10 +195,38 @@
           <span class="toolbar-opd" id="toolbar-opd">Badan Kepegawaian dan Pengembangan SDM</span>
         </div>
         <div class="toolbar-right">
-          <label class="toolbar-field" for="period-select">
-            <span>Periode</span>
-            <select id="period-select" aria-label="Pilih periode penggajian"></select>
-          </label>
+          <div class="period-floating-wrapper" id="period-floating-wrapper">
+            <button type="button" class="period-trigger-btn" id="btn-period-trigger" aria-haspopup="dialog" aria-expanded="false" title="Pilih periode penggajian">
+              <svg class="icon"><use href="#icon-calendar"></use></svg>
+              <span class="period-trigger-text">
+                <span class="period-trigger-label">Periode:</span>
+                <strong class="period-trigger-val" id="toolbar-period-val">Desember 2026</strong>
+              </span>
+              <span class="period-trigger-caret" aria-hidden="true">▾</span>
+            </button>
+            <select id="period-select" aria-label="Pilih periode penggajian" style="display: none;"></select>
+
+            <!-- Floating Form Popover -->
+            <div class="period-floating-panel glass window" id="period-floating-panel" role="dialog" aria-label="Pilih Periode Penggajian" hidden>
+              <div class="period-panel-head">
+                <div class="period-year-nav">
+                  <button type="button" class="year-nav-btn" id="period-prev-year" title="Tahun Sebelumnya" aria-label="Tahun Sebelumnya">‹</button>
+                  <strong class="period-current-year" id="period-display-year">2026</strong>
+                  <button type="button" class="year-nav-btn" id="period-next-year" title="Tahun Berikutnya" aria-label="Tahun Berikutnya">›</button>
+                </div>
+                <button type="button" class="period-close-btn" id="period-panel-close" aria-label="Tutup form">✕</button>
+              </div>
+              <div class="period-quick-bar">
+                <button type="button" class="quick-period-btn" id="btn-period-next-month" title="Pilih bulan depan">Bulan Depan (Default)</button>
+                <button type="button" class="quick-period-btn" id="btn-period-current-month" title="Pilih bulan ini">Bulan Ini</button>
+              </div>
+              <div class="period-month-grid" id="period-month-grid"></div>
+              <div class="period-panel-foot">
+                <span class="period-active-indicator" id="period-active-indicator">Periode Aktif: <strong>Desember 2026</strong></span>
+              </div>
+            </div>
+          </div>
+
           <button type="button" class="mode-chip is-api" id="data-mode-chip" title="Status koneksi API">
             <span class="mode-dot" aria-hidden="true"></span>
             <span id="data-mode-label">Terhubung API</span>
