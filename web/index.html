@@ -1619,9 +1619,10 @@
                   <p class="panel-sub">Pilih kategori data yang hendak dibersihkan secara selektif atau keseluruhan</p>
                 </div>
                 <div class="head-actions">
-                  <button type="button" id="btn-db-wipe-select-tx" class="pill">Data Transaksi Saja</button>
-                  <button type="button" id="btn-db-wipe-select-all" class="pill">Centang Semua</button>
-                  <button type="button" id="btn-db-wipe-clear" class="pill">Kosongkan Centang</button>
+                  <span id="db-wipe-selected-badge" class="pill" style="display: inline-flex; align-items: center; font-weight: 600; font-size: 11.5px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">3 kategori dipilih</span>
+                  <button type="button" id="btn-db-wipe-select-tx" class="pill" title="Pilih hanya data transaksi (Payroll, Potongan, Penyesuaian)">Data Transaksi Saja</button>
+                  <button type="button" id="btn-db-wipe-select-all" class="pill" title="Centang seluruh kategori data">Centang Semua</button>
+                  <button type="button" id="btn-db-wipe-clear" class="pill" title="Kosongkan seluruh centang">Kosongkan Centang</button>
                 </div>
               </div>
               <div style="padding: 14px;">
@@ -1693,10 +1694,11 @@
                 <div style="background: #fdf2f2; border: 1px solid #fecaca; border-radius: 4px; padding: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                   <div style="flex: 1; min-width: 260px;">
                     <label style="display: block; font-size: 11px; font-weight: 600; color: #991b1b; margin-bottom: 4px;">Konfirmasi Pengamanan:</label>
-                    <input type="text" id="db-wipe-confirm-text" placeholder='Ketik "HAPUS DATA" untuk mengaktifkan tombol' style="width: 100%; max-width: 320px; border-color: #fca5a5;">
+                    <input type="text" id="db-wipe-confirm-text" placeholder='Ketik "HAPUS DATA" untuk mengonfirmasi' style="width: 100%; max-width: 320px; border-color: #fca5a5;">
+                    <div id="db-wipe-hint" style="font-size: 11px; color: #b91c1c; margin-top: 4px; line-height: 1.4;">Ketik kata <strong>HAPUS DATA</strong> dengan huruf kapital untuk mengesahkan pembersihan data.</div>
                   </div>
                   <div>
-                    <button type="button" class="danger" id="btn-db-wipe" disabled style="padding: 7px 16px; font-size: 12.5px;">
+                    <button type="button" class="danger" id="btn-db-wipe" style="padding: 7px 16px; font-size: 12.5px; opacity: 0.6; cursor: pointer; transition: all 0.2s ease;">
                       <svg class="icon"><use href="#icon-trash"></use></svg> Bersihkan Data yang Dicentang
                     </button>
                   </div>

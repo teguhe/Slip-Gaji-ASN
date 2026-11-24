@@ -153,6 +153,7 @@ def backup_database(
     }
 
     counts = {k: len(v) for k, v in tables_data.items()}
+    total_records = sum(counts.values())
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"backup_slipgaji_{timestamp_str}.json"
 
@@ -162,6 +163,7 @@ def backup_database(
         "backup_date": datetime.now().isoformat(),
         "created_by": current_user.email,
         "counts": counts,
+        "total_records": total_records,
         "tables": tables_data,
     }
 

@@ -255,6 +255,11 @@
     return formatRupiah(number, 0);
   }
 
+  function formatNumber(value) {
+    const num = Number(value) || 0;
+    return new Intl.NumberFormat('id-ID').format(num);
+  }
+
   function formatBytes(bytes) {
     const size = Number(bytes) || 0;
     if (size < 1024) return `${size} B`;
@@ -2961,16 +2966,24 @@
   async function populateDatabaseOpdSelect() {
     const select = $('#db-del-opd');
     if (!select) return;
-    if (!state.opdOptions.length) {
-      await loadOpdOptions();
+    try {
+      if (!state.opdOptions || !state.opdOptions.length) {
+        await loadOpdOptions();
+      }
+      const curVal = select.value;
+      let html = '<option value="">-- Pilih OPD --</option>';
+      html += '<option value="SEMUA OPD">-- SEMUA OPD (Seluruh Daerah) --</option>';
+      const sorted = [...(state.opdOptions || [])].sort((a, b) =>
+        (a.nmskpd || '').localeCompare(b.nmskpd || '', 'id', { sensitivity: 'base' })
+      );
+      sorted.forEach((opd) => {
+        html += `<option value="${escapeHtml(opd.nmskpd)}">${escapeHtml(opd.nmskpd)}</option>`;
+      });
+      select.innerHTML = html;
+      if (curVal) select.value = curVal;
+    } catch (err) {
+      console.warn('Gagal memuat opsi OPD database:', err);
     }
-    const curVal = select.value;
-    let html = '<option value="">-- Pilih OPD --</option>';
-    state.opdOptions.forEach((opd) => {
-      html += `<option value="${escapeHtml(opd.nmskpd)}">${escapeHtml(opd.nmskpd)}</option>`;
-    });
-    select.innerHTML = html;
-    if (curVal) select.value = curVal;
   }
 
   function populateDatabasePeriodSelect() {
@@ -2987,6 +3000,62 @@
       select.value = curVal;
     } else if (state.period) {
       select.value = state.period;
+    }
+  }
+
+  function updateWipeSummary() {
+    const checkboxes = $$('.cb-wipe-table');
+    const checked = $$('.cb-wipe-table:checked');
+    const count = checked.length;
+
+    const badge = $('#db-wipe-selected-badge');
+    if (badge) {
+      badge.textContent = `${count} kategori dipilih`;
+      if (count === 0) {
+        badge.style.background = '#f1f5f9';
+        badge.style.color = '#64748b';
+        badge.style.borderColor = '#cbd5e1';
+      } else {
+        badge.style.background = '#fee2e2';
+        badge.style.color = '#991b1b';
+        badge.style.borderColor = '#fca5a5';
+      }
+    }
+
+    checkboxes.forEach((cb) => {
+      const tr = cb.closest('tr');
+      if (tr) {
+        tr.style.backgroundColor = cb.checked ? '#fff5f5' : '';
+      }
+    });
+
+    const confirmInput = $('#db-wipe-confirm-text');
+    const wipeSubmitBtn = $('#btn-db-wipe');
+    const hint = $('#db-wipe-hint');
+    const isConfirmed = confirmInput && confirmInput.value.trim().toUpperCase() === 'HAPUS DATA';
+
+    if (wipeSubmitBtn) {
+      if (count > 0 && isConfirmed) {
+        wipeSubmitBtn.style.opacity = '1';
+        wipeSubmitBtn.style.cursor = 'pointer';
+        wipeSubmitBtn.style.boxShadow = '0 0 0 2px rgba(220, 38, 38, 0.2)';
+        if (hint) {
+          hint.innerHTML = '<span style="color: #15803d; font-weight: 600;">✓ Konfirmasi cocok. Tombol pembersihan siap dieksekusi.</span>';
+        }
+      } else {
+        wipeSubmitBtn.style.opacity = '0.6';
+        wipeSubmitBtn.style.cursor = 'pointer';
+        wipeSubmitBtn.style.boxShadow = 'none';
+        if (hint) {
+          if (!isConfirmed && confirmInput && confirmInput.value.trim().length > 0) {
+            hint.innerHTML = '<span style="color: #dc2626;">Teks konfirmasi belum sesuai. Ketik persis: <strong>HAPUS DATA</strong></span>';
+          } else if (!isConfirmed) {
+            hint.innerHTML = 'Ketik kata <strong>HAPUS DATA</strong> dengan huruf kapital untuk mengesahkan pembersihan data.';
+          } else if (count === 0) {
+            hint.innerHTML = '<span style="color: #d97706;">Pilih minimal satu kategori data yang hendak dibersihkan di atas.</span>';
+          }
+        }
+      }
     }
   }
 
@@ -3024,13 +3093,20 @@
         auditEl.textContent = `${formatNumber(stats.audit_logs || 0)} log`;
       }
 
-      await populateDatabaseOpdSelect();
-      populateDatabasePeriodSelect();
       setStatus('Statistik basis data berhasil dimuat.');
     } catch (error) {
       toast('Gagal Memuat Statistik Database', error.message, 'error');
       setStatus('Gagal memuat statistik basis data.');
     }
+
+    try {
+      await populateDatabaseOpdSelect();
+      populateDatabasePeriodSelect();
+    } catch (dropdownErr) {
+      console.warn('Gagal memuat opsi dropdown database:', dropdownErr);
+    }
+
+    updateWipeSummary();
   }
 
   async function downloadDatabaseBackup() {
@@ -3047,14 +3123,17 @@
       const now = new Date();
       const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
       const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '');
+      const filename = `backup_slip_gaji_${datePart}_${timePart}.json`;
       a.href = url;
-      a.download = `backup_slip_gaji_${datePart}_${timePart}.json`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast('Backup Berhasil', `File cadangan basis data berhasil diunduh (${formatNumber(data.total_records || 0)} baris data).`, 'success');
+      const totalRecs = Number(data.total_records) || (data.counts ? Object.values(data.counts).reduce((a, b) => a + Number(b), 0) : 0);
+      addActivity('backup', 'Cadangan Basis Data (JSON)', `${filename} • ${formatNumber(totalRecs)} baris data`, 'blue');
+      toast('Backup Berhasil', `File cadangan basis data berhasil diunduh (${formatNumber(totalRecs)} baris data).`, 'success');
       setStatus('Cadangan basis data berhasil diunduh.');
       await loadDatabaseStats();
     } catch (error) {
@@ -3095,6 +3174,7 @@
       });
 
       toast('Pemulihan Selesai', res.message || 'Basis data berhasil dipulihkan secara penuh.', 'success');
+      addActivity('database', 'Pemulihan Basis Data (Restore)', `Berkas: ${file.name}`, 'green');
       if (fileInput) fileInput.value = '';
       setStatus('Basis data berhasil dipulihkan.');
       await loadOpdOptions();
@@ -3155,6 +3235,7 @@
       });
 
       toast('Data Periode Dihapus', res.message || 'Data periode berhasil dihapus.', 'success');
+      addActivity('database', 'Hapus Data Periode OPD', `${opd} • ${periodName}`, 'amber');
       setStatus('Data periode berhasil dihapus.');
       await loadDatabaseStats();
       if (state.opd === opd && state.period === period) {
@@ -3181,7 +3262,12 @@
 
     const confirmInput = $('#db-wipe-confirm-text');
     if (!confirmInput || confirmInput.value.trim().toUpperCase() !== 'HAPUS DATA') {
-      toast('Konfirmasi Tidak Cocok', 'Ketik kata "HAPUS DATA" pada kolom konfirmasi untuk mengesahkan tindakan.', 'error');
+      toast('Konfirmasi Keamanan Diperlukan', 'Ketik kata "HAPUS DATA" pada kolom konfirmasi untuk mengesahkan tindakan.', 'warning');
+      if (confirmInput) {
+        confirmInput.focus();
+        confirmInput.style.borderColor = '#dc2626';
+        setTimeout(() => { confirmInput.style.borderColor = '#fca5a5'; }, 2000);
+      }
       return;
     }
 
@@ -3196,11 +3282,16 @@
     try {
       const res = await apiRequest('/api/v1/database/wipe', {
         method: 'POST',
-        body: JSON.stringify({ tables }),
+        body: JSON.stringify({
+          tables,
+          confirmation: true,
+        }),
       });
 
       toast('Pembersihan Berhasil', res.message || 'Kategori data terpilih telah dibersihkan.', 'success');
+      addActivity('database', 'Pembersihan Data (Wipe)', `Kategori: ${tables.join(', ')}`, 'red');
       if (confirmInput) confirmInput.value = '';
+      updateWipeSummary();
       setStatus('Pembersihan data selesai.');
       await loadOpdOptions();
       await loadDatabaseStats();
@@ -3209,9 +3300,8 @@
       toast('Gagal Membersihkan Data', error.message, 'error');
       setStatus('Gagal membersihkan data basis data.');
     } finally {
-      if (btn) {
-        btn.disabled = confirmInput ? confirmInput.value.trim().toUpperCase() !== 'HAPUS DATA' : true;
-      }
+      if (btn) btn.disabled = false;
+      updateWipeSummary();
     }
   }
 
@@ -7067,6 +7157,8 @@
         $$('.cb-wipe-table').forEach((cb) => {
           cb.checked = ['payroll', 'potongan', 'penyesuaian'].includes(cb.value);
         });
+        updateWipeSummary();
+        toast('Pilihan Diperbarui', 'Kategori transaksi terpilih (Payroll, Potongan, Penyesuaian).', 'info');
       });
     }
 
@@ -7076,6 +7168,8 @@
         $$('.cb-wipe-table').forEach((cb) => {
           cb.checked = true;
         });
+        updateWipeSummary();
+        toast('Pilihan Diperbarui', 'Semua kategori data dicentang.', 'info');
       });
     }
 
@@ -7085,17 +7179,22 @@
         $$('.cb-wipe-table').forEach((cb) => {
           cb.checked = false;
         });
+        updateWipeSummary();
+        toast('Pilihan Dikosongkan', 'Semua centang kategori data dibatalkan.', 'info');
       });
     }
+
+    $$('.cb-wipe-table').forEach((cb) => {
+      cb.addEventListener('change', updateWipeSummary);
+    });
 
     const wipeConfirmInput = $('#db-wipe-confirm-text');
-    const wipeSubmitBtn = $('#btn-db-wipe');
-    if (wipeConfirmInput && wipeSubmitBtn) {
-      wipeConfirmInput.addEventListener('input', () => {
-        wipeSubmitBtn.disabled = wipeConfirmInput.value.trim().toUpperCase() !== 'HAPUS DATA';
-      });
+    if (wipeConfirmInput) {
+      wipeConfirmInput.addEventListener('input', updateWipeSummary);
+      wipeConfirmInput.addEventListener('keyup', updateWipeSummary);
     }
 
+    const wipeSubmitBtn = $('#btn-db-wipe');
     if (wipeSubmitBtn) wipeSubmitBtn.addEventListener('click', submitDatabaseWipe);
 
     // Taskbar dan window controls
