@@ -1935,10 +1935,10 @@
           <td style="text-align: center;"><span class="pill-soft">${opd.user_count || 0} akun</span></td>
           <td style="text-align: center;"><span class="pill-soft">${(opd.payroll_count || 0).toLocaleString('id-ID')} baris</span></td>
           <td>${createdStr}</td>
-          <td style="text-align: center;">
-            <button type="button" class="btn-table-action default" data-action="edit-opd" data-id="${opd.id}" title="Ubah Nama OPD">
+          <td style="text-align: center; white-space: nowrap;">
+            <button type="button" class="btn-table-action btn-table-manage" data-action="edit-opd" data-id="${opd.id}" title="Kelola / Ubah Nama OPD">
               <svg class="icon"><use href="#icon-edit"></use></svg>
-              Ubah
+              Kelola
             </button>
             <button type="button" class="btn-table-action btn-table-danger" data-action="delete-opd" data-id="${opd.id}" data-name="${escapeHtml(opd.nmskpd)}" title="Hapus OPD">
               <svg class="icon"><use href="#icon-trash"></use></svg>
@@ -2458,15 +2458,29 @@
           <td>${opdDisplay}</td>
           <td style="text-align: center;">${statusBadge}</td>
           <td>${createdStr}</td>
-          <td style="text-align: center;">
-            <button type="button" class="btn-table-action default" data-action="manage-user" data-id="${u.id}" title="Kelola Penugasan OPD & Role">Kelola</button>
+          <td style="text-align: center; white-space: nowrap;">
+            <button type="button" class="btn-table-action btn-table-manage" data-action="manage-user" data-id="${u.id}" title="Kelola Penugasan OPD & Role">
+              <svg class="icon"><use href="#icon-edit"></use></svg>
+              Kelola
+            </button>
             ${!isDefault ? `
-              <button type="button" class="btn-table-action default btn-icon-only" data-action="toggle-role-user" data-id="${u.id}" data-current-role="${u.role}" title="${isSuper ? 'Turunkan jadi Bendahara OPD' : 'Promosikan jadi Super Admin'}" aria-label="${isSuper ? 'Turunkan jadi Bendahara OPD' : 'Promosikan jadi Super Admin'}">
-                <svg class="icon"><use href="${isSuper ? '#icon-user' : '#icon-shield'}"></use></svg>
+              ${isSuper ? `
+                <button type="button" class="btn-table-action btn-table-demote" data-action="toggle-role-user" data-id="${u.id}" data-current-role="${u.role}" title="Turunkan peran menjadi Bendahara OPD">
+                  <svg class="icon"><use href="#icon-user"></use></svg>
+                  Demosi
+                </button>
+              ` : `
+                <button type="button" class="btn-table-action btn-table-promote" data-action="toggle-role-user" data-id="${u.id}" data-current-role="${u.role}" title="Promosikan menjadi Super Admin">
+                  <svg class="icon"><use href="#icon-shield"></use></svg>
+                  Promosi
+                </button>
+              `}
+              <button type="button" class="btn-table-action btn-table-danger" data-action="delete-user" data-id="${u.id}" data-email="${escapeHtml(u.email)}" title="Hapus Pengguna">
+                <svg class="icon"><use href="#icon-trash"></use></svg>
+                Hapus
               </button>
-              <button type="button" class="btn-table-action btn-table-danger" data-action="delete-user" data-id="${u.id}" data-email="${escapeHtml(u.email)}" title="Hapus Pengguna">Hapus</button>
             ` : `
-              <span class="pill-soft" style="font-size: 10px;">Dilindungi</span>
+              <span class="pill-soft" style="font-size: 10px; color: #9a3412; background: #ffedd5; border: 1px solid #fed7aa; font-weight: 600;">Dilindungi</span>
             `}
           </td>
         </tr>
@@ -3069,14 +3083,75 @@
     }
   }
 
+  function generateRestoreSecurityCode() {
+    state.restoreSecurityCode = String(Math.floor(10000 + Math.random() * 90000));
+    const codeEl = $('#restore-random-code');
+    if (codeEl) codeEl.textContent = state.restoreSecurityCode;
+    const inputEl = $('#restore-security-input');
+    if (inputEl) inputEl.value = '';
+    updateRestoreState();
+  }
+
+  function updateRestoreState() {
+    const checkboxes = $$('.cb-restore-table');
+    const checked = $$('.cb-restore-table:checked');
+    const count = checked.length;
+    const summaryEl = $('#restore-table-summary');
+    if (summaryEl) {
+      if (count === 0) {
+        summaryEl.innerHTML = '<span style="color: #dc2626;">Pilih minimal satu kategori data yang ingin dipulihkan.</span>';
+      } else if (count === checkboxes.length) {
+        summaryEl.textContent = `Semua ${count} kategori data dipilih untuk dipulihkan.`;
+        summaryEl.style.color = '#64748b';
+      } else {
+        summaryEl.textContent = `${count} dari ${checkboxes.length} kategori data dipilih untuk dipulihkan.`;
+        summaryEl.style.color = '#0284c7';
+      }
+    }
+
+    const inputEl = $('#restore-security-input');
+    const hintEl = $('#restore-security-hint');
+    const btn = $('#btn-db-restore');
+    const val = (inputEl?.value || '').trim();
+    const isMatch = val.length === 5 && val === state.restoreSecurityCode;
+
+    if (isMatch) {
+      if (hintEl) hintEl.innerHTML = '<span style="color: #15803d; font-weight: 600;">✓ Kode pengaman valid</span>';
+      if (btn && count > 0) {
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.style.boxShadow = '0 0 0 2px rgba(220, 38, 38, 0.2)';
+      }
+    } else {
+      if (hintEl) {
+        if (val.length > 0) {
+          hintEl.innerHTML = '<span style="color: #dc2626;">Kode pengaman tidak cocok.</span>';
+        } else {
+          hintEl.innerHTML = 'Ketik 5 angka pengaman di atas untuk mengaktifkan pemulihan.';
+          hintEl.style.color = '#dc2626';
+        }
+      }
+      if (btn) {
+        btn.style.opacity = '0.6';
+        btn.style.boxShadow = 'none';
+      }
+    }
+  }
+
   function updateWipeSummary() {
     const checkboxes = $$('.cb-wipe-table');
     const checked = $$('.cb-wipe-table:checked');
     const count = checked.length;
 
+    const masterCb = $('#cb-wipe-master');
+    if (masterCb) {
+      masterCb.checked = count === checkboxes.length && checkboxes.length > 0;
+      masterCb.indeterminate = count > 0 && count < checkboxes.length;
+    }
+
     const badge = $('#db-wipe-selected-badge');
     if (badge) {
-      badge.textContent = `${count} kategori dipilih`;
+      badge.textContent = `${count} dari ${checkboxes.length} kategori dipilih`;
       if (count === 0) {
         badge.style.background = '#f1f5f9';
         badge.style.color = '#64748b';
@@ -3091,7 +3166,7 @@
     checkboxes.forEach((cb) => {
       const tr = cb.closest('tr');
       if (tr) {
-        tr.style.backgroundColor = cb.checked ? '#fff5f5' : '';
+        tr.classList.toggle('is-selected', cb.checked);
       }
     });
 
@@ -3172,6 +3247,11 @@
       console.warn('Gagal memuat opsi dropdown database:', dropdownErr);
     }
 
+    if (!state.restoreSecurityCode) {
+      generateRestoreSecurityCode();
+    } else {
+      updateRestoreState();
+    }
     updateWipeSummary();
   }
 
@@ -3219,7 +3299,26 @@
       return;
     }
 
-    if (!window.confirm(`PERINGATAN PEMULIHAN BASIS DATA!\n\nMemulihkan database dari berkas "${file.name}" akan menimpa/memperbarui data sistem dalam transaksi atomik.\n\nApakah Anda benar-benar yakin ingin melanjutkan?`)) {
+    const checkedBoxes = $$('.cb-restore-table:checked');
+    const tables = Array.from(checkedBoxes).map((cb) => cb.value);
+    if (tables.length === 0) {
+      toast('Kategori Data Belum Dipilih', 'Pilih minimal satu kategori data yang hendak dipulihkan.', 'warning');
+      return;
+    }
+
+    const inputEl = $('#restore-security-input');
+    const typedCode = (inputEl?.value || '').trim();
+    if (!state.restoreSecurityCode || typedCode !== state.restoreSecurityCode) {
+      toast('Kode Pengaman Tidak Sesuai', 'Ketik 5 angka kode pengaman verifikasi yang tertera dengan benar.', 'warning');
+      if (inputEl) {
+        inputEl.focus();
+        inputEl.style.borderColor = '#dc2626';
+        setTimeout(() => { inputEl.style.borderColor = '#fca5a5'; }, 2000);
+      }
+      return;
+    }
+
+    if (!window.confirm(`PERINGATAN PEMULIHAN BASIS DATA!\n\nMemulihkan database dari berkas "${file.name}" untuk kategori:\n${tables.join(', ')}\n\nOperasi ini akan menimpa data sistem dalam transaksi atomik.\n\nApakah Anda benar-benar yakin ingin melanjutkan?`)) {
       return;
     }
 
@@ -3233,6 +3332,7 @@
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('tables', JSON.stringify(tables));
 
       const res = await apiRequest('/api/v1/database/restore', {
         method: 'POST',
@@ -3240,7 +3340,7 @@
       });
 
       toast('Pemulihan Selesai', res.message || 'Basis data berhasil dipulihkan secara penuh.', 'success');
-      addActivity('database', 'Pemulihan Basis Data (Restore)', `Berkas: ${file.name}`, 'green');
+      addActivity('database', 'Pemulihan Basis Data (Restore)', `Berkas: ${file.name} • Kategori: ${tables.join(', ')}`, 'green');
       if (fileInput) fileInput.value = '';
       setStatus('Basis data berhasil dipulihkan.');
       await loadOpdOptions();
@@ -3250,6 +3350,7 @@
       toast('Gagal Memulihkan Database', error.message, 'error');
       setStatus('Gagal memulihkan basis data.');
     } finally {
+      generateRestoreSecurityCode();
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = '<svg class="icon"><use href="#icon-upload"></use></svg> Pulihkan Data Sekarang';
@@ -7288,6 +7389,47 @@
     const restoreDbBtn = $('#btn-db-restore');
     if (restoreDbBtn) restoreDbBtn.addEventListener('click', submitDatabaseRestore);
 
+    const restoreSelectAllBtn = $('#btn-restore-select-all');
+    if (restoreSelectAllBtn) {
+      restoreSelectAllBtn.addEventListener('click', () => {
+        $$('.cb-restore-table').forEach((cb) => { cb.checked = true; });
+        updateRestoreState();
+      });
+    }
+
+    const restoreSelectTxBtn = $('#btn-restore-select-tx');
+    if (restoreSelectTxBtn) {
+      restoreSelectTxBtn.addEventListener('click', () => {
+        $$('.cb-restore-table').forEach((cb) => {
+          cb.checked = ['payroll', 'potongan', 'penyesuaian'].includes(cb.value);
+        });
+        updateRestoreState();
+      });
+    }
+
+    const restoreClearAllBtn = $('#btn-restore-clear-all');
+    if (restoreClearAllBtn) {
+      restoreClearAllBtn.addEventListener('click', () => {
+        $$('.cb-restore-table').forEach((cb) => { cb.checked = false; });
+        updateRestoreState();
+      });
+    }
+
+    $$('.cb-restore-table').forEach((cb) => {
+      cb.addEventListener('change', updateRestoreState);
+    });
+
+    const refreshRestoreCodeBtn = $('#btn-refresh-restore-code');
+    if (refreshRestoreCodeBtn) {
+      refreshRestoreCodeBtn.addEventListener('click', generateRestoreSecurityCode);
+    }
+
+    const restoreSecurityInput = $('#restore-security-input');
+    if (restoreSecurityInput) {
+      restoreSecurityInput.addEventListener('input', updateRestoreState);
+      restoreSecurityInput.addEventListener('keyup', updateRestoreState);
+    }
+
     const delPeriodDbBtn = $('#btn-db-del-period');
     if (delPeriodDbBtn) delPeriodDbBtn.addEventListener('click', submitDatabaseDeletePeriod);
 
@@ -7299,6 +7441,17 @@
         });
         updateWipeSummary();
         toast('Pilihan Diperbarui', 'Kategori transaksi terpilih (Payroll, Potongan, Penyesuaian).', 'info');
+      });
+    }
+
+    const wipeSelectMasterBtn = $('#btn-db-wipe-select-master');
+    if (wipeSelectMasterBtn) {
+      wipeSelectMasterBtn.addEventListener('click', () => {
+        $$('.cb-wipe-table').forEach((cb) => {
+          cb.checked = ['pos', 'users', 'opd'].includes(cb.value);
+        });
+        updateWipeSummary();
+        toast('Pilihan Diperbarui', 'Kategori master data terpilih (Pos Potongan, Pengguna, OPD).', 'info');
       });
     }
 
@@ -7321,6 +7474,30 @@
         });
         updateWipeSummary();
         toast('Pilihan Dikosongkan', 'Semua centang kategori data dibatalkan.', 'info');
+      });
+    }
+
+    const wipeMasterCb = $('#cb-wipe-master');
+    if (wipeMasterCb) {
+      wipeMasterCb.addEventListener('change', (e) => {
+        $$('.cb-wipe-table').forEach((cb) => {
+          cb.checked = e.target.checked;
+        });
+        updateWipeSummary();
+      });
+    }
+
+    const wipeTable = $('#db-wipe-table');
+    if (wipeTable) {
+      wipeTable.addEventListener('click', (e) => {
+        const tr = e.target.closest('tr.wipe-row');
+        if (!tr) return;
+        if (e.target.tagName.toLowerCase() === 'input') return;
+        const cb = tr.querySelector('.cb-wipe-table');
+        if (cb) {
+          cb.checked = !cb.checked;
+          updateWipeSummary();
+        }
       });
     }
 

@@ -889,6 +889,20 @@ def test_database_restore_super_admin(
         assert log.user_email == super_admin_profile.email
         assert log.ip_address == "10.0.0.15"
 
+        # Restore selektif (hanya payroll & penyesuaian)
+        buffer_selective = io.BytesIO(json.dumps(backup_data).encode("utf-8"))
+        res_selective = client.post(
+            "/api/v1/database/restore",
+            files={"file": ("backup.json", buffer_selective, "application/json")},
+            data={"tables": json.dumps(["payroll", "penyesuaian"])},
+            headers={"X-Forwarded-For": "10.0.0.16"},
+        )
+        assert res_selective.status_code == 200
+        data_sel = res_selective.json()
+        assert data_sel["status"] == "success"
+        assert "payroll_monthly" in data_sel["restored_counts"]
+        assert "ref_opd" not in data_sel["restored_counts"]
+
 
 def test_database_delete_per_opd_period_super_admin(
     api_app, db_session, seeded, super_admin_profile

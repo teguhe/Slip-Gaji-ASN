@@ -10,7 +10,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Session
@@ -198,6 +198,7 @@ def backup_database(
 def restore_database(
     request: Request,
     file: UploadFile = File(..., description="File backup database JSON"),
+    tables: str | None = Form(None, description="JSON string list kategori tabel yang ingin dipulihkan"),
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -226,37 +227,78 @@ def restore_database(
             detail="Struktur berkas backup tidak sesuai spesifikasi.",
         )
 
-    tables = data["tables"]
+    backup_tables = data["tables"]
     restored_counts: dict[str, int] = {}
+
+    selected_categories: set[str] | None = None
+    if tables:
+        try:
+            parsed = json.loads(tables)
+            if isinstance(parsed, list) and parsed:
+                selected_categories = set(parsed)
+        except Exception:
+            selected_categories = None
 
     try:
         # Bersihkan data lama dengan urutan aman relasi foreign key
-        db.query(PayrollPotonganItem).delete(synchronize_session=False)
-        db.query(PayrollPenyesuaian).delete(synchronize_session=False)
-        db.query(PotonganBerjangka).delete(synchronize_session=False)
-        db.query(PayrollMonthly).delete(synchronize_session=False)
-        db.query(RefPosPotongan).delete(synchronize_session=False)
-        db.query(AppUser).delete(synchronize_session=False)
-        db.query(RefOpd).delete(synchronize_session=False)
-        db.query(AuditLog).delete(synchronize_session=False)
-        db.flush()
+        if selected_categories is None:
+            db.query(PayrollPotonganItem).delete(synchronize_session=False)
+            db.query(PayrollPenyesuaian).delete(synchronize_session=False)
+            db.query(PotonganBerjangka).delete(synchronize_session=False)
+            db.query(PayrollMonthly).delete(synchronize_session=False)
+            db.query(RefPosPotongan).delete(synchronize_session=False)
+            db.query(AppUser).delete(synchronize_session=False)
+            db.query(RefOpd).delete(synchronize_session=False)
+            db.query(AuditLog).delete(synchronize_session=False)
+            db.flush()
+        else:
+            if "payroll" in selected_categories or "payroll_monthly" in selected_categories:
+                db.query(PayrollPotonganItem).filter(PayrollPotonganItem.payroll_id.is_not(None)).delete(synchronize_session=False)
+                db.query(PayrollMonthly).delete(synchronize_session=False)
+            if "potongan" in selected_categories or "potongan_berjangka" in selected_categories:
+                db.query(PayrollPotonganItem).filter(PayrollPotonganItem.berjangka_id.is_not(None)).delete(synchronize_session=False)
+                db.query(PotonganBerjangka).delete(synchronize_session=False)
+            if "penyesuaian" in selected_categories or "payroll_penyesuaian" in selected_categories:
+                db.query(PayrollPenyesuaian).delete(synchronize_session=False)
+            if "pos" in selected_categories or "ref_pos_potongan" in selected_categories:
+                db.query(PayrollPotonganItem).delete(synchronize_session=False)
+                db.query(PotonganBerjangka).delete(synchronize_session=False)
+                db.query(RefPosPotongan).delete(synchronize_session=False)
+            if "users" in selected_categories or "app_users" in selected_categories:
+                sa_email = settings.super_admin_email
+                db.query(AppUser).filter(func.lower(func.trim(AppUser.email)) != sa_email).delete(synchronize_session=False)
+            if "opd" in selected_categories or "ref_opd" in selected_categories:
+                db.query(AppUser).update({"opd_id": None}, synchronize_session=False)
+                db.query(RefPosPotongan).delete(synchronize_session=False)
+                db.query(PayrollPenyesuaian).delete(synchronize_session=False)
+                db.query(RefOpd).delete(synchronize_session=False)
+            if "audit" in selected_categories or "audit_logs" in selected_categories:
+                db.query(AuditLog).delete(synchronize_session=False)
+            db.flush()
 
         # Pulihkan data sesuai urutan relasi
         table_order = [
-            ("ref_opd", RefOpd),
-            ("app_users", AppUser),
-            ("ref_pos_potongan", RefPosPotongan),
-            ("potongan_berjangka", PotonganBerjangka),
-            ("payroll_monthly", PayrollMonthly),
-            ("payroll_potongan_item", PayrollPotonganItem),
-            ("payroll_penyesuaian", PayrollPenyesuaian),
-            ("audit_logs", AuditLog),
+            ("ref_opd", RefOpd, lambda: selected_categories is None or "opd" in selected_categories or "ref_opd" in selected_categories),
+            ("app_users", AppUser, lambda: selected_categories is None or "users" in selected_categories or "app_users" in selected_categories),
+            ("ref_pos_potongan", RefPosPotongan, lambda: selected_categories is None or "pos" in selected_categories or "ref_pos_potongan" in selected_categories),
+            ("potongan_berjangka", PotonganBerjangka, lambda: selected_categories is None or "potongan" in selected_categories or "potongan_berjangka" in selected_categories),
+            ("payroll_monthly", PayrollMonthly, lambda: selected_categories is None or "payroll" in selected_categories or "payroll_monthly" in selected_categories),
+            ("payroll_potongan_item", PayrollPotonganItem, lambda: selected_categories is None or "payroll" in selected_categories or "potongan" in selected_categories or "payroll_potongan_item" in selected_categories),
+            ("payroll_penyesuaian", PayrollPenyesuaian, lambda: selected_categories is None or "penyesuaian" in selected_categories or "payroll_penyesuaian" in selected_categories),
+            ("audit_logs", AuditLog, lambda: selected_categories is None or "audit" in selected_categories or "audit_logs" in selected_categories),
         ]
 
-        for tbl_name, model_cls in table_order:
-            tbl_rows = tables.get(tbl_name, [])
+        for tbl_name, model_cls, should_restore in table_order:
+            if not should_restore():
+                continue
+            tbl_rows = backup_tables.get(tbl_name, [])
             count = 0
             for row in tbl_rows:
+                # Jika me-restore users secara parsial, hindari insert duplikat super admin bawaan yang sudah ada
+                if tbl_name == "app_users" and selected_categories is not None:
+                    email_val = (row.get("email") or "").strip().lower()
+                    if email_val == settings.super_admin_email:
+                        continue
                 obj = _deserialize_row(model_cls, row)
                 db.add(obj)
                 count += 1
@@ -307,6 +349,7 @@ def restore_database(
         record_id=None,
         details={
             "filename": filename,
+            "selected_categories": list(selected_categories) if selected_categories else "all",
             "restored_counts": restored_counts,
             "total_restored": sum(restored_counts.values()),
         },

@@ -1400,7 +1400,7 @@
                       <th style="width: 140px; text-align: center;">Pengguna OPD</th>
                       <th style="width: 140px; text-align: center;">Data Payroll</th>
                       <th style="width: 150px;">Tanggal Dibuat</th>
-                      <th style="width: 160px; text-align: center;">Aksi</th>
+                      <th style="width: 180px; text-align: center;">Aksi</th>
                     </tr>
                   </thead>
                   <tbody id="master-opd-tbody"></tbody>
@@ -1463,7 +1463,7 @@
                       <th>Penugasan OPD</th>
                       <th style="width: 90px; text-align: center;">Status</th>
                       <th style="width: 140px;">Terdaftar</th>
-                      <th style="width: 170px; text-align: center;">Aksi</th>
+                      <th style="width: 250px; text-align: center;">Aksi</th>
                     </tr>
                   </thead>
                   <tbody id="master-user-tbody"></tbody>
@@ -1558,10 +1558,66 @@
                       <div style="flex: 1;">
                         <strong style="color: #991b1b; font-size: 13px;">Pulihkan / Restore Basis Data</strong>
                         <p style="margin: 4px 0 8px 0; font-size: 11.5px; color: #7f1d1d; line-height: 1.4;">Memulihkan basis data dari file cadangan JSON yang valid. Seluruh proses berjalan dalam transaksi atomik.</p>
+                        
                         <div style="margin-bottom: 10px;">
+                          <label style="display: block; font-size: 11.5px; font-weight: 600; color: #475569; margin-bottom: 4px;">Pilih File Cadangan (JSON):</label>
                           <input type="file" id="db-restore-file" accept=".json,application/json" style="width: 100%; font-size: 11.5px;">
                         </div>
-                        <button type="button" class="danger" id="btn-db-restore">
+
+                        <!-- Opsi Kategori Data yang Mau Direstore -->
+                        <div style="margin-bottom: 10px; background: #ffffff; border: 1px solid #fecaca; border-radius: 4px; padding: 10px;">
+                          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                            <span style="font-size: 11.5px; font-weight: 600; color: #7f1d1d;">Pilih Data yang Ingin Dipulihkan:</span>
+                            <div style="display: flex; gap: 4px;">
+                              <button type="button" class="pill" id="btn-restore-select-all" style="font-size: 10px; padding: 1px 6px;">Pilih Semua</button>
+                              <button type="button" class="pill" id="btn-restore-select-tx" style="font-size: 10px; padding: 1px 6px;">Transaksi Saja</button>
+                              <button type="button" class="pill" id="btn-restore-clear-all" style="font-size: 10px; padding: 1px 6px;">Kosongkan</button>
+                            </div>
+                          </div>
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11.5px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                              <input type="checkbox" class="cb-restore-table" value="payroll" checked> Data Gaji (payroll_monthly)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                              <input type="checkbox" class="cb-restore-table" value="potongan" checked> Potongan ASN (item &amp; berjangka)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                              <input type="checkbox" class="cb-restore-table" value="penyesuaian" checked> Penyesuaian Gaji
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                              <input type="checkbox" class="cb-restore-table" value="pos" checked> Master Pos Potongan
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                              <input type="checkbox" class="cb-restore-table" value="users" checked> Master Pengguna
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                              <input type="checkbox" class="cb-restore-table" value="opd" checked> Master OPD
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; grid-column: span 2;">
+                              <input type="checkbox" class="cb-restore-table" value="audit" checked> Log Audit Aktivitas
+                            </label>
+                          </div>
+                          <div id="restore-table-summary" style="margin-top: 6px; font-size: 10.5px; color: #64748b;">
+                            7 dari 7 kategori data dipilih untuk dipulihkan.
+                          </div>
+                        </div>
+
+                        <!-- Input Pengaman (5 Angka Random) -->
+                        <div style="margin-bottom: 10px; background: #fff1f2; border: 1px dashed #fca5a5; border-radius: 4px; padding: 10px;">
+                          <label style="display: block; font-size: 11px; font-weight: 600; color: #991b1b; margin-bottom: 4px;">Kode Pengaman Verifikasi (5 Angka Random):</label>
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="restore-random-code" class="security-code-badge">-----</span>
+                            <button type="button" class="pill" id="btn-refresh-restore-code" title="Acak ulang kode pengaman" style="font-size: 10.5px; padding: 2px 7px;">
+                              <svg class="icon" style="width: 12px; height: 12px;"><use href="#icon-refresh"></use></svg> Acak Kode
+                            </button>
+                          </div>
+                          <div style="margin-top: 6px;">
+                            <input type="text" id="restore-security-input" maxlength="5" placeholder="Ketik 5 angka kode di atas" style="width: 100%; max-width: 220px; font-size: 12px; letter-spacing: 2px; font-family: monospace;" autocomplete="off">
+                            <div id="restore-security-hint" style="font-size: 10.5px; color: #dc2626; margin-top: 3px;">Ketik 5 angka pengaman di atas untuk mengaktifkan pemulihan.</div>
+                          </div>
+                        </div>
+
+                        <button type="button" class="danger" id="btn-db-restore" style="opacity: 0.6; cursor: pointer; transition: all 0.2s ease;">
                           <svg class="icon"><use href="#icon-upload"></use></svg> Pulihkan Data Sekarang
                         </button>
                       </div>
@@ -1624,6 +1680,7 @@
                 <div class="head-actions">
                   <span id="db-wipe-selected-badge" class="pill" style="display: inline-flex; align-items: center; font-weight: 600; font-size: 11.5px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">3 kategori dipilih</span>
                   <button type="button" id="btn-db-wipe-select-tx" class="pill" title="Pilih hanya data transaksi (Payroll, Potongan, Penyesuaian)">Data Transaksi Saja</button>
+                  <button type="button" id="btn-db-wipe-select-master" class="pill" title="Pilih hanya master data (Pos Potongan, Pengguna, OPD)">Master Data Saja</button>
                   <button type="button" id="btn-db-wipe-select-all" class="pill" title="Centang seluruh kategori data">Centang Semua</button>
                   <button type="button" id="btn-db-wipe-clear" class="pill" title="Kosongkan seluruh centang">Kosongkan Centang</button>
                 </div>
@@ -1638,53 +1695,53 @@
                 </div>
 
                 <div class="table-responsive" style="margin-bottom: 14px;">
-                  <table class="listview master-table" style="width: 100%;">
+                  <table class="listview master-table" id="db-wipe-table" style="width: 100%;">
                     <thead>
                       <tr>
-                        <th style="width: 50px; text-align: center;">Pilih</th>
+                        <th style="width: 50px; text-align: center;"><input type="checkbox" id="cb-wipe-master" title="Pilih Semua / Batal Pilih" style="cursor: pointer;"></th>
                         <th style="width: 170px;">Kategori Data</th>
                         <th style="width: 260px;">Tabel Database</th>
                         <th>Deskripsi Cakupan</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="payroll" checked></td>
                         <td><strong>Data Gaji Bulanan</strong></td>
                         <td><code>payroll_monthly</code></td>
                         <td>Data impor SIMGAJI seluruh ASN, rincian penghasilan kotor, tunjangan, dan gaji bersih.</td>
                       </tr>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="potongan" checked></td>
                         <td><strong>Potongan ASN</strong></td>
                         <td><code>payroll_potongan_item</code>, <code>potongan_berjangka</code></td>
                         <td>Data potongan bulanan per ASN serta data tenor potongan berjangka (koperasi, bank, dll).</td>
                       </tr>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="penyesuaian" checked></td>
                         <td><strong>Penyesuaian Gaji</strong></td>
                         <td><code>payroll_penyesuaian</code></td>
                         <td>Data penyesuaian nominal gaji (koreksi tambah/kurang gaji ASN).</td>
                       </tr>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="pos"></td>
                         <td><strong>Master Pos Potongan</strong></td>
                         <td><code>ref_pos_potongan</code></td>
                         <td>Master referensi jenis/nama pos potongan (BPJS, BPD, Koperasi, dll).</td>
                       </tr>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="audit"></td>
                         <td><strong>Log Audit Aktivitas</strong></td>
                         <td><code>audit_logs</code></td>
                         <td>Rekam jejak seluruh aktivitas login, cetak, impor, dan perubahan data pengguna.</td>
                       </tr>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="users"></td>
                         <td><strong>Master Pengguna</strong></td>
                         <td><code>app_users</code></td>
                         <td>Seluruh akun pengguna dan bendahara OPD (akun Super Admin utama tetap dilindungi).</td>
                       </tr>
-                      <tr>
+                      <tr class="wipe-row">
                         <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="opd"></td>
                         <td><strong>Master OPD</strong></td>
                         <td><code>ref_opd</code></td>
