@@ -1512,11 +1512,15 @@
 
   function setAvatarElement(node, photoUrl, fallbackInitials, isIconBox = false) {
     if (!node) return;
-    if (photoUrl) {
+    let src = photoUrl;
+    if (src && /googleusercontent\.com/i.test(src)) {
+      src = src.replace(/=s\d+(-c)?/i, '=s256-c');
+    }
+    if (src) {
       const fallbackAction = isIconBox
         ? 'this.parentElement.innerHTML=\'<svg class="icon"><use href="#icon-user"></use></svg>\';'
         : `this.parentElement.textContent='${escapeHtml(fallbackInitials || '—')}';`;
-      node.innerHTML = `<img src="${escapeHtml(photoUrl)}" alt="Avatar" referrerpolicy="no-referrer" onerror="this.onerror=null;${fallbackAction}">`;
+      node.innerHTML = `<img src="${escapeHtml(src)}" alt="Avatar" referrerpolicy="no-referrer" onerror="this.onerror=null;${fallbackAction}">`;
     } else {
       if (isIconBox) {
         node.innerHTML = '<svg class="icon"><use href="#icon-user"></use></svg>';

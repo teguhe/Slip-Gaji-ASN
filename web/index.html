@@ -348,7 +348,7 @@
             <section class="panel dashboard-welcome-panel" id="dashboard-welcome-panel" style="margin-bottom: 16px;">
               <div class="welcome-panel-body">
                 <div class="welcome-head-row">
-                  <div class="welcome-icon-box" id="dashboard-welcome-avatar">
+                  <div class="welcome-icon-box" id="dashboard-welcome-avatar" hidden style="display: none;">
                     <svg class="icon"><use href="#icon-user"></use></svg>
                   </div>
                   <div class="welcome-intro-text">
@@ -745,11 +745,7 @@
                   <h2>Log Riwayat Aktivitas</h2>
                   <p class="panel-sub" id="monitoring-subtitle">Memuat data log aktivitas…</p>
                 </div>
-                <div class="table-actions">
-                  <div class="search-box">
-                    <svg class="icon"><use href="#icon-search"></use></svg>
-                    <input type="search" id="monitoring-search" placeholder="Cari aktivitas atau email…" aria-label="Cari aktivitas">
-                  </div>
+                <div class="table-search-wrap">
                   <select id="monitoring-filter-action" class="filter-select" aria-label="Filter jenis aksi">
                     <option value="">Semua Aksi</option>
                     <option value="IMPORT_PAYROLL">Import SIMGAJI</option>
@@ -766,6 +762,10 @@
                     <option value="DATABASE_WIPE_SELECTED">Hapus Data Keseluruhan</option>
                     <option value="DATABASE_DELETE_PER_OPD_PERIOD">Hapus Data OPD per Periode</option>
                   </select>
+                  <div class="search-box monitoring-search-box">
+                    <svg class="icon"><use href="#icon-search"></use></svg>
+                    <input type="search" id="monitoring-search" placeholder="Cari aktivitas atau email…" aria-label="Cari aktivitas">
+                  </div>
                 </div>
               </div>
 
@@ -1814,7 +1814,7 @@
       </div>
     </div>
 
-    <div class="window glass active modal-window" role="dialog" aria-modal="true"
+    <div class="window glass active modal-window modal-about" role="dialog" aria-modal="true"
          aria-labelledby="about-title" data-modal="about" hidden>
       <div class="title-bar">
         <div class="title-bar-text" id="about-title">Tentang SLIP GAJI ASN</div>
@@ -1832,9 +1832,9 @@
           </div>
         </div>
         <div class="about-grid">
-          <div style="grid-column: span 2; background: #eaf3fa; padding: 6px 8px; border-radius: 2px; border: 1px solid #c2daf0;">
-            <span style="font-size: 8.5px; color: #587993; font-weight: 500;">PENGEMBANG / AUTHOR</span>
-            <strong style="font-size: 11px; color: #104a7b; margin-top: 2px;">Teguh Prasetyo, S.Kom., M.Si.</strong>
+          <div class="about-author-box">
+            <span>PENGEMBANG / AUTHOR</span>
+            <strong>Teguh Prasetyo, S.Kom., M.Si.</strong>
           </div>
           <div><span>Backend</span><strong>FastAPI + PostgreSQL</strong></div>
           <div><span>Autentikasi</span><strong>Firebase Auth</strong></div>
