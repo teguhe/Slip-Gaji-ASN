@@ -398,12 +398,18 @@
   function renderChrome() {
     const period = periodLabel(state.period);
     const modeLabel = 'Terhubung API';
+    const isSuperAdmin = Boolean(state.profile && state.profile.is_super_admin);
+
+    const opdText = isSuperAdmin ? 'Tidak Terikat OPD' : (state.opd || 'Belum Ada OPD');
+    const toolbarOpd = isSuperAdmin ? 'Super Admin (Tidak Terikat OPD)' : shortOpd(state.opd || 'Belum Ada OPD', 62);
+    const dashboardOpd = isSuperAdmin ? 'Seluruh OPD Daerah (Super Admin)' : (state.opd || 'Belum Ada OPD');
+    const statusOpd = isSuperAdmin ? 'OPD: Tidak Terikat OPD' : `OPD: ${shortOpd(state.opd || '—', 46)}`;
 
     const nodes = [
-      ['#profile-opd', state.opd || 'Belum Ada OPD'],
-      ['#toolbar-opd', shortOpd(state.opd || 'Belum Ada OPD', 62)],
-      ['#dashboard-opd', state.opd || 'Belum Ada OPD'],
-      ['#status-opd', `OPD: ${shortOpd(state.opd || '—', 46)}`],
+      ['#profile-opd', opdText],
+      ['#toolbar-opd', toolbarOpd],
+      ['#dashboard-opd', dashboardOpd],
+      ['#status-opd', statusOpd],
       ['#status-period', `Periode: ${period}`],
       ['#dashboard-period', period],
       ['#toolbar-period-val', period],
@@ -436,8 +442,8 @@
     const name = state.profile?.display_name || state.profile?.nama_bendahara || state.profile?.email || 'Admin Bendahara';
     nameEl.textContent = name;
     if (metaEl) {
-      if (state.profile?.role === 'super_admin') {
-        metaEl.textContent = 'Super Administrator • Akses Seluruh OPD';
+      if (state.profile?.role === 'super_admin' || state.profile?.is_super_admin) {
+        metaEl.textContent = 'Super Administrator • Tidak Terikat OPD';
       } else {
         const opd = state.profile?.opd_name || state.opd || 'Bendahara OPD';
         const jab = state.profile?.jabatan || 'Bendahara Pengeluaran';
@@ -1527,9 +1533,9 @@
 
     const name = profile ? (profile.display_name || profile.email || 'Pengguna') : '—';
     const roleLabel = superAdmin ? 'Super Admin' : (isLocked ? 'Menunggu Penugasan' : 'Bendahara OPD');
-    const opdLabel = profile && profile.opd_name
-      ? profile.opd_name
-      : (superAdmin ? 'Semua OPD (Akses Global)' : (isLocked ? 'Belum ditetapkan (Terkunci)' : '—'));
+    const opdLabel = superAdmin
+      ? 'Tidak Terikat OPD'
+      : (profile && profile.opd_name ? profile.opd_name : (isLocked ? 'Belum ditetapkan (Terkunci)' : '—'));
     const email = profile ? profile.email : '—';
     const method = 'Google Auth (Gmail)';
     const avatar = initialsFrom(name, email);
@@ -1558,6 +1564,10 @@
     setText('#profile-dialog-opd', opdLabel);
     setText('#profile-dialog-method', method);
     setText('#profile-dialog-status', isLocked ? 'Belum Ada OPD (Terkunci)' : (profile ? 'Aktif' : 'Belum Login'));
+    setText('#profile-dialog-isolation', superAdmin ? 'Akses Global (Lintas OPD)' : 'Isolasi OPD Terdaftar');
+
+    const startMenuRole = $('#start-menu-role');
+    if (startMenuRole) startMenuRole.textContent = superAdmin ? 'Super Administrator' : 'Bendahara OPD';
 
     setAvatarElement($('#profile-dialog-avatar'), photo, avatar);
     setAvatarElement($('#dashboard-welcome-avatar'), photo, null, true);
@@ -1569,14 +1579,32 @@
 
     const isLoggedIn = Boolean(state.token || profile);
 
+    // Menu Ganti OPD disembunyikan sepenuhnya untuk Super Admin dan bendahara
     const changeButton = $('#btn-profile-change-opd');
-    if (changeButton) changeButton.hidden = !superAdmin;
+    if (changeButton) changeButton.hidden = true;
     const logoutButton = $('#btn-profile-logout');
     if (logoutButton) logoutButton.hidden = !isLoggedIn;
     const statusChange = $('#status-change-opd-btn');
-    if (statusChange) statusChange.hidden = !superAdmin;
+    if (statusChange) statusChange.hidden = true;
     const statusLogout = $('#status-logout-btn');
     if (statusLogout) statusLogout.hidden = !isLoggedIn;
+
+    // Sembunyikan menu Master Gaji, Potongan Rekap, Potongan per ASN, Cetak Slip untuk Super Admin
+    const bendaharaNavSelectors = [
+      '.side-nav-item[data-view-link="master-gaji"]',
+      '.side-nav-item[data-view-link="potongan"]',
+      '.side-nav-item[data-view-link="potongan-asn"]',
+      '.side-nav-item[data-view-link="print"]',
+      '#start-menu [data-view-link="master-gaji"]',
+      '#start-menu [data-view-link="potongan"]',
+      '#start-menu [data-view-link="potongan-asn"]',
+      '#start-menu [data-view-link="print"]',
+      '#start-profile-settings',
+    ];
+    bendaharaNavSelectors.forEach((sel) => {
+      const el = $(sel);
+      if (el) el.hidden = superAdmin;
+    });
 
     // Admin-only Master navigation in sidebar & start menu
     const navAdmin = $('#nav-admin-group');
@@ -1602,13 +1630,11 @@
     const modalNip = $('#sig-modal-nip');
     if (modalNip) modalNip.value = sigNip;
 
-    // OPD selection box: only super admin can manually switch active OPD here
-    const showOpdBox = superAdmin && state.profileChangeMode;
+    // OPD selection box di modal profil selalu disembunyikan
     const opdBox = $('#profile-opd-box');
-    if (opdBox) opdBox.hidden = !showOpdBox;
+    if (opdBox) opdBox.hidden = true;
     const addOpdBox = $('#super-admin-add-opd');
-    if (addOpdBox) addOpdBox.hidden = !superAdmin;
-    if (showOpdBox) populateProfileOpdSelect();
+    if (addOpdBox) addOpdBox.hidden = true;
   }
 
   async function loadAuthProfile(token = state.token) {
@@ -1634,10 +1660,9 @@
     if (state.mode === 'api' && state.token) {
       try {
         if (!state.profile) await loadAuthProfile();
-        if (changeOpd && !(state.profile && state.profile.is_super_admin)) {
-          changeOpd = false;
-        }
-        if ((state.profile && state.profile.needs_opd) || changeOpd) {
+        // Super Admin tidak terikat ke OPD manapun; fitur ganti OPD dinonaktifkan
+        changeOpd = false;
+        if (state.profile && state.profile.needs_opd && !state.profile.is_super_admin) {
           if (!state.opdOptions.length) await loadOpdOptions();
         }
       } catch (error) {
@@ -1648,7 +1673,7 @@
     }
 
     state.profileChangeMode = Boolean(
-      changeOpd || (state.mode === 'api' && state.profile && state.profile.needs_opd),
+      !state.profile?.is_super_admin && (changeOpd || (state.mode === 'api' && state.profile && state.profile.needs_opd)),
     );
     const error = $('#profile-error');
     if (error) error.hidden = true;
@@ -3869,8 +3894,8 @@
     state.mode = 'api';
     state.token = token;
     state.profile = profile;
-    state.opd = profile.opd_name || (profile.is_super_admin ? 'Semua OPD' : 'Belum ditetapkan');
-    state.opdRaw = profile.opd_name || '';
+    state.opd = profile.is_super_admin ? 'Tidak Terikat OPD' : (profile.opd_name || 'Belum ditetapkan');
+    state.opdRaw = profile.is_super_admin ? '' : (profile.opd_name || '');
     state.employees = [];
     state.posList = [];
     state.loans = [];
@@ -5474,8 +5499,9 @@
   function applyApiData(data, token, resetSessionHistory = false) {
     state.mode = 'api';
     state.token = token;
-    state.opd = data.opd || 'Semua OPD';
-    state.opdRaw = data.opd || '';
+    const isSuperAdmin = Boolean(state.profile && state.profile.is_super_admin);
+    state.opd = isSuperAdmin ? 'Tidak Terikat OPD' : (data.opd || 'Semua OPD');
+    state.opdRaw = isSuperAdmin ? '' : (data.opd || '');
     state.employees = (data.employees || []).map(mapApiEmployee);
     state.selected = new Set();
     state.potonganNip = state.employees[0] ? state.employees[0].nip : '';
@@ -5789,6 +5815,15 @@
 
   function setView(view, silent = false) {
     const next = VIEW_TITLES[view] ? view : 'dashboard';
+
+    // Guard untuk Super Admin: sembunyikan & cegah akses modul operasional bendahara
+    const superAdminDisallowed = ['master-gaji', 'import', 'potongan', 'potongan-asn', 'print'];
+    if (state.profile && state.profile.is_super_admin && superAdminDisallowed.includes(next)) {
+      toast('Akses Dibatasi', `Menu ${VIEW_TITLES[next] || next} khusus untuk Bendahara OPD. Super Admin tidak terikat ke OPD operasional.`, 'warning');
+      setView('dashboard');
+      return;
+    }
+
     state.view = next;
 
     $$('.view').forEach((section) => {

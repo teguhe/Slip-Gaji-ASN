@@ -197,14 +197,17 @@ def _resolve_user(
                     details={"email": email_norm, "previous_role": previous_role},
                 )
 
-        opd = db.get(RefOpd, user.opd_id) if user.opd_id else None
+        if user.opd_id is not None:
+            user.opd_id = None
+            db.flush()
+
         return UserProfile(
             email=email_norm,
             role="super_admin",
-            opd_id=user.opd_id,
-            opd_name=opd.nmskpd if opd else None,
+            opd_id=None,
+            opd_name=None,
             display_name=user.display_name or display_name,
-            jabatan=getattr(user, "jabatan", None) or "Bendahara Pengeluaran",
+            jabatan=getattr(user, "jabatan", None) or "Super Administrator",
             nama_bendahara=getattr(user, "nama_bendahara", None),
             nip_bendahara=getattr(user, "nip_bendahara", None),
             photo_url=photo_url,
@@ -244,14 +247,19 @@ def _resolve_user(
         db.commit()
         db.refresh(user)
 
-    opd = db.get(RefOpd, user.opd_id) if user.opd_id else None
+    is_sa = user.role == "super_admin"
+    if is_sa and user.opd_id is not None:
+        user.opd_id = None
+        db.flush()
+
+    opd = db.get(RefOpd, user.opd_id) if (user.opd_id and not is_sa) else None
     return UserProfile(
         email=email_norm,
         role=user.role or "bendahara_opd",
-        opd_id=user.opd_id,
-        opd_name=opd.nmskpd if opd else None,
+        opd_id=None if is_sa else user.opd_id,
+        opd_name=None if is_sa else (opd.nmskpd if opd else None),
         display_name=user.display_name or display_name,
-        jabatan=getattr(user, "jabatan", None) or "Bendahara Pengeluaran",
+        jabatan=getattr(user, "jabatan", None) or ("Super Administrator" if is_sa else "Bendahara Pengeluaran"),
         nama_bendahara=getattr(user, "nama_bendahara", None),
         nip_bendahara=getattr(user, "nip_bendahara", None),
         photo_url=photo_url,

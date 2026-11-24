@@ -23,16 +23,17 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 
 def _me_response(profile: UserProfile, *, auth_method: str = "firebase") -> AuthMeResponse:
+    is_sa = profile.role == "super_admin"
     return AuthMeResponse(
         email=profile.email,
         display_name=profile.display_name,
         role=profile.role,
-        is_super_admin=profile.role == "super_admin",
+        is_super_admin=is_sa,
         opd_id=profile.opd_id,
         opd_name=profile.opd_name,
-        needs_opd=(profile.role != "super_admin") and not (profile.opd_id and profile.opd_name),
+        needs_opd=False if is_sa else not (profile.opd_id and profile.opd_name),
         auth_method=auth_method,
-        jabatan=profile.jabatan or "Bendahara Pengeluaran",
+        jabatan=profile.jabatan or ("Super Administrator" if is_sa else "Bendahara Pengeluaran"),
         nama_bendahara=profile.nama_bendahara,
         nip_bendahara=profile.nip_bendahara,
         photo_url=profile.photo_url,
@@ -65,17 +66,18 @@ def get_me(
         .order_by(AppUser.created_at)
         .limit(1)
     )
+    is_sa = current_user.role == "super_admin"
     if user:
         return AuthMeResponse(
             email=current_user.email,
             display_name=user.display_name or current_user.display_name,
             role=current_user.role,
-            is_super_admin=current_user.role == "super_admin",
-            opd_id=current_user.opd_id,
+            is_super_admin=is_sa,
+            opd_id=user.opd_id,
             opd_name=current_user.opd_name,
-            needs_opd=(current_user.role != "super_admin") and not (current_user.opd_id and current_user.opd_name),
+            needs_opd=False if is_sa else not user.opd_id,
             auth_method="firebase",
-            jabatan=user.jabatan or "Bendahara Pengeluaran",
+            jabatan=user.jabatan or ("Super Administrator" if is_sa else "Bendahara Pengeluaran"),
             nama_bendahara=user.nama_bendahara,
             nip_bendahara=user.nip_bendahara,
             photo_url=current_user.photo_url,
