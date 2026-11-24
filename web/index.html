@@ -698,6 +698,8 @@
                     <option value="CREATE_PENYESUAIAN_GAJI">Penyesuaian Gaji</option>
                     <option value="AUTH_LOGIN">Login / Autentikasi</option>
                     <option value="CREATE_MASTER_OPD">Master OPD</option>
+                    <option value="IMPORT_MASTER_OPD">Import Master OPD</option>
+                    <option value="PRINT_OPD_REPORT">Cetak Master OPD</option>
                     <option value="CREATE_USER_MANAGEMENT">Master Pengguna</option>
                     <option value="PRINT_USERS_REPORT">Cetak Master Pengguna</option>
                   </select>
@@ -1298,6 +1300,14 @@
                 <button type="button" class="default" id="btn-open-add-opd">
                   <svg class="icon"><use href="#icon-plus"></use></svg>
                   Tambah OPD Baru
+                </button>
+                <button type="button" id="btn-open-import-opd" title="Import daftar OPD dari file Excel">
+                  <svg class="icon"><use href="#icon-upload"></use></svg>
+                  Import OPD
+                </button>
+                <button type="button" id="btn-open-print-opd" title="Buka form cetak daftar OPD">
+                  <svg class="icon"><use href="#icon-printer"></use></svg>
+                  Cetak OPD
                 </button>
               </div>
             </header>
@@ -1978,6 +1988,91 @@
             <button type="button" class="default" id="btn-save-master-opd">
               <svg class="icon"><use href="#icon-check"></use></svg>
               Simpan OPD
+            </button>
+            <button type="button" data-close-modal>Batal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL IMPORT MASTER OPD ================= -->
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="modal-master-opd-import-title" data-modal="master-opd-import" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="modal-master-opd-import-title">Import Data Master OPD</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-upload"></use></svg></span>
+          <p>Unggah file Excel (<strong>.xlsx</strong> / <strong>.xls</strong>) yang memuat daftar nama OPD (1 kolom). Data yang sudah terdaftar di sistem otomatis dilewati (skip).</p>
+        </div>
+        <form id="form-master-opd-import" novalidate onsubmit="return false;">
+          <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+            <label class="field">
+              <span>Pilih File Excel OPD</span>
+              <input type="file" id="master-opd-import-file" accept=".xlsx,.xls" required>
+            </label>
+            <div class="callout callout-info" style="padding: 8px 10px; background: #eaf4fb; border: 1px solid #b8daef; border-radius: 3px; font-size: 11px;">
+              <strong>Ketentuan Format File:</strong>
+              <ul style="margin: 4px 0 0 16px; padding: 0;">
+                <li>File Excel berekstensi <code>.xlsx</code> atau <code>.xls</code>.</li>
+                <li>Memuat 1 kolom nama OPD / SKPD (header kolom bebas, misal: <em>Nama OPD</em> atau <em>nmskpd</em>).</li>
+                <li>Jika nama OPD sudah ada di database, baris tersebut akan otomatis dilewati tanpa menduplikasi.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="form-error" id="master-opd-import-error" hidden></p>
+          <div class="dialog-actions">
+            <button type="button" class="default" id="btn-submit-import-opd">
+              <svg class="icon"><use href="#icon-upload"></use></svg>
+              Mulai Import
+            </button>
+            <button type="button" data-close-modal>Batal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL CETAK MASTER OPD ================= -->
+    <div class="window glass active modal-window modal-medium" role="dialog" aria-modal="true"
+         aria-labelledby="modal-master-opd-print-title" data-modal="master-opd-print" hidden>
+      <div class="title-bar">
+        <div class="title-bar-text" id="modal-master-opd-print-title">Form Cetak Master OPD</div>
+        <div class="title-bar-controls">
+          <button type="button" aria-label="Close" data-close-modal></button>
+        </div>
+      </div>
+      <div class="window-body modal-body">
+        <div class="dialog-head">
+          <span class="dialog-icon"><svg class="icon"><use href="#icon-printer"></use></svg></span>
+          <p>Cetak daftar resmi Organisasi Perangkat Daerah (OPD) Pemerintah Daerah. Aksi pencetakan akan otomatis dicatat dalam log audit sistem.</p>
+        </div>
+        <form id="form-master-opd-print" novalidate onsubmit="return false;">
+          <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+            <label class="field">
+              <span>Admin yang Mencetak</span>
+              <input type="text" id="master-opd-print-admin" readonly style="background: #f1f5f9; cursor: not-allowed; font-weight: 600;">
+            </label>
+            <label class="field">
+              <span>Tanggal &amp; Waktu Cetak</span>
+              <input type="text" id="master-opd-print-date" style="background: #f1f5f9;">
+            </label>
+            <label class="field">
+              <span>Judul Laporan</span>
+              <input type="text" id="master-opd-print-title-input" value="DAFTAR ORGANISASI PERANGKAT DAERAH (OPD)" autocomplete="off">
+            </label>
+            <div class="callout callout-info" style="margin-top: 4px; padding: 8px 10px; background: #eaf4fb; border: 1px solid #b8daef; border-radius: 3px; font-size: 11px;">
+              <span id="master-opd-print-summary">Menyiapkan data cetak…</span>
+            </div>
+          </div>
+          <p class="form-error" id="master-opd-print-error" hidden></p>
+          <div class="dialog-actions">
+            <button type="button" class="default" id="btn-do-print-master-opd">
+              <svg class="icon"><use href="#icon-printer"></use></svg>
+              Cetak Dokumen
             </button>
             <button type="button" data-close-modal>Batal</button>
           </div>

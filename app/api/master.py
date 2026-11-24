@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import pandas as pd
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -17,7 +20,9 @@ from app.db import get_db
 from app.models import AppUser, PayrollMonthly, RefOpd, RefPosPotongan
 from app.schemas import (
     MasterOpdCreate,
+    MasterOpdImportResponse,
     MasterOpdItem,
+    MasterOpdPrintLogRequest,
     MasterOpdUpdate,
     MasterUserCreate,
     MasterUserItem,
@@ -273,6 +278,178 @@ def delete_master_opd(
     )
     db.commit()
     return {"status": "success", "message": f"OPD '{deleted_name}' berhasil dihapus."}
+
+
+@router.post(
+    "/opd/import",
+    response_model=MasterOpdImportResponse,
+    summary="Import Daftar Master OPD dari File Excel (1 Kolom)",
+)
+def import_master_opd(
+    request: Request,
+    file: UploadFile = File(..., description="File Excel berisi daftar nama OPD (.xlsx/.xls)"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> MasterOpdImportResponse:
+    _assert_super_admin(current_user)
+
+    filename = Path((file.filename or "opd.xlsx").replace("\\", "/")).name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".xls", ".xlsx"}:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Format file harus berkas Excel (.xls atau .xlsx).",
+        )
+
+    settings = get_settings()
+    content = file.file.read(settings.max_upload_bytes + 1)
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Berkas upload kosong.",
+        )
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Ukuran berkas melebihi batas upload.",
+        )
+
+    try:
+        frame = pd.read_excel(
+            io.BytesIO(content),
+            sheet_name=0,
+            dtype=object,
+            engine="xlrd" if suffix == ".xls" else "openpyxl",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Berkas Excel tidak dapat dibaca. Pastikan format berkas valid.",
+        ) from exc
+
+    if frame.empty and len(frame.columns) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Berkas Excel tidak memuat data.",
+        )
+
+    header_blacklist = {
+        "nmskpd",
+        "nama opd",
+        "nama_opd",
+        "opd",
+        "skpd",
+        "nama skpd",
+        "nama_skpd",
+        "nama",
+        "organisasi perangkat daerah",
+    }
+
+    candidates: list[str] = []
+    # Periksa apakah header kolom pertama adalah nama OPD atau nama kolom generik
+    first_col_raw = str(frame.columns[0]).replace("\ufeff", "").strip()
+    if first_col_raw.casefold() not in header_blacklist and len(first_col_raw) >= 3:
+        candidates.append(first_col_raw)
+
+    # Ambil baris pada kolom pertama
+    for val in frame.iloc[:, 0].dropna():
+        s = str(val).replace("\ufeff", "").strip()
+        if s and s.casefold() not in header_blacklist and len(s) >= 3:
+            candidates.append(s)
+
+    if not candidates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tidak ditemukan data nama OPD yang valid di dalam berkas Excel.",
+        )
+
+    all_existing_opds = db.scalars(select(RefOpd)).all()
+    existing_norms = {
+        " ".join(opd.nmskpd.replace("\xa0", " ").split()).casefold()
+        for opd in all_existing_opds
+    }
+
+    imported_count = 0
+    skipped_count = 0
+    seen_in_batch: set[str] = set()
+
+    for raw in candidates:
+        clean_name = " ".join(raw.replace("\xa0", " ").split())
+        if len(clean_name) < 3:
+            continue
+        norm = clean_name.casefold()
+        if norm in existing_norms or norm in seen_in_batch:
+            skipped_count += 1
+        else:
+            db.add(RefOpd(nmskpd=clean_name))
+            existing_norms.add(norm)
+            seen_in_batch.add(norm)
+            imported_count += 1
+
+    if imported_count > 0:
+        db.commit()
+
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="IMPORT_MASTER_OPD",
+        table_name="ref_opd",
+        record_id=None,
+        details={
+            "filename": filename,
+            "total_rows": len(candidates),
+            "imported": imported_count,
+            "skipped": skipped_count,
+        },
+        ip_address=extract_client_ip(request),
+    )
+    db.commit()
+
+    return MasterOpdImportResponse(
+        status="success",
+        message=f"Import OPD selesai: {imported_count} OPD baru ditambahkan, {skipped_count} OPD dilewati (sudah ada).",
+        total_rows=len(candidates),
+        imported=imported_count,
+        skipped=skipped_count,
+    )
+
+
+@router.post(
+    "/opd/print-log",
+    summary="Catat log pencetakan daftar OPD",
+)
+def log_print_master_opd(
+    payload: MasterOpdPrintLogRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> dict[str, Any]:
+    _assert_super_admin(current_user)
+    admin_name = current_user.display_name or current_user.nama_bendahara or current_user.email
+    print_time_str = payload.print_date or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    details: dict[str, Any] = {
+        "printed_by": admin_name,
+        "admin_email": current_user.email,
+        "total_opd": payload.total_opd,
+        "print_date": print_time_str,
+        "title": payload.title or "Daftar OPD Pemerintah Daerah",
+    }
+    write_audit(
+        db,
+        actor_email=current_user.email,
+        action="PRINT_OPD_REPORT",
+        table_name="ref_opd",
+        record_id=None,
+        details=details,
+        ip_address=extract_client_ip(request),
+    )
+    db.commit()
+    return {
+        "status": "success",
+        "message": "Log pencetakan master OPD berhasil dicatat.",
+    }
+
 
 
 # ===========================================================================

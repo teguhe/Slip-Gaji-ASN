@@ -605,4 +605,128 @@ def test_print_master_users_forbidden_for_bendahara(
         assert res.status_code == 403
 
 
+def test_import_master_opd_excel_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    import io
+    import pandas as pd
+    from app.models import RefOpd
+
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    # Buat Excel di memori: 1 nama OPD yang sudah ada (seeded.opd_name), 2 nama OPD baru
+    df = pd.DataFrame({
+        "Nama OPD": [
+            seeded.opd_name,  # sudah ada -> harus di-skip
+            "DINAS KESEHATAN KOTA",  # baru -> di-import
+            "DINAS PERHUBUNGAN KOTA",  # baru -> di-import
+            "DINAS KESEHATAN KOTA",  # duplikat dalam batch -> harus di-skip
+        ]
+    })
+    buffer = io.BytesIO()
+    df.to_excel(buffer, index=False)
+    buffer.seek(0)
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/master/opd/import",
+            files={"file": ("daftar_opd.xlsx", buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers={"X-Forwarded-For": "192.168.1.88"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["total_rows"] == 4
+        assert data["imported"] == 2
+        assert data["skipped"] == 2
+
+        # Verifikasi data tersimpan di DB
+        dinkes = db_session.scalar(select(RefOpd).where(RefOpd.nmskpd == "DINAS KESEHATAN KOTA"))
+        assert dinkes is not None
+
+        # Verifikasi masuk audit log
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "IMPORT_MASTER_OPD")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.details["imported"] == 2
+        assert log.details["skipped"] == 2
+        assert log.ip_address == "192.168.1.88"
+
+
+def test_import_master_opd_forbidden_for_bendahara(
+    api_app, db_session, seeded, bendahara_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=bendahara_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/master/opd/import",
+            files={"file": ("opd.xlsx", b"dummy", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert res.status_code == 403
+
+
+def test_print_master_opd_logs_audit_action_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/master/opd/print-log",
+            json={
+                "total_opd": 35,
+                "print_date": "2026-11-24 10:35:00",
+                "title": "DAFTAR OPD PEMKOT",
+            },
+            headers={"X-Forwarded-For": "192.168.1.99"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "PRINT_OPD_REPORT")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.user_email == super_admin_profile.email
+        assert log.details["total_opd"] == 35
+        assert log.ip_address == "192.168.1.99"
+
+
+def test_print_master_opd_forbidden_for_bendahara(
+    api_app, db_session, seeded, bendahara_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=bendahara_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/master/opd/print-log",
+            json={"total_opd": 35},
+        )
+        assert res.status_code == 403
+
+
+
 

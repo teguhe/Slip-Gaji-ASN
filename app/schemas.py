@@ -354,6 +354,20 @@ class MasterOpdUpdate(BaseModel):
     nmskpd: str = Field(..., min_length=3, max_length=255)
 
 
+class MasterOpdImportResponse(BaseModel):
+    status: str
+    message: str
+    total_rows: int
+    imported: int
+    skipped: int
+
+
+class MasterOpdPrintLogRequest(BaseModel):
+    total_opd: int = 0
+    print_date: str | None = None
+    title: str | None = None
+
+
 class MasterUserItem(BaseModel):
     id: str
     email: str

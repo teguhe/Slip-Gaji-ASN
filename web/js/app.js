@@ -1682,11 +1682,13 @@
           <td style="text-align: center;"><span class="pill-soft">${(opd.payroll_count || 0).toLocaleString('id-ID')} baris</span></td>
           <td>${createdStr}</td>
           <td style="text-align: center;">
-            <button type="button" class="btn-table-icon" data-action="edit-opd" data-id="${opd.id}" title="Ubah Nama OPD" aria-label="Ubah Nama OPD">
+            <button type="button" class="btn-table-action default" data-action="edit-opd" data-id="${opd.id}" title="Ubah Nama OPD">
               <svg class="icon"><use href="#icon-edit"></use></svg>
+              Ubah
             </button>
-            <button type="button" class="btn-table-icon" data-action="delete-opd" data-id="${opd.id}" data-name="${escapeHtml(opd.nmskpd)}" title="Hapus OPD" aria-label="Hapus OPD">
+            <button type="button" class="btn-table-action btn-table-danger" data-action="delete-opd" data-id="${opd.id}" data-name="${escapeHtml(opd.nmskpd)}" title="Hapus OPD">
               <svg class="icon"><use href="#icon-trash"></use></svg>
+              Hapus
             </button>
           </td>
         </tr>
@@ -1766,6 +1768,351 @@
       await loadOpdOptions();
     } catch (error) {
       toast('Gagal Menghapus OPD', error.message, 'error');
+    }
+  }
+
+  function openMasterOpdImportModal() {
+    if (state.mode !== 'api' || !state.token) return;
+    const fileInput = $('#master-opd-import-file');
+    if (fileInput) fileInput.value = '';
+    const error = $('#master-opd-import-error');
+    if (error) error.hidden = true;
+    openModal('master-opd-import');
+  }
+
+  async function submitMasterOpdImport() {
+    if (state.mode !== 'api' || !state.token) return;
+    const fileInput = $('#master-opd-import-file');
+    const error = $('#master-opd-import-error');
+    const submitBtn = $('#btn-submit-import-opd');
+    if (error) error.hidden = true;
+
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      if (error) {
+        error.textContent = 'Pilih file Excel (.xlsx / .xls) terlebih dahulu.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['xlsx', 'xls'].includes(ext)) {
+      if (error) {
+        error.textContent = 'Format berkas harus .xlsx atau .xls.';
+        error.hidden = false;
+      }
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Mengimpor…';
+    }
+
+    try {
+      const res = await apiRequest('/api/v1/master/opd/import', {
+        method: 'POST',
+        body: formData,
+      });
+
+      closeModal();
+      toast('Import OPD Berhasil', res.message || `${res.imported} OPD baru ditambahkan, ${res.skipped} dilewati.`, 'success');
+      await loadMasterOpd();
+      await loadOpdOptions();
+    } catch (caught) {
+      if (error) {
+        error.textContent = caught.message || 'Gagal mengimpor data OPD.';
+        error.hidden = false;
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<svg class="icon"><use href="#icon-upload"></use></svg> Mulai Import';
+      }
+    }
+  }
+
+  function openMasterOpdPrintModal() {
+    if (state.mode !== 'api' || !state.token) return;
+
+    const adminInput = $('#master-opd-print-admin');
+    const dateInput = $('#master-opd-print-date');
+    const titleInput = $('#master-opd-print-title-input');
+    const summaryNode = $('#master-opd-print-summary');
+    const error = $('#master-opd-print-error');
+
+    if (error) error.hidden = true;
+
+    const curAdminName = state.profile?.display_name || state.profile?.nama_bendahara || state.profile?.email || 'Super Admin';
+    const curAdminEmail = state.profile?.email || 'teguhe@gmail.com';
+
+    if (adminInput) adminInput.value = `${curAdminName} (${curAdminEmail})`;
+    if (dateInput) dateInput.value = formatIndonesianDateTime(new Date());
+    if (titleInput && !titleInput.value) {
+      titleInput.value = 'DAFTAR ORGANISASI PERANGKAT DAERAH (OPD)';
+    }
+
+    if (summaryNode) {
+      summaryNode.innerHTML = `Siap mencetak <strong>${state.masterOpdList.length}</strong> data OPD Pemerintah Kota Salatiga.`;
+    }
+
+    openModal('master-opd-print');
+  }
+
+  async function doPrintMasterOpd() {
+    if (state.mode !== 'api' || !state.token) return;
+
+    const adminInput = $('#master-opd-print-admin');
+    const dateInput = $('#master-opd-print-date');
+    const titleInput = $('#master-opd-print-title-input');
+    const errorNode = $('#master-opd-print-error');
+    const btnPrint = $('#btn-do-print-master-opd');
+
+    if (errorNode) errorNode.hidden = true;
+
+    const opdList = [...state.masterOpdList].sort((a, b) => {
+      const nameA = (a.nmskpd || '').trim().toLowerCase();
+      const nameB = (b.nmskpd || '').trim().toLowerCase();
+      return nameA.localeCompare(nameB, 'id');
+    });
+
+    if (!opdList.length) {
+      if (errorNode) {
+        errorNode.textContent = 'Belum ada data OPD yang dapat dicetak.';
+        errorNode.hidden = false;
+      }
+      return;
+    }
+
+    const title = titleInput?.value.trim() || 'DAFTAR ORGANISASI PERANGKAT DAERAH (OPD)';
+    const printDate = dateInput?.value.trim() || formatIndonesianDateTime(new Date());
+    const adminName = state.profile?.display_name || state.profile?.nama_bendahara || 'Super Admin';
+    const adminEmail = state.profile?.email || 'teguhe@gmail.com';
+
+    if (btnPrint) btnPrint.disabled = true;
+
+    try {
+      // 1. Catat log ke server (AuditLog)
+      await apiRequest('/api/v1/master/opd/print-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total_opd: opdList.length,
+          print_date: printDate,
+          title: title,
+        }),
+      });
+
+      closeModal();
+      toast('Laporan OPD Dicetak', `${opdList.length} data OPD siap dicetak. Aksi dicatat dalam log audit.`, 'info');
+
+      // 2. Buat dokumen jendela cetak
+      const win = window.open('', '_blank', 'width=900,height=700');
+      if (!win) {
+        toast('Popup Diblokir', 'Mohon izinkan pop-up peramban untuk mencetak laporan.', 'error');
+        return;
+      }
+
+      const now = new Date();
+      const cityDate = `${now.getDate()} ${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+
+      const rowsHtml = opdList.map((opd, idx) => {
+        const created = opd.created_at ? new Date(opd.created_at).toLocaleDateString('id-ID', {
+          day: '2-digit', month: 'short', year: 'numeric'
+        }) : '—';
+        const userCount = Number(opd.user_count) || 0;
+        const payrollCount = Number(opd.payroll_count) || 0;
+
+        return `
+          <tr>
+            <td class="text-center">${idx + 1}</td>
+            <td><strong>${escapeHtml(opd.nmskpd)}</strong></td>
+            <td class="text-center">${userCount} akun</td>
+            <td class="text-center">${payrollCount.toLocaleString('id-ID')} baris</td>
+            <td class="text-center">${escapeHtml(created)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const docHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm 12mm 15mm 12mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      font-size: 9pt;
+      color: #111;
+      margin: 0;
+      padding: 0;
+      line-height: 1.35;
+    }
+    .header-wrap {
+      text-align: center;
+      border-bottom: 2.5px solid #000;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+    .header-wrap h1 {
+      margin: 0;
+      font-size: 13pt;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .header-wrap h2 {
+      margin: 3px 0 0;
+      font-size: 10.5pt;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #0b3d62;
+    }
+    .header-wrap p {
+      margin: 3px 0 0;
+      font-size: 8.5pt;
+      color: #444;
+    }
+    .meta-box {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 8.5pt;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+    }
+    .meta-box td {
+      padding: 4px 8px;
+      vertical-align: top;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      margin-bottom: 16px;
+    }
+    .data-table th, .data-table td {
+      border: 1px solid #475569;
+      padding: 5px 6px;
+      vertical-align: middle;
+    }
+    .data-table th {
+      background-color: #e2e8f0;
+      font-weight: 700;
+      text-align: center;
+      color: #0f172a;
+    }
+    .data-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .footer-block {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+    }
+    .sign-box {
+      width: 65mm;
+      text-align: center;
+      font-size: 9pt;
+    }
+    .sign-space { height: 16mm; }
+    .sign-name { font-weight: 700; text-decoration: underline; }
+    .sign-role { font-size: 8pt; color: #333; margin-top: 2px; }
+    .print-note {
+      margin-top: 20px;
+      font-size: 7.5pt;
+      color: #64748b;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-wrap">
+    <h1>PEMERINTAH KOTA SALATIGA</h1>
+    <h2>${escapeHtml(title)}</h2>
+    <p>Aplikasi Penggajian dan Cetak Slip Gaji ASN • Modul Master OPD</p>
+  </div>
+  <table class="meta-box">
+    <tr>
+      <td style="width: 140px;"><strong>Tanggal &amp; Waktu Cetak</strong></td>
+      <td style="width: 8px;">:</td>
+      <td style="width: 38%;">${escapeHtml(printDate)}</td>
+      <td style="width: 140px;"><strong>Admin yang Mencetak</strong></td>
+      <td style="width: 8px;">:</td>
+      <td><strong>${escapeHtml(adminName)}</strong> (${escapeHtml(adminEmail)})</td>
+    </tr>
+    <tr>
+      <td><strong>Kategori Dokumen</strong></td>
+      <td>:</td>
+      <td>Master Organisasi Perangkat Daerah (Multi-tenant)</td>
+      <td><strong>Total Data OPD</strong></td>
+      <td>:</td>
+      <td><strong>${opdList.length}</strong> OPD Terdaftar</td>
+    </tr>
+  </table>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 32px;">No</th>
+        <th>Nama Organisasi Perangkat Daerah (OPD)</th>
+        <th style="width: 110px;">Pengguna Terhubung</th>
+        <th style="width: 120px;">Data Gaji Bulanan</th>
+        <th style="width: 95px;">Tanggal Terdaftar</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+  <div class="footer-block">
+    <div class="sign-box">
+      <div>Salatiga, ${escapeHtml(cityDate)}</div>
+      <div style="font-weight: 600; margin-top: 3px;">Admin yang Mencetak,</div>
+      <div class="sign-space"></div>
+      <div class="sign-name">${escapeHtml(adminName)}</div>
+      <div class="sign-role">${escapeHtml(adminEmail)}</div>
+    </div>
+  </div>
+  <div class="print-note">
+    <span>Dicetak melalui Aplikasi Penggajian dan Cetak Slip Gaji ASN • Dokumen Resmi Internal Pemerintah Kota Salatiga</span>
+    <span>ID Sesi / Tanggal: ${escapeHtml(printDate)}</span>
+  </div>
+</body>
+</html>`;
+
+      win.document.open();
+      win.document.write(docHtml);
+      win.document.close();
+      win.onload = () => {
+        win.focus();
+        win.print();
+      };
+    } catch (caught) {
+      if (errorNode) {
+        errorNode.textContent = caught.message || 'Gagal mencatat log cetak atau mencetak dokumen OPD.';
+        errorNode.hidden = false;
+      }
+    } finally {
+      if (btnPrint) btnPrint.disabled = false;
     }
   }
 
@@ -5873,6 +6220,14 @@
     // Master OPD
     const openAddOpdBtn = $('#btn-open-add-opd');
     if (openAddOpdBtn) openAddOpdBtn.addEventListener('click', () => openMasterOpdModal());
+    const openImportOpdBtn = $('#btn-open-import-opd');
+    if (openImportOpdBtn) openImportOpdBtn.addEventListener('click', openMasterOpdImportModal);
+    const submitImportOpdBtn = $('#btn-submit-import-opd');
+    if (submitImportOpdBtn) submitImportOpdBtn.addEventListener('click', submitMasterOpdImport);
+    const openPrintOpdBtn = $('#btn-open-print-opd');
+    if (openPrintOpdBtn) openPrintOpdBtn.addEventListener('click', openMasterOpdPrintModal);
+    const doPrintOpdBtn = $('#btn-do-print-master-opd');
+    if (doPrintOpdBtn) doPrintOpdBtn.addEventListener('click', doPrintMasterOpd);
     const refreshMasterOpdBtn = $('#btn-refresh-master-opd');
     if (refreshMasterOpdBtn) refreshMasterOpdBtn.addEventListener('click', loadMasterOpd);
     const searchMasterOpdInput = $('#master-opd-search');
