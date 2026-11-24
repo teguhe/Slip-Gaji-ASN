@@ -835,7 +835,6 @@
           <span class="deduction-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
           <div class="deduction-copy">
             <strong>Potongan internal tersimpan</strong>
-            <span>Rincian item belum dimuat dari API</span>
           </div>
           <span class="deduction-amount">${formatRupiah(base, 0)}</span>
         </div>`);
@@ -858,6 +857,10 @@
         ? '<span class="deduction-badge bulanan">Bulanan</span>'
         : '<span class="deduction-badge berjangka">Berjangka</span>';
 
+      const cicilanTag = item.cicilan_info
+        ? ` <span style="font-weight: normal; font-size: 9px; color: #8a6417;">(${escapeHtml(item.cicilan_info)})</span>`
+        : '';
+
       const editControl = `
         <button type="button" class="edit-deduction" data-edit-potongan="${escapeHtml(item.id)}"
                 title="Ubah data potongan" aria-label="Ubah ${escapeHtml(item.pos)}">
@@ -874,11 +877,10 @@
         <div class="deduction-item">
           <span class="deduction-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
           <div class="deduction-copy">
-            <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 5px;">
               ${badgeHtml}
-              <strong title="${escapeHtml(item.pos)}">${escapeHtml(item.pos)}</strong>
+              <strong title="${escapeHtml(item.pos)}">${escapeHtml(item.pos)}${cicilanTag}</strong>
             </div>
-            <span>${escapeHtml(item.info || (badgeKat === 'bulanan' ? 'Bulanan' : 'Cicilan'))}</span>
           </div>
           <span class="deduction-amount">${formatRupiah(item.nominal, 0)}</span>
           <div class="deduction-actions">
