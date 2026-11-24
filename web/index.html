@@ -109,6 +109,9 @@
       <symbol id="icon-download" viewBox="0 0 24 24">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </symbol>
+      <symbol id="icon-logout" viewBox="0 0 24 24">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -1715,10 +1718,22 @@
         <p class="status-bar-field" id="status-period">Periode: —</p>
         <p class="status-bar-field" id="status-data-mode">Online</p>
         <p class="status-bar-field status-account-field">
-          <button type="button" id="status-profile-btn" title="Buka profil pengguna">Profil</button>
-          <button type="button" id="btn-about" title="Tentang aplikasi">Tentang</button>
-          <button type="button" id="status-change-opd-btn" title="Ganti OPD aktif" hidden>Ganti OPD</button>
-          <button type="button" id="status-logout-btn" title="Keluar dari akun Google" hidden>Logout</button>
+          <button type="button" id="status-profile-btn" title="Buka profil pengguna">
+            <svg class="icon"><use href="#icon-user"></use></svg>
+            <span>Profil</span>
+          </button>
+          <button type="button" id="btn-about" title="Tentang aplikasi">
+            <svg class="icon"><use href="#icon-info"></use></svg>
+            <span>Tentang</span>
+          </button>
+          <button type="button" id="status-change-opd-btn" title="Ganti OPD aktif" hidden>
+            <svg class="icon"><use href="#icon-building"></use></svg>
+            <span>Ganti OPD</span>
+          </button>
+          <button type="button" id="status-logout-btn" title="Keluar dari akun Google" hidden>
+            <svg class="icon"><use href="#icon-logout"></use></svg>
+            <span>Logout</span>
+          </button>
         </p>
       </div>
     </main>
@@ -1745,7 +1760,7 @@
         <button type="button" id="start-profile-settings"><svg class="icon"><use href="#icon-users"></use></svg> Pengaturan Penandatangan</button>
         <button type="button" id="start-connection"><svg class="icon"><use href="#icon-connection"></use></svg> Akun &amp; Autentikasi</button>
         <button type="button" id="start-about"><svg class="icon"><use href="#icon-info"></use></svg> Tentang Aplikasi</button>
-        <button type="button" id="start-logout" style="color: #991b1b;"><svg class="icon"><use href="#icon-lock"></use></svg> Keluar (Logout)</button>
+        <button type="button" id="start-logout" style="color: #991b1b;"><svg class="icon"><use href="#icon-logout"></use></svg> Keluar (Logout)</button>
       </div>
       <div class="start-menu-foot">Windows 7 Aero Glass • 7.css</div>
     </div>
