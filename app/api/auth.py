@@ -35,6 +35,7 @@ def _me_response(profile: UserProfile, *, auth_method: str = "firebase") -> Auth
         jabatan=profile.jabatan or "Bendahara Pengeluaran",
         nama_bendahara=profile.nama_bendahara,
         nip_bendahara=profile.nip_bendahara,
+        photo_url=profile.photo_url,
     )
 
 
@@ -77,6 +78,7 @@ def get_me(
             jabatan=user.jabatan or "Bendahara Pengeluaran",
             nama_bendahara=user.nama_bendahara,
             nip_bendahara=user.nip_bendahara,
+            photo_url=current_user.photo_url,
         )
     return _me_response(current_user)
 

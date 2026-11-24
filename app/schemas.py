@@ -344,6 +344,7 @@ class AuthMeResponse(BaseModel):
     jabatan: str | None = "Bendahara Pengeluaran"
     nama_bendahara: str | None = None
     nip_bendahara: str | None = None
+    photo_url: str | None = None
 
 
 class UpdateSettingsRequest(BaseModel):

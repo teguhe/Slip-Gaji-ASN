@@ -45,6 +45,7 @@ class UserProfile:
     jabatan: Optional[str] = "Bendahara Pengeluaran"
     nama_bendahara: Optional[str] = None
     nip_bendahara: Optional[str] = None
+    photo_url: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -118,7 +119,7 @@ def _ensure_firebase_app(settings: Settings) -> None:
             ) from exc
 
 
-def _verify_firebase_token(token: str, settings: Settings) -> tuple[str, str | None]:
+def _verify_firebase_token(token: str, settings: Settings) -> tuple[str, str | None, str | None]:
     _ensure_firebase_app(settings)
     try:
         decoded = firebase_auth.verify_id_token(token)
@@ -133,10 +134,20 @@ def _verify_firebase_token(token: str, settings: Settings) -> tuple[str, str | N
         raise _unauthorized("Alamat email akun belum diverifikasi.")
 
     display_name = decoded.get("name")
-    return email, str(display_name)[:255] if display_name else None
+    photo_url = decoded.get("picture")
+    return (
+        email,
+        str(display_name)[:255] if display_name else None,
+        str(photo_url)[:500] if photo_url else None,
+    )
 
 
-def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProfile:
+def _resolve_user(
+    db: Session,
+    email: str,
+    display_name: str | None,
+    photo_url: str | None = None,
+) -> UserProfile:
     settings = get_settings()
     email_norm = email.strip().lower()
 
@@ -196,6 +207,7 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
             jabatan=getattr(user, "jabatan", None) or "Bendahara Pengeluaran",
             nama_bendahara=getattr(user, "nama_bendahara", None),
             nip_bendahara=getattr(user, "nip_bendahara", None),
+            photo_url=photo_url,
         )
 
     if user is None:
@@ -242,6 +254,7 @@ def _resolve_user(db: Session, email: str, display_name: str | None) -> UserProf
         jabatan=getattr(user, "jabatan", None) or "Bendahara Pengeluaran",
         nama_bendahara=getattr(user, "nama_bendahara", None),
         nip_bendahara=getattr(user, "nip_bendahara", None),
+        photo_url=photo_url,
     )
 
 
@@ -273,8 +286,8 @@ def get_auth_context(
     ):
         return AuthContext(kind="service", auth_method="bearer")
 
-    email, display_name = _verify_firebase_token(token, settings)
-    user = _resolve_user(db, email, display_name)
+    email, display_name, photo_url = _verify_firebase_token(token, settings)
+    user = _resolve_user(db, email, display_name, photo_url=photo_url)
     return AuthContext(kind="user", user=user, auth_method="firebase")
 
 

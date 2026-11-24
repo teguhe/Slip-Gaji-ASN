@@ -59,6 +59,7 @@
     },
     mode: 'api',
     token: storageGet('simgaji.token', sessionStorage) || '',
+    photoURL: storageGet('simgaji.photoURL', localStorage) || '',
     opd: '',
     opdRaw: '',
     employees: [],
@@ -1498,6 +1499,22 @@
     return Boolean(state.profile && !state.profile.is_super_admin && state.profile.needs_opd);
   }
 
+  function setAvatarElement(node, photoUrl, fallbackInitials, isIconBox = false) {
+    if (!node) return;
+    if (photoUrl) {
+      const fallbackAction = isIconBox
+        ? 'this.parentElement.innerHTML=\'<svg class="icon"><use href="#icon-user"></use></svg>\';'
+        : `this.parentElement.textContent='${escapeHtml(fallbackInitials || '—')}';`;
+      node.innerHTML = `<img src="${escapeHtml(photoUrl)}" alt="Avatar" referrerpolicy="no-referrer" onerror="this.onerror=null;${fallbackAction}">`;
+    } else {
+      if (isIconBox) {
+        node.innerHTML = '<svg class="icon"><use href="#icon-user"></use></svg>';
+      } else {
+        node.textContent = fallbackInitials || '—';
+      }
+    }
+  }
+
   function updateProfileUI() {
     const profile = state.profile;
     const superAdmin = Boolean(profile && profile.is_super_admin);
@@ -1511,6 +1528,12 @@
     const email = profile ? profile.email : '—';
     const method = 'Google Auth (Gmail)';
     const avatar = initialsFrom(name, email);
+    const photo = (profile && profile.photo_url) || state.photoURL || (window.firebase && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.photoURL) || '';
+
+    if (photo && !state.photoURL) {
+      state.photoURL = photo;
+      storageSet('simgaji.photoURL', photo, localStorage);
+    }
 
     const setText = (selector, value) => {
       const node = $(selector);
@@ -1520,8 +1543,9 @@
     setText('#profile-name', name);
     setText('#profile-role', roleLabel);
     setText('#profile-opd', opdLabel);
-    const sidebarAvatar = $('#profile-avatar');
-    if (sidebarAvatar) sidebarAvatar.textContent = avatar;
+
+    setAvatarElement($('#profile-avatar'), photo, avatar);
+    setAvatarElement($('#start-avatar'), photo, avatar);
 
     setText('#profile-dialog-name', name);
     setText('#profile-dialog-email', email);
@@ -1529,8 +1553,9 @@
     setText('#profile-dialog-opd', opdLabel);
     setText('#profile-dialog-method', method);
     setText('#profile-dialog-status', isLocked ? 'Belum Ada OPD (Terkunci)' : (profile ? 'Aktif' : 'Belum Login'));
-    const dialogAvatar = $('#profile-dialog-avatar');
-    if (dialogAvatar) dialogAvatar.textContent = avatar;
+
+    setAvatarElement($('#profile-dialog-avatar'), photo, avatar);
+    setAvatarElement($('#dashboard-welcome-avatar'), photo, null, true);
 
     const roleBadge = $('#profile-dialog-role');
     if (roleBadge) roleBadge.classList.toggle('super', superAdmin);
@@ -1584,6 +1609,10 @@
   async function loadAuthProfile(token = state.token) {
     const data = await apiRequest('/api/v1/auth/me', {}, token);
     state.profile = data;
+    if (data && data.photo_url) {
+      state.photoURL = data.photo_url;
+      storageSet('simgaji.photoURL', data.photo_url, localStorage);
+    }
     updateProfileUI();
     return data;
   }
@@ -3248,8 +3277,12 @@
     setText('#profile-role', '—');
     setText('#profile-opd', '—');
     setText('#status-data-mode', 'Belum Login');
-    const avatar = $('#profile-avatar');
-    if (avatar) avatar.textContent = '—';
+    storageRemove('simgaji.photoURL', localStorage);
+    state.photoURL = '';
+    setAvatarElement($('#profile-avatar'), '', '—');
+    setAvatarElement($('#profile-dialog-avatar'), '', '—');
+    setAvatarElement($('#start-avatar'), '', '—');
+    setAvatarElement($('#dashboard-welcome-avatar'), '', null, true);
   }
 
   function showLoginScreen() {
@@ -5473,12 +5506,18 @@
       firebase.auth().onAuthStateChanged(async (user) => {
         if (user) {
           try {
+            if (user.photoURL) {
+              state.photoURL = user.photoURL;
+              storageSet('simgaji.photoURL', user.photoURL, localStorage);
+            }
             const token = await user.getIdToken();
             state.token = token;
             storageSet('simgaji.token', token, sessionStorage);
             if (!state.profile) {
               await connectApiSession(token);
               closeModal();
+            } else {
+              updateProfileUI();
             }
           } catch (_) {}
         }
@@ -5512,6 +5551,10 @@
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await firebase.auth().signInWithPopup(provider);
+      if (cred.user && cred.user.photoURL) {
+        state.photoURL = cred.user.photoURL;
+        storageSet('simgaji.photoURL', cred.user.photoURL, localStorage);
+      }
       const token = await cred.user.getIdToken(true);
 
       const tokenInput = $('#api-token');
