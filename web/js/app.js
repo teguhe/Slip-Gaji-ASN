@@ -3214,12 +3214,17 @@
 
   function renderPageSlots(pageEmployees, baseIndex) {
     const slots = [];
-    pageEmployees.forEach((employee, idx) => {
-      if (idx > 0) {
+    for (let slotIdx = 0; slotIdx < 3; slotIdx++) {
+      if (slotIdx > 0) {
         slots.push('<div class="cut-separator"><span class="cut-scissors">✂</span></div>');
       }
-      slots.push(renderSlip(employee, baseIndex + idx));
-    });
+      const employee = pageEmployees[slotIdx];
+      if (employee) {
+        slots.push(renderSlip(employee, baseIndex + slotIdx));
+      } else {
+        slots.push('<div class="slip slip-empty" aria-hidden="true"></div>');
+      }
+    }
     return slots.join('');
   }
 

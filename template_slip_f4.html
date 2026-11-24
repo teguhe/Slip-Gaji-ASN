@@ -29,6 +29,10 @@
             flex-direction: column;
             overflow: hidden;
         }
+        .slip-container.slip-empty {
+            visibility: hidden;
+            border: none;
+        }
         .cut-separator {
             position: relative;
             display: flex;
@@ -94,68 +98,73 @@
 
             root.innerHTML = pages.map((pageData) => {
                 const slots = [];
-                pageData.forEach((data, idx) => {
-                    if (idx > 0) {
+                for (let slotIdx = 0; slotIdx < 3; slotIdx++) {
+                    if (slotIdx > 0) {
                         slots.push('<div class="cut-separator"><span class="cut-scissors">✂</span></div>');
                     }
-                    const p = data.rincian_penghasilan || {};
-                    const kotor = Number(data.penghasilan_kotor) || 0;
-                    const simgaji = Number(data.potongan_simgaji) || 0;
-                    const gajiBersih = kotor - simgaji;
-                    const internal = Number(data.potongan_internal) || 0;
-                    const thp = Number(data.take_home_pay) || (gajiBersih - internal);
+                    const data = pageData[slotIdx];
+                    if (data) {
+                        const p = data.rincian_penghasilan || {};
+                        const kotor = Number(data.penghasilan_kotor) || 0;
+                        const simgaji = Number(data.potongan_simgaji) || 0;
+                        const gajiBersih = kotor - simgaji;
+                        const internal = Number(data.potongan_internal) || 0;
+                        const thp = Number(data.take_home_pay) || (gajiBersih - internal);
 
-                    let incomeRowsHtml = '';
-                    if (p.gapok) incomeRowsHtml += `<div class="row"><span>Gaji Pokok</span><span class="numeric">${formatRupiah(p.gapok)}</span></div>`;
-                    if (p.tjistri) incomeRowsHtml += `<div class="row"><span>Tj. Istri / Suami</span><span class="numeric">${formatRupiah(p.tjistri)}</span></div>`;
-                    if (p.tjanak) incomeRowsHtml += `<div class="row"><span>Tj. Anak</span><span class="numeric">${formatRupiah(p.tjanak)}</span></div>`;
-                    if (p.tjberas) incomeRowsHtml += `<div class="row"><span>Tj. Beras</span><span class="numeric">${formatRupiah(p.tjberas)}</span></div>`;
-                    if (p.tjaskes) incomeRowsHtml += `<div class="row"><span>Tj. Askes / Lainnya</span><span class="numeric">${formatRupiah(p.tjaskes)}</span></div>`;
+                        let incomeRowsHtml = '';
+                        if (p.gapok) incomeRowsHtml += `<div class="row"><span>Gaji Pokok</span><span class="numeric">${formatRupiah(p.gapok)}</span></div>`;
+                        if (p.tjistri) incomeRowsHtml += `<div class="row"><span>Tj. Istri / Suami</span><span class="numeric">${formatRupiah(p.tjistri)}</span></div>`;
+                        if (p.tjanak) incomeRowsHtml += `<div class="row"><span>Tj. Anak</span><span class="numeric">${formatRupiah(p.tjanak)}</span></div>`;
+                        if (p.tjberas) incomeRowsHtml += `<div class="row"><span>Tj. Beras</span><span class="numeric">${formatRupiah(p.tjberas)}</span></div>`;
+                        if (p.tjaskes) incomeRowsHtml += `<div class="row"><span>Tj. Askes / Lainnya</span><span class="numeric">${formatRupiah(p.tjaskes)}</span></div>`;
 
-                    let internalHtml = (data.rincian_potongan_internal || []).map(i => `
-                        <div class="row"><span>${i.pos_nama} ${i.cicilan_info ? '('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>
-                    `).join('');
-                    if (!internalHtml) {
-                        internalHtml = `<div class="row"><span>Tidak ada potongan</span><span class="numeric">0</span></div>`;
+                        let internalHtml = (data.rincian_potongan_internal || []).map(i => `
+                            <div class="row"><span>${i.pos_nama} ${i.cicilan_info ? '('+i.cicilan_info+')' : ''}</span><span class="numeric">${formatRupiah(i.nominal)}</span></div>
+                        `).join('');
+                        if (!internalHtml) {
+                            internalHtml = `<div class="row"><span>Tidak ada potongan</span><span class="numeric">0</span></div>`;
+                        }
+
+                        slots.push(`
+                            <div class="slip-container">
+                                <div class="header">
+                                    <div class="opd-title">${(data.opd || '').toUpperCase()}</div>
+                                    <div class="meta-list">
+                                        <span>Periode</span><span>:</span><span>${period}</span>
+                                        <span>NIP</span><span>:</span><span>${data.nip}</span>
+                                        <span>Nama</span><span>:</span><span>${data.nama}</span>
+                                        <span>Pangkat/Gol</span><span>:</span><span>${data.kdpangkat || data.pangkat || '-'}</span>
+                                        <span>No. Rekening</span><span>:</span><span>${data.norek || '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="slip-calc-block">
+                                    <div class="col-title">Penghasilan</div>
+                                    ${incomeRowsHtml}
+                                    <div class="row total"><span>Penghasilan Kotor</span><span class="numeric">${formatRupiah(kotor)}</span></div>
+                                    <div class="row"><span>Potongan SIMGAJI</span><span class="numeric">${formatRupiah(simgaji)}</span></div>
+                                    <div class="row total highlight"><span>Gaji Bersih</span><span class="numeric">${formatRupiah(gajiBersih)}</span></div>
+
+                                    <div class="col-title" style="margin-top: 1.5mm;">Potongan Lainnya</div>
+                                    ${internalHtml}
+                                    <div class="row total"><span>Total Potongan</span><span class="numeric">${formatRupiah(internal)}</span></div>
+                                </div>
+                                <div class="footer">
+                                    <span>DITERIMA BERSIH (THP): ${formatRupiah(thp)}</span>
+                                </div>
+                                <div class="sign-block">
+                                    <div class="sign-box">
+                                        <div>${signTitle}</div>
+                                        <div class="sign-space"></div>
+                                        <div class="sign-name">${signName}</div>
+                                        <div class="sign-nip">${signNip}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                    } else {
+                        slots.push('<div class="slip-container slip-empty" aria-hidden="true"></div>');
                     }
-
-                    slots.push(`
-                        <div class="slip-container">
-                            <div class="header">
-                                <div class="opd-title">${(data.opd || '').toUpperCase()}</div>
-                                <div class="meta-list">
-                                    <span>Periode</span><span>:</span><span>${period}</span>
-                                    <span>NIP</span><span>:</span><span>${data.nip}</span>
-                                    <span>Nama</span><span>:</span><span>${data.nama}</span>
-                                    <span>Pangkat/Gol</span><span>:</span><span>${data.kdpangkat || data.pangkat || '-'}</span>
-                                    <span>No. Rekening</span><span>:</span><span>${data.norek || '-'}</span>
-                                </div>
-                            </div>
-                            <div class="slip-calc-block">
-                                <div class="col-title">Penghasilan</div>
-                                ${incomeRowsHtml}
-                                <div class="row total"><span>Penghasilan Kotor</span><span class="numeric">${formatRupiah(kotor)}</span></div>
-                                <div class="row"><span>Potongan SIMGAJI</span><span class="numeric">${formatRupiah(simgaji)}</span></div>
-                                <div class="row total highlight"><span>Gaji Bersih</span><span class="numeric">${formatRupiah(gajiBersih)}</span></div>
-
-                                <div class="col-title" style="margin-top: 1.5mm;">Potongan Lainnya</div>
-                                ${internalHtml}
-                                <div class="row total"><span>Total Potongan</span><span class="numeric">${formatRupiah(internal)}</span></div>
-                            </div>
-                            <div class="footer">
-                                <span>DITERIMA BERSIH (THP): ${formatRupiah(thp)}</span>
-                            </div>
-                            <div class="sign-block">
-                                <div class="sign-box">
-                                    <div>${signTitle}</div>
-                                    <div class="sign-space"></div>
-                                    <div class="sign-name">${signName}</div>
-                                    <div class="sign-nip">${signNip}</div>
-                                </div>
-                            </div>
-                        </div>
-                    `);
-                });
+                }
                 return `<div class="sheet">${slots.join('')}</div>`;
             }).join('');
         }

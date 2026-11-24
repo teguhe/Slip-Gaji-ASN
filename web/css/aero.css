@@ -2117,6 +2117,12 @@ code {
   flex-direction: column;
 }
 
+.slip.slip-empty {
+  visibility: hidden;
+  border: none !important;
+  background: transparent !important;
+}
+
 .slip-header-block {
   margin-bottom: 1.5mm;
   padding-bottom: 1.5mm;
@@ -2865,6 +2871,12 @@ code {
 
   #print-root .slip-foot { background: #f2f5f7 !important; }
   #print-root .slip-foot .net { color: #0b5b31 !important; }
+
+  #print-root .slip.slip-empty {
+    visibility: hidden;
+    border: none !important;
+    background: transparent !important;
+  }
 }
 
 /* ============================== SMALL ADDENDA ============================== */
