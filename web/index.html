@@ -101,6 +101,14 @@
         <rect x="3" y="4" width="18" height="18" rx="2"/>
         <path d="M16 2v4M8 2v4M3 10h18"/>
       </symbol>
+      <symbol id="icon-database" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+      </symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -283,6 +291,10 @@
               <button type="button" class="side-nav-item" data-view-link="master-user" title="Master Pengguna" aria-label="Master Pengguna">
                 <svg class="icon"><use href="#icon-users"></use></svg>
                 <span class="side-nav-label">Master Pengguna</span>
+              </button>
+              <button type="button" class="side-nav-item" data-view-link="database" title="Manajemen Database" aria-label="Manajemen Database">
+                <svg class="icon"><use href="#icon-database"></use></svg>
+                <span class="side-nav-label">Manajemen Database</span>
               </button>
             </div>
           </nav>
@@ -702,6 +714,10 @@
                     <option value="PRINT_OPD_REPORT">Cetak Master OPD</option>
                     <option value="CREATE_USER_MANAGEMENT">Master Pengguna</option>
                     <option value="PRINT_USERS_REPORT">Cetak Master Pengguna</option>
+                    <option value="DATABASE_BACKUP">Backup Database</option>
+                    <option value="DATABASE_RESTORE">Restore Database</option>
+                    <option value="DATABASE_WIPE_SELECTED">Hapus Data Keseluruhan</option>
+                    <option value="DATABASE_DELETE_PER_OPD_PERIOD">Hapus Data OPD per Periode</option>
                   </select>
                 </div>
               </div>
@@ -1410,6 +1426,237 @@
               </div>
             </div>
           </section>
+
+          <!-- ================= MANAJEMEN DATABASE (SUPER ADMIN) ================= -->
+          <section class="view" id="view-database" data-view="database" hidden>
+            <header class="view-head">
+              <div>
+                <p class="eyebrow">Pemeliharaan Sistem (Super Admin)</p>
+                <h1>Manajemen Basis Data &amp; Pemeliharaan</h1>
+                <p class="subtle">Cadangkan, pulihkan, dan bersihkan data basis data. Semua tindakan administratif dicatat secara ketat dalam log audit.</p>
+              </div>
+              <div class="head-actions">
+                <button type="button" class="toolbar-icon-button" id="btn-refresh-database" title="Segarkan Data Basis Data">
+                  <svg class="icon"><use href="#icon-refresh"></use></svg>
+                </button>
+              </div>
+            </header>
+
+            <!-- Ringkasan Statistik Database -->
+            <section class="panel period-recap-banner" style="margin-bottom: 16px;">
+              <div class="panel-head">
+                <div>
+                  <h2>Statistik Penyimpanan Basis Data</h2>
+                  <p class="panel-sub">Volume baris data aktif di PostgreSQL</p>
+                </div>
+              </div>
+              <div class="recap-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                <article class="recap-card">
+                  <span class="recap-label">Payroll Bulanan</span>
+                  <strong class="recap-value mono" id="db-stat-payroll">0</strong>
+                  <span class="recap-sub">payroll_monthly</span>
+                </article>
+                <article class="recap-card">
+                  <span class="recap-label">Potongan ASN</span>
+                  <strong class="recap-value mono" id="db-stat-potongan">0</strong>
+                  <span class="recap-sub">item &amp; berjangka</span>
+                </article>
+                <article class="recap-card">
+                  <span class="recap-label">Penyesuaian &amp; Pos</span>
+                  <strong class="recap-value mono" id="db-stat-penyesuaian-pos">0</strong>
+                  <span class="recap-sub">penyesuaian &amp; ref_pos</span>
+                </article>
+                <article class="recap-card">
+                  <span class="recap-label">Master Pengguna &amp; OPD</span>
+                  <strong class="recap-value mono" id="db-stat-masters">0</strong>
+                  <span class="recap-sub">app_users &amp; ref_opd</span>
+                </article>
+                <article class="recap-card">
+                  <span class="recap-label">Log Audit</span>
+                  <strong class="recap-value mono" id="db-stat-audit">0</strong>
+                  <span class="recap-sub">audit_logs</span>
+                </article>
+              </div>
+            </section>
+
+            <div class="db-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+              <!-- Panel 1: Backup & Restore -->
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Backup &amp; Restore Database</h2>
+                    <p class="panel-sub">Cadangkan atau pulihkan data sistem secara utuh</p>
+                  </div>
+                </div>
+                <div style="padding: 14px; display: flex; flex-direction: column; gap: 16px;">
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px;">
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                      <div style="color: #0284c7; padding-top: 2px;"><svg class="icon" style="width: 20px; height: 20px;"><use href="#icon-download"></use></svg></div>
+                      <div style="flex: 1;">
+                        <strong style="color: #0f172a; font-size: 13px;">Cadangkan Basis Data (JSON)</strong>
+                        <p style="margin: 4px 0 10px 0; font-size: 11.5px; color: #475569; line-height: 1.4;">Mengunduh seluruh isi tabel sistem ke dalam satu berkas terenkapsulasi yang aman dan portabel.</p>
+                        <button type="button" class="default" id="btn-db-backup">
+                          <svg class="icon"><use href="#icon-download"></use></svg> Unduh File Backup
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="background: #fff8f8; border: 1px solid #fecaca; border-radius: 4px; padding: 12px;">
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                      <div style="color: #dc2626; padding-top: 2px;"><svg class="icon" style="width: 20px; height: 20px;"><use href="#icon-upload"></use></svg></div>
+                      <div style="flex: 1;">
+                        <strong style="color: #991b1b; font-size: 13px;">Pulihkan / Restore Basis Data</strong>
+                        <p style="margin: 4px 0 8px 0; font-size: 11.5px; color: #7f1d1d; line-height: 1.4;">Memulihkan basis data dari file cadangan JSON yang valid. Seluruh proses berjalan dalam transaksi atomik.</p>
+                        <div style="margin-bottom: 10px;">
+                          <input type="file" id="db-restore-file" accept=".json,application/json" style="width: 100%; font-size: 11.5px;">
+                        </div>
+                        <button type="button" class="danger" id="btn-db-restore">
+                          <svg class="icon"><use href="#icon-upload"></use></svg> Pulihkan Data Sekarang
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Panel 2: Hapus Per OPD Per Periode -->
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Hapus Data per OPD &amp; Periode</h2>
+                    <p class="panel-sub">Pembersihan data penggajian spesifik OPD dan bulan/gaji tertentu</p>
+                  </div>
+                </div>
+                <div style="padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+                  <label class="field">
+                    <span style="font-weight: 600;">Pilih OPD</span>
+                    <select id="db-del-opd" style="width: 100%;">
+                      <option value="">-- Pilih OPD --</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span style="font-weight: 600;">Pilih Periode</span>
+                    <select id="db-del-period" style="width: 100%;">
+                      <option value="">-- Pilih Periode --</option>
+                    </select>
+                  </label>
+                  <div>
+                    <span style="font-size: 11.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">Cakupan Data yang Dihapus:</span>
+                    <div style="display: flex; flex-direction: column; gap: 6px; padding-left: 2px;">
+                      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                        <input type="checkbox" id="cb-del-payroll" checked> Data Gaji Bulanan (Payroll Monthly)
+                      </label>
+                      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                        <input type="checkbox" id="cb-del-potongan" checked> Potongan ASN (Item &amp; Berjangka pada periode ini)
+                      </label>
+                      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                        <input type="checkbox" id="cb-del-penyesuaian" checked> Penyesuaian / Selisih Gaji
+                      </label>
+                    </div>
+                  </div>
+                  <div style="margin-top: 6px;">
+                    <button type="button" class="danger" id="btn-db-del-period" style="width: 100%;">
+                      <svg class="icon"><use href="#icon-trash"></use></svg> Hapus Data Periode Terpilih
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- Panel 3: Hapus Data Keseluruhan (Checklist) -->
+            <section class="panel" style="margin-bottom: 24px;">
+              <div class="panel-head">
+                <div>
+                  <h2 style="color: #991b1b;">Pembersihan Data Keseluruhan (Wipe / Reset Data)</h2>
+                  <p class="panel-sub">Pilih kategori data yang hendak dibersihkan secara selektif atau keseluruhan</p>
+                </div>
+                <div class="head-actions">
+                  <button type="button" id="btn-db-wipe-select-tx" class="pill">Data Transaksi Saja</button>
+                  <button type="button" id="btn-db-wipe-select-all" class="pill">Centang Semua</button>
+                  <button type="button" id="btn-db-wipe-clear" class="pill">Kosongkan Centang</button>
+                </div>
+              </div>
+              <div style="padding: 14px;">
+                <div class="login-notice" style="background: #fff1f2; border-color: #fecdd3; color: #9f1239; margin-bottom: 14px;">
+                  <svg class="icon" style="color: #e11d48;"><use href="#icon-warning"></use></svg>
+                  <div>
+                    <strong>Perhatian: Tindakan ini bersifat permanen dan tidak dapat dibatalkan!</strong>
+                    <div>Super Admin utama (<code>teguhe@gmail.com</code>) memiliki proteksi sistem dan tidak akan pernah terhapus. Pastikan Anda telah mengunduh berkas cadangan sebelum melakukan pembersihan data.</div>
+                  </div>
+                </div>
+
+                <div class="table-responsive" style="margin-bottom: 14px;">
+                  <table class="listview master-table" style="width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="width: 50px; text-align: center;">Pilih</th>
+                        <th style="width: 170px;">Kategori Data</th>
+                        <th style="width: 260px;">Tabel Database</th>
+                        <th>Deskripsi Cakupan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="payroll" checked></td>
+                        <td><strong>Data Gaji Bulanan</strong></td>
+                        <td><code>payroll_monthly</code></td>
+                        <td>Data impor SIMGAJI seluruh ASN, rincian penghasilan kotor, tunjangan, dan gaji bersih.</td>
+                      </tr>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="potongan" checked></td>
+                        <td><strong>Potongan ASN</strong></td>
+                        <td><code>payroll_potongan_item</code>, <code>potongan_berjangka</code></td>
+                        <td>Data potongan bulanan per ASN serta data tenor potongan berjangka (koperasi, bank, dll).</td>
+                      </tr>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="penyesuaian" checked></td>
+                        <td><strong>Penyesuaian Gaji</strong></td>
+                        <td><code>payroll_penyesuaian</code></td>
+                        <td>Data penyesuaian nominal gaji (koreksi tambah/kurang gaji ASN).</td>
+                      </tr>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="pos"></td>
+                        <td><strong>Master Pos Potongan</strong></td>
+                        <td><code>ref_pos_potongan</code></td>
+                        <td>Master referensi jenis/nama pos potongan (BPJS, BPD, Koperasi, dll).</td>
+                      </tr>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="audit"></td>
+                        <td><strong>Log Audit Aktivitas</strong></td>
+                        <td><code>audit_logs</code></td>
+                        <td>Rekam jejak seluruh aktivitas login, cetak, impor, dan perubahan data pengguna.</td>
+                      </tr>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="users"></td>
+                        <td><strong>Master Pengguna</strong></td>
+                        <td><code>app_users</code></td>
+                        <td>Seluruh akun pengguna dan bendahara OPD (akun Super Admin utama tetap dilindungi).</td>
+                      </tr>
+                      <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="cb-wipe-table" value="opd"></td>
+                        <td><strong>Master OPD</strong></td>
+                        <td><code>ref_opd</code></td>
+                        <td>Data master Organisasi Perangkat Daerah (OPD) Pemda.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style="background: #fdf2f2; border: 1px solid #fecaca; border-radius: 4px; padding: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                  <div style="flex: 1; min-width: 260px;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #991b1b; margin-bottom: 4px;">Konfirmasi Pengamanan:</label>
+                    <input type="text" id="db-wipe-confirm-text" placeholder='Ketik "HAPUS DATA" untuk mengaktifkan tombol' style="width: 100%; max-width: 320px; border-color: #fca5a5;">
+                  </div>
+                  <div>
+                    <button type="button" class="danger" id="btn-db-wipe" disabled style="padding: 7px 16px; font-size: 12.5px;">
+                      <svg class="icon"><use href="#icon-trash"></use></svg> Bersihkan Data yang Dicentang
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </section>
         </div>
       </div>
 
@@ -1443,6 +1690,7 @@
           <div class="start-menu-sep"></div>
           <button type="button" data-view-link="master-opd"><svg class="icon"><use href="#icon-building"></use></svg> Master OPD</button>
           <button type="button" data-view-link="master-user"><svg class="icon"><use href="#icon-users"></use></svg> Master Pengguna</button>
+          <button type="button" data-view-link="database"><svg class="icon"><use href="#icon-database"></use></svg> Manajemen Database</button>
         </div>
         <div class="start-menu-sep"></div>
         <button type="button" id="start-profile-settings"><svg class="icon"><use href="#icon-users"></use></svg> Pengaturan Penandatangan</button>

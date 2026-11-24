@@ -4393,5 +4393,33 @@ code {
   pointer-events: none;
 }
 
+/* ==================== MANAJEMEN DATABASE ==================== */
+.app-window button.danger {
+  color: #7f1d1d;
+  background: linear-gradient(#ffffff, #fee2e2 48%, #fecaca);
+  border: 1px solid #fca5a5;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(185, 28, 28, 0.15);
+}
+
+.app-window button.danger:hover:not(:disabled) {
+  background: linear-gradient(#ffffff, #fecaca 48%, #fca5a5);
+  border-color: #ef4444;
+  color: #991b1b;
+  box-shadow: inset 0 1px 0 #fff, 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.app-window button.danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+@media (max-width: 900px) {
+  .db-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
 
 

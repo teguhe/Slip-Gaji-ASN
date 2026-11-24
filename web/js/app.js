@@ -2773,6 +2773,265 @@
     }
   }
 
+  /* ============================== MANAJEMEN DATABASE ============================== */
+
+  async function populateDatabaseOpdSelect() {
+    const select = $('#db-del-opd');
+    if (!select) return;
+    if (!state.opdOptions.length) {
+      await loadOpdOptions();
+    }
+    const curVal = select.value;
+    let html = '<option value="">-- Pilih OPD --</option>';
+    state.opdOptions.forEach((opd) => {
+      html += `<option value="${escapeHtml(opd.nmskpd)}">${escapeHtml(opd.nmskpd)}</option>`;
+    });
+    select.innerHTML = html;
+    if (curVal) select.value = curVal;
+  }
+
+  function populateDatabasePeriodSelect() {
+    const select = $('#db-del-period');
+    if (!select) return;
+    const curVal = select.value;
+    const all = getAllPeriods();
+    let html = '<option value="">-- Pilih Periode --</option>';
+    all.forEach((p) => {
+      html += `<option value="${p}">${periodLabel(p)}</option>`;
+    });
+    select.innerHTML = html;
+    if (curVal) {
+      select.value = curVal;
+    } else if (state.period) {
+      select.value = state.period;
+    }
+  }
+
+  async function loadDatabaseStats() {
+    if (state.mode !== 'api' || !state.token) return;
+    if (!(state.profile && state.profile.is_super_admin)) {
+      toast('Akses Dibatasi', 'Halaman Manajemen Database hanya untuk Super Admin.', 'warning');
+      setView('dashboard');
+      return;
+    }
+
+    setStatus('Memuat status & statistik database…');
+    try {
+      const stats = await apiRequest('/api/v1/database/stats');
+      const payrollEl = $('#db-stat-payroll');
+      if (payrollEl) payrollEl.textContent = `${formatNumber(stats.payroll_monthly || 0)} baris`;
+
+      const potonganEl = $('#db-stat-potongan');
+      if (potonganEl) {
+        potonganEl.textContent = `${formatNumber(stats.payroll_potongan_item || 0)} item / ${formatNumber(stats.potongan_berjangka || 0)} tenor`;
+      }
+
+      const penyesuaianPosEl = $('#db-stat-penyesuaian-pos');
+      if (penyesuaianPosEl) {
+        penyesuaianPosEl.textContent = `${formatNumber(stats.payroll_penyesuaian || 0)} koreksi / ${formatNumber(stats.ref_pos_potongan || 0)} pos`;
+      }
+
+      const mastersEl = $('#db-stat-masters');
+      if (mastersEl) {
+        mastersEl.textContent = `${formatNumber(stats.app_users || 0)} user / ${formatNumber(stats.ref_opd || 0)} OPD`;
+      }
+
+      const auditEl = $('#db-stat-audit');
+      if (auditEl) {
+        auditEl.textContent = `${formatNumber(stats.audit_logs || 0)} log`;
+      }
+
+      await populateDatabaseOpdSelect();
+      populateDatabasePeriodSelect();
+      setStatus('Statistik basis data berhasil dimuat.');
+    } catch (error) {
+      toast('Gagal Memuat Statistik Database', error.message, 'error');
+      setStatus('Gagal memuat statistik basis data.');
+    }
+  }
+
+  async function downloadDatabaseBackup() {
+    if (state.mode !== 'api' || !state.token) return;
+    const btn = $('#btn-db-backup');
+    if (btn) btn.disabled = true;
+    setStatus('Menyiapkan cadangan basis data…');
+
+    try {
+      const data = await apiRequest('/api/v1/database/backup');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const now = new Date();
+      const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '');
+      a.href = url;
+      a.download = `backup_slip_gaji_${datePart}_${timePart}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast('Backup Berhasil', `File cadangan basis data berhasil diunduh (${formatNumber(data.total_records || 0)} baris data).`, 'success');
+      setStatus('Cadangan basis data berhasil diunduh.');
+      await loadDatabaseStats();
+    } catch (error) {
+      toast('Gagal Mengunduh Backup', error.message, 'error');
+      setStatus('Gagal mencadangkan basis data.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function submitDatabaseRestore() {
+    if (state.mode !== 'api' || !state.token) return;
+    const fileInput = $('#db-restore-file');
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      toast('File Cadangan Belum Dipilih', 'Pilih berkas JSON cadangan terlebih dahulu.', 'warning');
+      return;
+    }
+
+    if (!window.confirm(`PERINGATAN PEMULIHAN BASIS DATA!\n\nMemulihkan database dari berkas "${file.name}" akan menimpa/memperbarui data sistem dalam transaksi atomik.\n\nApakah Anda benar-benar yakin ingin melanjutkan?`)) {
+      return;
+    }
+
+    const btn = $('#btn-db-restore');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="icon"><use href="#icon-refresh"></use></svg> Memulihkan Data…';
+    }
+    setStatus('Sedang memulihkan basis data dari berkas cadangan…');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await apiRequest('/api/v1/database/restore', {
+        method: 'POST',
+        body: formData,
+      });
+
+      toast('Pemulihan Selesai', res.message || 'Basis data berhasil dipulihkan secara penuh.', 'success');
+      if (fileInput) fileInput.value = '';
+      setStatus('Basis data berhasil dipulihkan.');
+      await loadOpdOptions();
+      await loadDatabaseStats();
+      renderAll();
+    } catch (error) {
+      toast('Gagal Memulihkan Database', error.message, 'error');
+      setStatus('Gagal memulihkan basis data.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="icon"><use href="#icon-upload"></use></svg> Pulihkan Data Sekarang';
+      }
+    }
+  }
+
+  async function submitDatabaseDeletePeriod() {
+    if (state.mode !== 'api' || !state.token) return;
+    const opd = ($('#db-del-opd')?.value || '').trim();
+    const period = ($('#db-del-period')?.value || '').trim();
+    const delPayroll = Boolean($('#cb-del-payroll')?.checked);
+    const delPotongan = Boolean($('#cb-del-potongan')?.checked);
+    const delPenyesuaian = Boolean($('#cb-del-penyesuaian')?.checked);
+
+    if (!opd) {
+      toast('OPD Belum Dipilih', 'Silakan pilih OPD yang hendak dibersihkan datanya.', 'warning');
+      return;
+    }
+    if (!period) {
+      toast('Periode Belum Dipilih', 'Silakan pilih Periode gaji yang hendak dibersihkan.', 'warning');
+      return;
+    }
+    if (!delPayroll && !delPotongan && !delPenyesuaian) {
+      toast('Cakupan Kosong', 'Pilih minimal satu cakupan data yang hendak dihapus (Payroll, Potongan, atau Penyesuaian).', 'warning');
+      return;
+    }
+
+    const periodName = periodLabel(period);
+    if (!window.confirm(`KONFIRMASI PENGHAPUSAN DATA PERIODE:\n\nOPD: ${opd}\nPeriode: ${periodName}\n\nTindakan ini permanen dan akan menghapus data yang dicentang pada periode tersebut.\n\nLanjutkan penghapusan?`)) {
+      return;
+    }
+
+    const btn = $('#btn-db-del-period');
+    if (btn) btn.disabled = true;
+    setStatus(`Menghapus data periode ${periodName} OPD ${opd}…`);
+
+    try {
+      const res = await apiRequest('/api/v1/database/delete-period', {
+        method: 'POST',
+        body: JSON.stringify({
+          opd_name: opd,
+          nmskpd: opd,
+          period: period,
+          delete_payroll: delPayroll,
+          delete_potongan: delPotongan,
+          delete_penyesuaian: delPenyesuaian,
+        }),
+      });
+
+      toast('Data Periode Dihapus', res.message || 'Data periode berhasil dihapus.', 'success');
+      setStatus('Data periode berhasil dihapus.');
+      await loadDatabaseStats();
+      if (state.opd === opd && state.period === period) {
+        state.employees = [];
+        renderAll();
+      }
+    } catch (error) {
+      toast('Gagal Menghapus Data Periode', error.message, 'error');
+      setStatus('Gagal menghapus data periode.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function submitDatabaseWipe() {
+    if (state.mode !== 'api' || !state.token) return;
+    const checkboxes = $$('.cb-wipe-table:checked');
+    const tables = Array.from(checkboxes).map((cb) => cb.value);
+
+    if (tables.length === 0) {
+      toast('Belum Ada Kategori Dipilih', 'Pilih minimal satu kategori data yang hendak dibersihkan.', 'warning');
+      return;
+    }
+
+    const confirmInput = $('#db-wipe-confirm-text');
+    if (!confirmInput || confirmInput.value.trim().toUpperCase() !== 'HAPUS DATA') {
+      toast('Konfirmasi Tidak Cocok', 'Ketik kata "HAPUS DATA" pada kolom konfirmasi untuk mengesahkan tindakan.', 'error');
+      return;
+    }
+
+    if (!window.confirm(`PERINGATAN PEMUSNAHAN DATA TINGKAT TINGGI!\n\nAnda akan menghapus data permanen untuk kategori:\n${tables.join(', ')}\n\nSuper Admin utama (teguhe@gmail.com) tetap dilindungi.\n\nApakah Anda benar-benar yakin ingin melanjutkan pembersihan ini?`)) {
+      return;
+    }
+
+    const btn = $('#btn-db-wipe');
+    if (btn) btn.disabled = true;
+    setStatus('Sedang membersihkan kategori data terpilih…');
+
+    try {
+      const res = await apiRequest('/api/v1/database/wipe', {
+        method: 'POST',
+        body: JSON.stringify({ tables }),
+      });
+
+      toast('Pembersihan Berhasil', res.message || 'Kategori data terpilih telah dibersihkan.', 'success');
+      if (confirmInput) confirmInput.value = '';
+      setStatus('Pembersihan data selesai.');
+      await loadOpdOptions();
+      await loadDatabaseStats();
+      renderAll();
+    } catch (error) {
+      toast('Gagal Membersihkan Data', error.message, 'error');
+      setStatus('Gagal membersihkan data basis data.');
+    } finally {
+      if (btn) {
+        btn.disabled = confirmInput ? confirmInput.value.trim().toUpperCase() !== 'HAPUS DATA' : true;
+      }
+    }
+  }
+
   function clearAllData() {
     state.mode = 'api';
     state.token = '';
@@ -4982,6 +5241,7 @@
     monitoring: 'Monitoring Aktivitas',
     'master-opd': 'Master OPD',
     'master-user': 'Master Pengguna',
+    database: 'Manajemen Database',
   };
 
   function setView(view, silent = false) {
@@ -5044,6 +5304,14 @@
     if (next === 'monitoring') loadMonitoringAudit();
     if (next === 'master-opd') loadMasterOpd();
     if (next === 'master-user') loadMasterUsers();
+    if (next === 'database') {
+      if (!(state.profile && state.profile.is_super_admin)) {
+        toast('Akses Dibatasi', 'Halaman Manajemen Database hanya untuk Super Admin.', 'warning');
+        setView('dashboard');
+        return;
+      }
+      loadDatabaseStats();
+    }
     setStatus(`Halaman ${VIEW_TITLES[next]} siap.`);
     if (!silent) {
       // no-op; hook for page transitions
@@ -5264,7 +5532,7 @@
     if (!newPeriod) return;
     state.period = newPeriod;
     state.selected = new Set();
-    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start', '#db-del-period'].forEach((selector) => {
       const el = $(selector);
       if (el) el.value = state.period;
     });
@@ -5402,7 +5670,7 @@
     const options = all.map((period) => (
       `<option value="${period}">${periodLabel(period)}</option>`
     )).join('');
-    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start'].forEach((selector) => {
+    ['#period-select', '#bulanan-period', '#manual-period', '#loan-start', '#db-del-period'].forEach((selector) => {
       const select = $(selector);
       if (select) {
         select.innerHTML = options;
@@ -6318,6 +6586,56 @@
         }
       });
     }
+
+    // Manajemen Database
+    const refreshDbBtn = $('#btn-refresh-database');
+    if (refreshDbBtn) refreshDbBtn.addEventListener('click', loadDatabaseStats);
+
+    const backupDbBtn = $('#btn-db-backup');
+    if (backupDbBtn) backupDbBtn.addEventListener('click', downloadDatabaseBackup);
+
+    const restoreDbBtn = $('#btn-db-restore');
+    if (restoreDbBtn) restoreDbBtn.addEventListener('click', submitDatabaseRestore);
+
+    const delPeriodDbBtn = $('#btn-db-del-period');
+    if (delPeriodDbBtn) delPeriodDbBtn.addEventListener('click', submitDatabaseDeletePeriod);
+
+    const wipeSelectTxBtn = $('#btn-db-wipe-select-tx');
+    if (wipeSelectTxBtn) {
+      wipeSelectTxBtn.addEventListener('click', () => {
+        $$('.cb-wipe-table').forEach((cb) => {
+          cb.checked = ['payroll', 'potongan', 'penyesuaian'].includes(cb.value);
+        });
+      });
+    }
+
+    const wipeSelectAllBtn = $('#btn-db-wipe-select-all');
+    if (wipeSelectAllBtn) {
+      wipeSelectAllBtn.addEventListener('click', () => {
+        $$('.cb-wipe-table').forEach((cb) => {
+          cb.checked = true;
+        });
+      });
+    }
+
+    const wipeClearBtn = $('#btn-db-wipe-clear');
+    if (wipeClearBtn) {
+      wipeClearBtn.addEventListener('click', () => {
+        $$('.cb-wipe-table').forEach((cb) => {
+          cb.checked = false;
+        });
+      });
+    }
+
+    const wipeConfirmInput = $('#db-wipe-confirm-text');
+    const wipeSubmitBtn = $('#btn-db-wipe');
+    if (wipeConfirmInput && wipeSubmitBtn) {
+      wipeConfirmInput.addEventListener('input', () => {
+        wipeSubmitBtn.disabled = wipeConfirmInput.value.trim().toUpperCase() !== 'HAPUS DATA';
+      });
+    }
+
+    if (wipeSubmitBtn) wipeSubmitBtn.addEventListener('click', submitDatabaseWipe);
 
     // Taskbar dan window controls
     const taskbarApp = $('#taskbar-app');

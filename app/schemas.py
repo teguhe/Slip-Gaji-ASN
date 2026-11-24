@@ -469,3 +469,36 @@ class MasterGajiStatsResponse(BaseModel):
     breakdown_tunjangan: dict[str, Decimal]
     breakdown_potongan_resmi: dict[str, Decimal]
 
+
+# --- DATABASE MANAGEMENT SCHEMAS ---
+
+class DatabaseStatsResponse(BaseModel):
+    ref_opd: int = 0
+    app_users: int = 0
+    payroll_monthly: int = 0
+    ref_pos_potongan: int = 0
+    potongan_berjangka: int = 0
+    payroll_potongan_item: int = 0
+    payroll_penyesuaian: int = 0
+    audit_logs: int = 0
+    total_records: int = 0
+
+
+class DatabaseWipeRequest(BaseModel):
+    tables: list[str]
+    confirmation: bool = False
+
+
+class DatabaseDeletePeriodRequest(BaseModel):
+    opd_name: str | None = None
+    nmskpd: str | None = None
+    period: str
+    delete_payroll: bool = True
+    delete_potongan: bool = True
+    delete_penyesuaian: bool = True
+
+    @property
+    def target_opd(self) -> str:
+        return (self.opd_name or self.nmskpd or "").strip()
+
+

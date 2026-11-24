@@ -728,5 +728,197 @@ def test_print_master_opd_forbidden_for_bendahara(
         assert res.status_code == 403
 
 
+def test_database_stats_and_backup_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    import datetime
+    from app.models import PayrollMonthly
+
+    # Seed data payroll dummy
+    pm = PayrollMonthly(
+        tglgaji=datetime.date(2026, 10, 1),
+        nip="198001012005011001",
+        nama="Pegawai Test",
+        nmskpd=seeded.opd_name,
+        gapok=Decimal("4000000.00"),
+        kotor=Decimal("5000000.00"),
+        bersih=Decimal("4500000.00"),
+        imported_by="test@example.com",
+    )
+    db_session.add(pm)
+    db_session.commit()
+
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    with TestClient(api_app) as client:
+        # 1. Stats
+        res_stats = client.get("/api/v1/database/stats")
+        assert res_stats.status_code == 200
+        stats = res_stats.json()
+        assert stats["ref_opd"] >= 1
+        assert stats["payroll_monthly"] >= 1
+
+        # 2. Backup
+        res_backup = client.get("/api/v1/database/backup", headers={"X-Forwarded-For": "10.0.0.12"})
+        assert res_backup.status_code == 200
+        backup_data = res_backup.json()
+        assert "tables" in backup_data
+        assert "counts" in backup_data
+        assert len(backup_data["tables"]["ref_opd"]) >= 1
+
+        # Verifikasi audit log backup
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "DATABASE_BACKUP")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.user_email == super_admin_profile.email
+        assert log.ip_address == "10.0.0.12"
+
+
+def test_database_restore_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    import io
+    import json
+
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res_backup = client.get("/api/v1/database/backup")
+        backup_data = res_backup.json()
+
+        buffer = io.BytesIO(json.dumps(backup_data).encode("utf-8"))
+        res_restore = client.post(
+            "/api/v1/database/restore",
+            files={"file": ("backup.json", buffer, "application/json")},
+            headers={"X-Forwarded-For": "10.0.0.15"},
+        )
+        assert res_restore.status_code == 200
+        data = res_restore.json()
+        assert data["status"] == "success"
+
+        # Verifikasi audit log restore
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "DATABASE_RESTORE")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.user_email == super_admin_profile.email
+        assert log.ip_address == "10.0.0.15"
+
+
+def test_database_delete_per_opd_period_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    import datetime
+    from app.models import PayrollMonthly
+
+    pm = PayrollMonthly(
+        tglgaji=datetime.date(2026, 10, 1),
+        nip="198001012005011002",
+        nama="Pegawai Delete Test",
+        nmskpd=seeded.opd_name,
+        gapok=Decimal("4000000.00"),
+        kotor=Decimal("5000000.00"),
+        bersih=Decimal("4500000.00"),
+        imported_by="test@example.com",
+    )
+    db_session.add(pm)
+    db_session.commit()
+
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/database/delete-period",
+            json={
+                "opd_name": seeded.opd_name,
+                "period": "2026-10",
+                "delete_payroll": True,
+                "delete_potongan": True,
+                "delete_penyesuaian": True,
+            },
+            headers={"X-Forwarded-For": "10.0.0.20"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+
+        # Verifikasi audit log
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "DATABASE_DELETE_PER_OPD_PERIOD")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert log.details["opd_name"] == seeded.opd_name
+        assert log.details["period"] == "2026-10"
+
+
+def test_database_wipe_checklist_super_admin(
+    api_app, db_session, seeded, super_admin_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: super_admin_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=super_admin_profile,
+    )
+
+    with TestClient(api_app) as client:
+        res = client.post(
+            "/api/v1/database/wipe",
+            json={
+                "tables": ["payroll", "penyesuaian"],
+                "confirmation": True,
+            },
+            headers={"X-Forwarded-For": "10.0.0.25"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+
+        # Verifikasi audit log
+        log = db_session.scalar(
+            select(AuditLog)
+            .where(AuditLog.action == "DATABASE_WIPE_SELECTED")
+            .order_by(desc(AuditLog.id))
+        )
+        assert log is not None
+        assert "payroll" in log.details["selected_categories"]
+
+
+def test_database_endpoints_forbidden_for_bendahara(
+    api_app, db_session, seeded, bendahara_profile
+):
+    api_app.dependency_overrides[get_current_user] = lambda: bendahara_profile
+    api_app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        kind="user",
+        user=bendahara_profile,
+    )
+
+    with TestClient(api_app) as client:
+        assert client.get("/api/v1/database/stats").status_code == 403
+        assert client.get("/api/v1/database/backup").status_code == 403
+        assert client.post("/api/v1/database/restore", files={"file": ("b.json", b"{}", "application/json")}).status_code == 403
+        assert client.post("/api/v1/database/wipe", json={"tables": ["payroll"], "confirmation": True}).status_code == 403
+        assert client.post("/api/v1/database/delete-period", json={"opd_name": "Dinkes", "period": "2026-10"}).status_code == 403
+
+
+
 
 
