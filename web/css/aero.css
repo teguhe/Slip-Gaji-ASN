@@ -4695,6 +4695,14 @@ code {
   filter: grayscale(0.5);
 }
 
+.app-window button:disabled,
+.app-window button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+  filter: grayscale(0.35);
+  box-shadow: none !important;
+}
+
 @media (max-width: 900px) {
   .db-grid {
     grid-template-columns: 1fr !important;

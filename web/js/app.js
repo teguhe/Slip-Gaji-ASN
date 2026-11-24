@@ -1593,13 +1593,12 @@
     const statusLogout = $('#status-logout-btn');
     if (statusLogout) statusLogout.hidden = !isLoggedIn;
 
-    // Sembunyikan menu Master Gaji, Potongan Rekap, Potongan per ASN, Cetak Slip untuk Super Admin
+    // Sembunyikan menu operasional bendahara (Potongan Rekap, Potongan per ASN, Cetak Slip) untuk Super Admin
+    // Master Gaji tetap ditampilkan untuk Super Admin (monitoring & statistik global)
     const bendaharaNavSelectors = [
-      '.side-nav-item[data-view-link="master-gaji"]',
       '.side-nav-item[data-view-link="potongan"]',
       '.side-nav-item[data-view-link="potongan-asn"]',
       '.side-nav-item[data-view-link="print"]',
-      '#start-menu [data-view-link="master-gaji"]',
       '#start-menu [data-view-link="potongan"]',
       '#start-menu [data-view-link="potongan-asn"]',
       '#start-menu [data-view-link="print"]',
@@ -1608,6 +1607,44 @@
     bendaharaNavSelectors.forEach((sel) => {
       const el = $(sel);
       if (el) el.hidden = superAdmin;
+    });
+
+    // Disable semua tombol import data gaji & potongan untuk Super Admin
+    const importGajiButtons = $$(
+      '#btn-master-gaji-import, ' +
+      'button[data-view-link="import"], ' +
+      '#btn-import, ' +
+      '#file-input'
+    );
+    importGajiButtons.forEach((btn) => {
+      btn.disabled = superAdmin;
+      if (superAdmin) {
+        btn.setAttribute('title', 'Super Admin tidak dapat mengimpor data gaji. Hak akses import hanya untuk Bendahara OPD.');
+      } else {
+        btn.removeAttribute('title');
+      }
+    });
+
+    const potonganButtons = $$(
+      'button[data-open-modal="manual-import"], ' +
+      '#btn-run-manual-import, ' +
+      'button[data-open-modal="loan"], ' +
+      '#btn-save-loan, ' +
+      'button[data-open-modal="pos"], ' +
+      '#btn-save-pos, ' +
+      '#btn-save-edit-potongan, ' +
+      '#btn-save-penyesuaian, ' +
+      '#btn-browse-penyesuaian-pegawai, ' +
+      '#form-bulanan button[type="submit"], ' +
+      '#form-penyesuaian button[type="submit"]'
+    );
+    potonganButtons.forEach((btn) => {
+      btn.disabled = superAdmin;
+      if (superAdmin) {
+        btn.setAttribute('title', 'Super Admin hanya memiliki hak pantau. Pengelolaan potongan dan penyesuaian gaji dilakukan oleh Bendahara OPD.');
+      } else {
+        btn.removeAttribute('title');
+      }
     });
 
     // Admin-only Master navigation in sidebar & start menu
@@ -3519,7 +3556,9 @@
 
     const opdLabel = $('#master-gaji-opd-label');
     if (opdLabel) {
-      opdLabel.textContent = `OPD: ${state.opd || 'Semua OPD'} • Periode: ${periodLabel(state.period)}`;
+      const isSuper = Boolean(state.profile && state.profile.is_super_admin);
+      const displayOpd = isSuper ? 'Semua OPD (Akses Global)' : (state.opd || 'Semua OPD');
+      opdLabel.textContent = `OPD: ${displayOpd} • Periode: ${periodLabel(state.period)}`;
     }
 
     // Selalu muat statistik ringkasan dan komposisi potongan untuk card di atas tab
@@ -3695,6 +3734,7 @@
       return;
     }
 
+    const isSuper = Boolean(state.profile && state.profile.is_super_admin);
     tbody.innerHTML = state.penyesuaianList
       .map((item, idx) => `
         <tr>
@@ -3708,7 +3748,7 @@
             <span class="badge-status ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
           </td>
           <td style="text-align: center;">
-            <button type="button" class="btn-table-icon danger" data-delete-penyesuaian="${escapeHtml(item.id)}" title="Hapus penyesuaian">
+            <button type="button" class="btn-table-icon danger" data-delete-penyesuaian="${escapeHtml(item.id)}" title="${isSuper ? 'Akses hanya untuk Bendahara OPD' : 'Hapus penyesuaian'}" ${isSuper ? 'disabled' : ''}>
               <svg class="icon"><use href="#icon-trash"></use></svg>
             </button>
           </td>
@@ -3727,6 +3767,10 @@
   async function savePenyesuaianGaji(event) {
     if (event) event.preventDefault();
     if (!state.token) return;
+    if (state.profile && state.profile.is_super_admin) {
+      toast('Akses Dibatasi', 'Super Admin tidak dapat menginput penyesuaian gaji. Hak akses hanya untuk Bendahara OPD.', 'warning');
+      return;
+    }
 
     const nipInput = $('#penyesuaian-nip');
     const namaInput = $('#penyesuaian-nama');
@@ -3794,6 +3838,10 @@
 
   async function deletePenyesuaianGaji(id) {
     if (!state.token || !id) return;
+    if (state.profile && state.profile.is_super_admin) {
+      toast('Akses Dibatasi', 'Super Admin tidak dapat menghapus penyesuaian gaji.', 'warning');
+      return;
+    }
     if (!window.confirm('Apakah Anda yakin ingin menghapus data penyesuaian gaji ini?')) return;
 
     try {
@@ -4005,6 +4053,10 @@
   }
 
   function openLoanDialog() {
+    if (state.profile && state.profile.is_super_admin) {
+      toast('Akses Dibatasi', 'Super Admin tidak dapat mendaftarkan pinjaman.', 'warning');
+      return;
+    }
     if (isUserLocked()) {
       toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
       return;
@@ -4041,6 +4093,10 @@
 
   async function saveLoan() {
     if (state.loanSaving) return;
+    if (state.profile && state.profile.is_super_admin) {
+      showInlineError('loan', 'Super Admin tidak dapat mendaftarkan pinjaman.');
+      return;
+    }
     const error = $('#loan-error');
     if (error) error.hidden = true;
 
@@ -4260,6 +4316,10 @@
   }
 
   function openManualImport() {
+    if (state.profile && state.profile.is_super_admin) {
+      toast('Akses Dibatasi', 'Super Admin tidak dapat mengimpor data potongan.', 'warning');
+      return;
+    }
     if (isUserLocked()) {
       toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
       return;
@@ -4332,6 +4392,10 @@
 
   async function runManualImport() {
     if (state.manualImportRunning) return;
+    if (state.profile && state.profile.is_super_admin) {
+      showManualError('Super Admin tidak dapat mengimpor data potongan.');
+      return;
+    }
     const file = $('#manual-file').files && $('#manual-file').files[0];
     const pos = findPos($('#manual-pos').value);
     const period = $('#manual-period').value || state.period;
@@ -5049,6 +5113,10 @@
   }
 
   async function runImport() {
+    if (state.profile && state.profile.is_super_admin) {
+      toast('Akses Dibatasi', 'Super Admin tidak dapat mengimpor data gaji. Hak akses import hanya untuk Bendahara OPD.', 'warning');
+      return;
+    }
     if (isUserLocked()) {
       toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin. Import SIMGAJI tidak dapat dilakukan.', 'error');
       return;
@@ -5147,6 +5215,10 @@
 
   function submitBulanan(event) {
     event.preventDefault();
+    if (state.profile && state.profile.is_super_admin) {
+      toast('Akses Dibatasi', 'Super Admin tidak dapat menginput potongan.', 'warning');
+      return;
+    }
     if (isUserLocked()) {
       toast('Akses Terkunci', 'Akun Anda belum memiliki penugasan OPD dari Super Admin.', 'error');
       return;
@@ -5820,8 +5892,8 @@
   function setView(view, silent = false) {
     const next = VIEW_TITLES[view] ? view : 'dashboard';
 
-    // Guard untuk Super Admin: sembunyikan & cegah akses modul operasional bendahara
-    const superAdminDisallowed = ['master-gaji', 'import', 'potongan', 'potongan-asn', 'print'];
+    // Guard untuk Super Admin: sembunyikan & cegah akses modul operasional bendahara tertentu
+    const superAdminDisallowed = ['import', 'potongan', 'potongan-asn', 'print'];
     if (state.profile && state.profile.is_super_admin && superAdminDisallowed.includes(next)) {
       toast('Akses Dibatasi', `Menu ${VIEW_TITLES[next] || next} khusus untuk Bendahara OPD. Super Admin tidak terikat ke OPD operasional.`, 'warning');
       setView('dashboard');
@@ -6276,6 +6348,7 @@
     document.addEventListener('click', (event) => {
       const viewButton = event.target.closest('[data-view-link]');
       if (viewButton) {
+        if (viewButton.disabled) return;
         event.preventDefault();
         setView(viewButton.dataset.viewLink);
         return;
@@ -6292,6 +6365,7 @@
 
       const openDialogButton = event.target.closest('[data-open-modal]');
       if (openDialogButton) {
+        if (openDialogButton.disabled) return;
         event.preventDefault();
         const dialog = openDialogButton.dataset.openModal;
         if (dialog === 'loan') openLoanDialog();
@@ -6407,19 +6481,31 @@
     const dropZone = $('#drop-zone');
     const fileInput = $('#file-input');
     if (dropZone && fileInput) {
-      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('click', () => {
+        if (state.profile && state.profile.is_super_admin) {
+          toast('Akses Dibatasi', 'Super Admin tidak dapat mengimpor data gaji. Hak akses import hanya untuk Bendahara OPD.', 'warning');
+          return;
+        }
+        fileInput.click();
+      });
       dropZone.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
+          if (state.profile && state.profile.is_super_admin) {
+            toast('Akses Dibatasi', 'Super Admin tidak dapat mengimpor data gaji. Hak akses import hanya untuk Bendahara OPD.', 'warning');
+            return;
+          }
           fileInput.click();
         }
       });
       fileInput.addEventListener('change', () => {
+        if (state.profile && state.profile.is_super_admin) return;
         if (fileInput.files && fileInput.files[0]) handleFile(fileInput.files[0]);
       });
       ['dragenter', 'dragover'].forEach((type) => {
         dropZone.addEventListener(type, (event) => {
           event.preventDefault();
+          if (state.profile && state.profile.is_super_admin) return;
           dropZone.classList.add('is-dragover');
         });
       });
@@ -6430,6 +6516,10 @@
         });
       });
       dropZone.addEventListener('drop', (event) => {
+        if (state.profile && state.profile.is_super_admin) {
+          toast('Akses Dibatasi', 'Super Admin tidak dapat mengimpor data gaji.', 'warning');
+          return;
+        }
         const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
         if (file) handleFile(file);
       });
