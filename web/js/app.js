@@ -4515,6 +4515,8 @@
       }).catch((caught) => {
         toast('Gagal memuat periode', caught.message || 'Periksa koneksi.', 'error');
       });
+    } else {
+      toast('Periode diperbarui', periodLabel(state.period), 'info');
     }
   }
 
@@ -4612,6 +4614,7 @@
       }
     });
 
+    renderPeriodPicker(pickerYear);
     updateToolbarPeriodUI();
   }
 
@@ -5413,8 +5416,8 @@
 
     const btnPrintSelected = $('#btn-print-selected');
     if (btnPrintSelected) btnPrintSelected.addEventListener('click', async () => {
-        const period = $('#print-period').value;
-        const search = $('#print-search').value.toLowerCase();
+        const period = ($('#print-period')?.value) || state.period;
+        const search = ($('#print-search')?.value || '').toLowerCase();
         const selected = state.employees.filter(e => 
             (e.nip.includes(search) || e.nama.toLowerCase().includes(search))
         );
@@ -5425,7 +5428,7 @@
 
     const btnPrintOpd = $('#btn-print-opd');
     if (btnPrintOpd) btnPrintOpd.addEventListener('click', async () => {
-        const period = $('#print-period').value;
+        const period = ($('#print-period')?.value) || state.period;
         const list = await fetchOpdSlipData(period);
         const details = await Promise.all(list.map(e => fetchSlipData(e.nip, period)));
         await doPrint(details, period);
