@@ -892,6 +892,17 @@
               <span id="potongan-mode-note-text">Pos potongan dan pinjaman tersimpan di basis data PostgreSQL.</span>
             </div>
 
+            <aside class="panel" style="margin-bottom: 12px;">
+              <div class="panel-head"><div><h2>Panduan Singkat</h2><p class="panel-sub">Aturan potongan</p></div></div>
+              <div class="guide-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                <div class="guide-item"><span class="guide-num">1</span><p><strong>Bulanan</strong> — import Excel berisi kolom <code>nip</code> dan <code>nominal</code>.</p></div>
+                <div class="guide-item"><span class="guide-num">2</span><p><strong>Berjangka</strong> — mulai, tenor, dan periode akhir dihitung otomatis.</p></div>
+                <div class="guide-item"><span class="guide-num">3</span><p><strong>Progres</strong> — realisasi menyimpan <code>cicilan_ke</code> seperti 14 dari 36.</p></div>
+                <div class="guide-item"><span class="guide-num">4</span><p><strong>Presisi</strong> — semua nominal memakai <code>NUMERIC(15,2)</code>.</p></div>
+                <div class="guide-item"><span class="guide-num">5</span><p><strong>Audit</strong> — pembuatan pos dan pinjaman dicatat di <code>audit_logs</code>.</p></div>
+              </div>
+            </aside>
+
             <div class="tabs-shell" id="potongan-tabs">
               <menu role="tablist" aria-label="Manajemen Potongan">
                 <button type="button" role="tab" id="tab-btn-rekap-bulanan" data-tab="rekap-bulanan"
@@ -1033,7 +1044,7 @@
 
               <!-- TAB 2: POTONGAN BERJANGKA (PINJAMAN DENGAN TENOR) -->
               <div role="tabpanel" id="tab-panel-berjangka" aria-labelledby="tab-btn-berjangka" hidden>
-                <section class="panel loan-panel" style="margin-bottom: 12px;">
+                <section class="panel loan-panel">
                   <div class="panel-head">
                     <div>
                       <h2>Rekap Potongan Berjangka</h2>
@@ -1073,37 +1084,7 @@
                     </div>
                   </div>
                 </section>
-
-                <div class="loan-launcher">
-                  <span class="loan-launcher-icon"><svg class="icon"><use href="#icon-receipt"></use></svg></span>
-                  <div class="loan-launcher-copy">
-                    <h3>Pendaftaran Pinjaman Berjangka</h3>
-                    <p>Masukkan NIP, pos potongan, nominal per bulan, periode mulai, dan tenor. Periode akhir dihitung otomatis.</p>
-                  </div>
-                  <button type="button" class="default" data-open-modal="loan">
-                    <svg class="icon"><use href="#icon-plus"></use></svg>
-                    Buka Form Pinjaman
-                  </button>
-                </div>
-                <div class="tenor-preview">
-                  <div><span>Rentang tenor</span><strong>1 – 120 bulan</strong></div>
-                  <div><span>Realisasi</span><strong>Otomatis saat payroll diproses</strong></div>
-                  <div><span>Format progres</span><strong>“Cicilan 14 dari 36”</strong></div>
-                </div>
               </div>
-            </div>
-
-            <div style="margin-top: 14px;">
-              <aside class="panel">
-                <div class="panel-head"><div><h2>Panduan Singkat</h2><p class="panel-sub">Aturan potongan</p></div></div>
-                <div class="guide-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
-                  <div class="guide-item"><span class="guide-num">1</span><p><strong>Bulanan</strong> — import Excel berisi kolom <code>nip</code> dan <code>nominal</code>.</p></div>
-                  <div class="guide-item"><span class="guide-num">2</span><p><strong>Berjangka</strong> — mulai, tenor, dan periode akhir dihitung otomatis.</p></div>
-                  <div class="guide-item"><span class="guide-num">3</span><p><strong>Progres</strong> — realisasi menyimpan <code>cicilan_ke</code> seperti 14 dari 36.</p></div>
-                  <div class="guide-item"><span class="guide-num">4</span><p><strong>Presisi</strong> — semua nominal memakai <code>NUMERIC(15,2)</code>.</p></div>
-                  <div class="guide-item"><span class="guide-num">5</span><p><strong>Audit</strong> — pembuatan pos dan pinjaman dicatat di <code>audit_logs</code>.</p></div>
-                </div>
-              </aside>
             </div>
           </section>
 
