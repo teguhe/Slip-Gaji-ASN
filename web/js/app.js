@@ -3341,15 +3341,38 @@
     const baseInternal = Number(employee.basePotonganInternal) || 0;
     if (baseInternal > 0) internalRows.push(['Potongan Internal', baseInternal]);
 
-    const items = employee.internalPotongan || [];
-    items.forEach((item) => {
-      internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
-    });
-    if (!internalRows.length) {
-      internalRows.push([
-        Number(employee.potonganInternal) > 0 ? 'Potongan Internal' : 'Tidak ada potongan',
-        employee.potonganInternal,
-      ]);
+    const activePos = (state.posList || []).filter((p) => p.is_active !== false);
+    if (activePos.length) {
+      const items = employee.internalPotongan || [];
+      const usedItemIndices = new Set();
+      activePos.forEach((pos) => {
+        const matchingIdx = items.findIndex(
+          (it, idx) => !usedItemIndices.has(idx) && (it.pos === pos.nama || it.pos_id === pos.id)
+        );
+        if (matchingIdx >= 0) {
+          const item = items[matchingIdx];
+          usedItemIndices.add(matchingIdx);
+          internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
+        } else {
+          internalRows.push([pos.nama, 0]);
+        }
+      });
+      items.forEach((item, idx) => {
+        if (!usedItemIndices.has(idx)) {
+          internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
+        }
+      });
+    } else {
+      const items = employee.internalPotongan || [];
+      items.forEach((item) => {
+        internalRows.push([`${item.pos}${cicilanTag(item)}`, item.nominal]);
+      });
+      if (!internalRows.length) {
+        internalRows.push([
+          Number(employee.potonganInternal) > 0 ? 'Potongan Internal' : 'Tidak ada potongan',
+          employee.potonganInternal || 0,
+        ]);
+      }
     }
 
     const kotor = Number(employee.kotor) || 0;
@@ -3389,7 +3412,7 @@
 
           <div class="slip-section-title" style="margin-top: 1.5mm;">POTONGAN LAINNYA</div>
           ${slipRows(internalRows)}
-          <div class="slip-row total"><span>Total Potongan</span><span>${formatAmount(employee.potonganInternal)}</span></div>
+          <div class="slip-row total highlight"><span>Total Potongan</span><span>${formatAmount(employee.potonganInternal)}</span></div>
         </div>
         <div class="slip-foot">
           <span class="net">DITERIMA BERSIH: <strong>Rp ${formatAmount(employee.thp)}</strong></span>
@@ -4192,7 +4215,7 @@
           jabatan: curJab,
           nama_bendahara: curNama,
           nip_bendahara: curNip,
-        });
+        }, state.posList || []);
         win.print();
     };
   }
@@ -4243,6 +4266,9 @@
 
     if (next === 'print') {
       renderPrintPreview();
+      if (!state.posList || !state.posList.length) {
+        void loadPotonganReferenceData().then(() => renderPrintPreview());
+      }
       setTimeout(() => applyPrintZoom(state.printZoom || 'fit'), 40);
     }
     if (next === 'potongan') {

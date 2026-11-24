@@ -843,6 +843,34 @@ def get_asn_payroll_by_period(
             )
         )
 
+    opd = db.scalar(
+        select(RefOpd).where(
+            func.lower(func.trim(RefOpd.nmskpd)) == payroll.nmskpd.strip().lower()
+        )
+    )
+    if opd:
+        all_pos = db.scalars(
+            select(RefPosPotongan)
+            .where(
+                RefPosPotongan.opd_id == opd.id,
+                RefPosPotongan.is_active.is_(True),
+            )
+            .order_by(RefPosPotongan.id)
+        ).all()
+        present_pos_ids = {pos.id for _, pos in item_rows}
+        for pos in all_pos:
+            if pos.id not in present_pos_ids:
+                rincian.append(
+                    PotonganDetail(
+                        id=f"pos-{pos.id}",
+                        pos_nama=pos.nama_pos,
+                        nominal=ZERO,
+                        keterangan=None,
+                        cicilan_info=None,
+                        kategori=pos.kategori,
+                    )
+                )
+
     penghasilan_kotor = payroll.kotor or ZERO
     potongan_simgaji = payroll.potongan or ZERO
     potongan_internal = sum((detail.nominal for detail in rincian), ZERO)
