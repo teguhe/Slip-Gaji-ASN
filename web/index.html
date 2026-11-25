@@ -299,6 +299,10 @@
                 <svg class="icon"><use href="#icon-database"></use></svg>
                 <span class="side-nav-label">Manajemen Database</span>
               </button>
+              <button type="button" class="side-nav-item" data-view-link="api-guide" title="Panduan Akses API" aria-label="Panduan Akses API">
+                <svg class="icon"><use href="#icon-info"></use></svg>
+                <span class="side-nav-label">Panduan Akses API</span>
+              </button>
             </div>
           </nav>
 
@@ -1763,6 +1767,97 @@
               </div>
             </section>
           </section>
+
+          <!-- ================= PANDUAN AKSES API (SUPER ADMIN) ================= -->
+          <section class="view" id="view-api-guide" data-view="api-guide" hidden>
+            <header class="view-head">
+              <div>
+                <p class="eyebrow">Integrasi Sistem (Super Admin)</p>
+                <h1>Panduan Akses API Data Gaji ASN</h1>
+                <p class="subtle">Tutorial sederhana dan generator perintah untuk mengambil data gaji lengkap beserta potongan dan penghasilan diterima melalui API.</p>
+              </div>
+            </header>
+
+            <div class="db-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+              <!-- Penjelasan Sederhana -->
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>1. Cara Kerja (Bahasa Sederhana)</h2>
+                    <p class="panel-sub">Analogi pintu rumah dan kunci rahasia</p>
+                  </div>
+                </div>
+                <div style="padding: 14px; font-size: 12.5px; line-height: 1.6; color: #1e293b;">
+                  <p style="margin-top: 0;">Bayangkan aplikasi ini seperti <strong>rumah yang pintunya terkunci</strong>. Agar aplikasi lain atau terminal bisa masuk mengambil data gaji, ia butuh <strong>kunci rahasia</strong> bernama <code>X-API-Key</code>.</p>
+                  <ol style="padding-left: 18px; margin: 8px 0;">
+                    <li style="margin-bottom: 8px;">
+                      <strong>Pasang Kunci di Server (<code>.env</code>):</strong><br>
+                      Salin <code>.env.example</code> menjadi <code>.env</code> (jika belum ada), lalu tambahkan:<br>
+                      <code style="display: inline-block; margin-top: 4px; padding: 3px 8px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px;">INTERNAL_API_KEY=kunci-rahasia-123</code><br>
+                      Kemudian jalankan <code>docker compose up -d</code> agar server membaca kunci tersebut.
+                    </li>
+                    <li style="margin-bottom: 8px;">
+                      <strong>Pakai Kunci yang Sama di Terminal:</strong><br>
+                      Kirim permintaan ke alamat <code>GET /api/v1/payroll/{nip}?period={YYYY-MM}</code> dengan menyertakan header <code>X-API-Key</code> yang isinya sama persis dengan <code>INTERNAL_API_KEY</code>.
+                    </li>
+                    <li>
+                      <strong>Data Langsung Keluar:</strong><br>
+                      Jika kunci cocok, server akan langsung membalas dengan data lengkap (gaji pokok, tunjangan, potongan resmi SIMGAJI, potongan internal, dan gaji bersih yang diterima).
+                    </li>
+                  </ol>
+                </div>
+              </section>
+
+              <!-- Form Generator Perintah -->
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>2. Generator &amp; Uji Coba Perintah</h2>
+                    <p class="panel-sub">Ubah NIP, Periode, atau API Key untuk membuat perintah siap pakai</p>
+                  </div>
+                </div>
+                <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                  <label class="field">
+                    <span style="font-weight: 600;">NIP ASN</span>
+                    <input type="text" id="api-guide-nip" value="197511152010041003" placeholder="Contoh: 197511152010041003">
+                  </label>
+                  <label class="field">
+                    <span style="font-weight: 600;">Periode (YYYY-MM)</span>
+                    <input type="text" id="api-guide-period" value="2026-10" placeholder="Contoh: 2026-10">
+                  </label>
+                  <label class="field">
+                    <span style="font-weight: 600;">X-API-Key (sama dengan INTERNAL_API_KEY di .env)</span>
+                    <input type="text" id="api-guide-key" value="kunci-rahasia-123" placeholder="Masukkan kunci rahasia">
+                  </label>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                    <button type="button" class="default" id="btn-api-guide-copy">
+                      <svg class="icon"><use href="#icon-file"></use></svg> Salin Perintah Terminal
+                    </button>
+                    <button type="button" id="btn-api-guide-test">
+                      <svg class="icon"><use href="#icon-refresh"></use></svg> Uji Coba Sekarang
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- Output Perintah & Hasil -->
+            <section class="panel" style="margin-bottom: 24px;">
+              <div class="panel-head">
+                <div>
+                  <h2>3. Perintah Terminal (Copy-Paste)</h2>
+                  <p class="panel-sub">Jalankan perintah di bawah ini di terminal Linux/macOS/WSL</p>
+                </div>
+              </div>
+              <div style="padding: 14px;">
+                <pre id="api-guide-curl-preview" style="margin: 0; padding: 12px; background: #0f172a; color: #e2e8f0; border-radius: 4px; font-size: 12px; line-height: 1.5; overflow-x: auto; font-family: Consolas, monospace;"></pre>
+                <div id="api-guide-test-result-wrap" hidden style="margin-top: 14px;">
+                  <strong style="display: block; font-size: 12px; margin-bottom: 6px; color: #0f172a;">Hasil Uji Coba API:</strong>
+                  <pre id="api-guide-test-result" style="margin: 0; padding: 12px; background: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11.5px; line-height: 1.45; max-height: 340px; overflow: auto; font-family: Consolas, monospace;"></pre>
+                </div>
+              </div>
+            </section>
+          </section>
         </div>
       </div>
 
@@ -1809,6 +1904,7 @@
           <button type="button" data-view-link="master-opd"><svg class="icon"><use href="#icon-building"></use></svg> Master OPD</button>
           <button type="button" data-view-link="master-user"><svg class="icon"><use href="#icon-users"></use></svg> Master Pengguna</button>
           <button type="button" data-view-link="database"><svg class="icon"><use href="#icon-database"></use></svg> Manajemen Database</button>
+          <button type="button" data-view-link="api-guide"><svg class="icon"><use href="#icon-info"></use></svg> Panduan Akses API</button>
         </div>
         <div class="start-menu-sep"></div>
         <button type="button" id="start-profile-settings"><svg class="icon"><use href="#icon-users"></use></svg> Pengaturan Penandatangan</button>

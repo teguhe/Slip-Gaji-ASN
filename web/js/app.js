@@ -5986,6 +5986,83 @@
     };
   }
 
+  /* ============================== PANDUAN AKSES API ============================== */
+
+  function getApiGuideCommand() {
+    const nip = ($('#api-guide-nip')?.value || '197511152010041003').trim();
+    const period = ($('#api-guide-period')?.value || '2026-10').trim();
+    const key = ($('#api-guide-key')?.value || 'kunci-rahasia-123').trim();
+    const baseUrl = window.location.origin || 'http://localhost:8000';
+    return `curl -sS -X GET "${baseUrl}/api/v1/payroll/${nip}?period=${period}" \\\n  -H "X-API-Key: ${key}" \\\n  -H "Accept: application/json" | python3 -m json.tool`;
+  }
+
+  function updateApiGuidePreview() {
+    const previewEl = $('#api-guide-curl-preview');
+    if (previewEl) {
+      previewEl.textContent = getApiGuideCommand();
+    }
+  }
+
+  async function copyApiGuideCommand() {
+    const cmd = getApiGuideCommand();
+    try {
+      await navigator.clipboard.writeText(cmd);
+      toast('Berhasil Disalin', 'Perintah terminal telah disalin ke clipboard.', 'success');
+    } catch {
+      toast('Gagal Menyalin', 'Silakan blok dan salin perintah secara manual.', 'warning');
+    }
+  }
+
+  async function testApiGuideEndpoint() {
+    const nip = ($('#api-guide-nip')?.value || '').trim();
+    const period = ($('#api-guide-period')?.value || '').trim();
+    const key = ($('#api-guide-key')?.value || '').trim();
+    const wrapEl = $('#api-guide-test-result-wrap');
+    const resultEl = $('#api-guide-test-result');
+    const btn = $('#btn-api-guide-test');
+
+    if (!nip || !period || !key) {
+      toast('Data Belum Lengkap', 'Pastikan NIP, Periode, dan X-API-Key sudah diisi.', 'warning');
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    setStatus('Menguji endpoint API dengan X-API-Key…');
+    try {
+      const baseUrl = window.location.origin || 'http://localhost:8000';
+      const resp = await fetch(`${baseUrl}/api/v1/payroll/${encodeURIComponent(nip)}?period=${encodeURIComponent(period)}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': key,
+          Accept: 'application/json',
+        },
+      });
+      const text = await resp.text();
+      let formatted = text;
+      try {
+        formatted = JSON.stringify(JSON.parse(text), null, 2);
+      } catch {
+        // biarkan apa adanya jika bukan JSON
+      }
+      if (wrapEl) wrapEl.hidden = false;
+      if (resultEl) resultEl.textContent = `HTTP ${resp.status}\n\n${formatted}`;
+      if (resp.ok) {
+        toast('Uji Coba Berhasil', 'Data gaji berhasil diambil menggunakan X-API-Key.', 'success');
+        setStatus('Uji coba API berhasil.');
+      } else {
+        toast('Uji Coba Gagal', `Server mengembalikan HTTP ${resp.status}.`, 'warning');
+        setStatus(`Uji coba API mengembalikan HTTP ${resp.status}.`);
+      }
+    } catch (err) {
+      if (wrapEl) wrapEl.hidden = false;
+      if (resultEl) resultEl.textContent = `Error: ${err.message}`;
+      toast('Uji Coba Error', err.message, 'error');
+      setStatus('Uji coba API gagal.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   /* ============================== VIEW / WINDOW ============================== */
 
   const VIEW_TITLES = {
@@ -5999,6 +6076,7 @@
     'master-opd': 'Master OPD',
     'master-user': 'Master Pengguna',
     database: 'Manajemen Database',
+    'api-guide': 'Panduan Akses API',
   };
 
   function setView(view, silent = false) {
@@ -6077,6 +6155,13 @@
         return;
       }
       loadDatabaseStats();
+    } else if (next === 'api-guide') {
+      if (!(state.profile && state.profile.is_super_admin)) {
+        toast('Akses Dibatasi', 'Halaman Panduan Akses API hanya untuk Super Admin.', 'warning');
+        setView('dashboard');
+        return;
+      }
+      updateApiGuidePreview();
     }
     setStatus(`Halaman ${VIEW_TITLES[next]} siap.`);
     if (!silent) {
@@ -7513,6 +7598,16 @@
 
     const wipeSubmitBtn = $('#btn-db-wipe');
     if (wipeSubmitBtn) wipeSubmitBtn.addEventListener('click', submitDatabaseWipe);
+
+    // Panduan Akses API
+    ['#api-guide-nip', '#api-guide-period', '#api-guide-key'].forEach((sel) => {
+      const el = $(sel);
+      if (el) el.addEventListener('input', updateApiGuidePreview);
+    });
+    const copyApiGuideBtn = $('#btn-api-guide-copy');
+    if (copyApiGuideBtn) copyApiGuideBtn.addEventListener('click', copyApiGuideCommand);
+    const testApiGuideBtn = $('#btn-api-guide-test');
+    if (testApiGuideBtn) testApiGuideBtn.addEventListener('click', testApiGuideEndpoint);
 
     // Taskbar dan window controls
     const taskbarApp = $('#taskbar-app');
