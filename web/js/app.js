@@ -6167,6 +6167,7 @@
         return;
       }
       updateApiGuidePreview();
+      $('#btn-refresh-api-keys')?.click();
     }
     setStatus(`Halaman ${VIEW_TITLES[next]} siap.`);
     if (!silent) {
