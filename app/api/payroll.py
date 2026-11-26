@@ -1010,17 +1010,29 @@ def get_payroll_asn_annual(
 
     items = []
     for row in rows:
-        summary = compute_payroll_summary(db, row)
+        internal_pot = (
+            db.scalar(
+                select(func.coalesce(func.sum(PayrollPotonganItem.nominal), 0)).where(
+                    PayrollPotonganItem.payroll_id == row.id
+                )
+            )
+            or Decimal("0.00")
+        )
+        gaji_kotor = Decimal(str(row.kotor or 0)).quantize(Decimal("0.01"))
+        pot_simgaji = Decimal(str(row.potongan or 0)).quantize(Decimal("0.01"))
+        pot_internal = Decimal(str(internal_pot)).quantize(Decimal("0.01"))
+        total_pot = (pot_simgaji + pot_internal).quantize(Decimal("0.01"))
+        gaji_bersih = (gaji_kotor - total_pot).quantize(Decimal("0.01"))
         items.append(
             {
                 "periode": row.tglgaji.strftime("%Y-%m"),
                 "nip": row.nip,
                 "nama": row.nama,
                 "opd": row.nmskpd.strip() if row.nmskpd else "",
-                "gaji_pokok": str(row.gapok or Decimal("0.00")),
-                "gaji_kotor": str(summary.gaji_kotor),
-                "total_potongan": str(summary.total_potongan),
-                "gaji_bersih": str(summary.gaji_bersih),
+                "gaji_pokok": str(Decimal(str(row.gapok or 0)).quantize(Decimal("0.01"))),
+                "gaji_kotor": str(gaji_kotor),
+                "total_potongan": str(total_pot),
+                "gaji_bersih": str(gaji_bersih),
             }
         )
 
