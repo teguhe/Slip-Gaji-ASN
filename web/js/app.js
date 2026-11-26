@@ -5983,8 +5983,6 @@
   /* ============================== PANDUAN AKSES API ============================== */
 
   function getApiGuideCommand() {
-    const nip = ($('#api-guide-nip')?.value || '197511152010041003').trim();
-    const period = ($('#api-guide-period')?.value || '2026-10').trim();
     const mode = $('#api-guide-mode')?.value || 'monthly';
     const nip = ($('#api-guide-nip')?.value || '197511152010041003').trim();
     const periodVal = ($('#api-guide-period')?.value || (mode === 'annual' ? '2026' : '2026-10')).trim();
