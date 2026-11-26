@@ -12,6 +12,8 @@ from typing import Any
 import uuid
 
 import numpy as np
+import openpyxl
+from openpyxl.styles import Font
 import pandas as pd
 from fastapi import (
     APIRouter,
@@ -24,6 +26,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -1217,29 +1220,27 @@ def get_rekap_bulanan(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> RekapBulananResponse:
-    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
-        period_date = _validate_period(period)
-        return RekapBulananResponse(
-            period=period_str(period_date),
-            opd_id=0,
-            opd_nama="Semua OPD",
-            total_pos=0,
-            total_pegawai=0,
-            total_nominal=Decimal("0.00"),
-            items=[],
-        )
-    opd = _resolve_opd(db, current_user, opd_id)
+    is_all_opd = current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None
     period_date = _validate_period(period)
     next_month = add_months(period_date, 1)
 
-    pos_list = db.scalars(
-        select(RefPosPotongan)
-        .where(
-            RefPosPotongan.opd_id == opd.id,
-            RefPosPotongan.kategori == "bulanan",
-        )
-        .order_by(RefPosPotongan.nama_pos)
-    ).all()
+    if is_all_opd:
+        opd = None
+        pos_list = db.scalars(
+            select(RefPosPotongan)
+            .where(RefPosPotongan.kategori == "bulanan")
+            .order_by(RefPosPotongan.nama_pos)
+        ).all()
+    else:
+        opd = _resolve_opd(db, current_user, opd_id)
+        pos_list = db.scalars(
+            select(RefPosPotongan)
+            .where(
+                RefPosPotongan.opd_id == opd.id,
+                RefPosPotongan.kategori == "bulanan",
+            )
+            .order_by(RefPosPotongan.nama_pos)
+        ).all()
 
     items: list[PosBulananRekapItem] = []
     grand_total = Decimal("0.00")
@@ -1296,8 +1297,8 @@ def get_rekap_bulanan(
 
     return RekapBulananResponse(
         period=period_str(period_date),
-        opd_id=opd.id,
-        opd_nama=opd.nmskpd.strip(),
+        opd_id=opd.id if opd else 0,
+        opd_nama=opd.nmskpd.strip() if opd else "Semua OPD",
         total_pos=len(items),
         total_pegawai=total_pegawai,
         total_nominal=grand_total.quantize(CENT),
@@ -1313,10 +1314,18 @@ def get_rekap_bulanan_detail(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> PosBulananDetailResponse:
-    opd = _resolve_opd(db, current_user, opd_id)
     period_date = _validate_period(period)
     next_month = add_months(period_date, 1)
-    pos = _pos_or_404(db, pos_id, opd)
+    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
+        pos = db.get(RefPosPotongan, pos_id)
+        if not pos:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pos potongan tidak ditemukan.")
+        opd = db.get(RefOpd, pos.opd_id)
+        if not opd:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OPD tidak ditemukan.")
+    else:
+        opd = _resolve_opd(db, current_user, opd_id)
+        pos = _pos_or_404(db, pos_id, opd)
 
     stmt = (
         select(
@@ -1373,43 +1382,49 @@ def get_rekap_berjangka(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> RekapBerjangkaResponse:
-    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
-        period_date = _validate_period(period)
-        return RekapBerjangkaResponse(
-            period=period_str(period_date),
-            opd_id=0,
-            opd_nama="Semua OPD",
-            total_pos=0,
-            total_pegawai=0,
-            total_pinjaman=0,
-            total_nominal=Decimal("0.00"),
-            items=[],
-        )
-    opd = _resolve_opd(db, current_user, opd_id)
+    is_all_opd = current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None
     period_date = _validate_period(period)
 
-    pos_list = db.scalars(
-        select(RefPosPotongan)
-        .where(
-            RefPosPotongan.opd_id == opd.id,
-            RefPosPotongan.kategori == "berjangka",
-        )
-        .order_by(RefPosPotongan.nama_pos)
-    ).all()
+    if is_all_opd:
+        opd = None
+        pos_list = db.scalars(
+            select(RefPosPotongan)
+            .where(RefPosPotongan.kategori == "berjangka")
+            .order_by(RefPosPotongan.nama_pos)
+        ).all()
+        opd_nips = None
+    else:
+        opd = _resolve_opd(db, current_user, opd_id)
+        pos_list = db.scalars(
+            select(RefPosPotongan)
+            .where(
+                RefPosPotongan.opd_id == opd.id,
+                RefPosPotongan.kategori == "berjangka",
+            )
+            .order_by(RefPosPotongan.nama_pos)
+        ).all()
 
-    nip_rows = db.scalars(
-        select(PayrollMonthly.nip)
-        .where(_opd_clause(opd))
-        .distinct()
-    ).all()
-    opd_nips = {row for row in nip_rows if row}
+        nip_rows = db.scalars(
+            select(PayrollMonthly.nip)
+            .where(_opd_clause(opd))
+            .distinct()
+        ).all()
+        opd_nips = {row for row in nip_rows if row}
 
     items: list[PosBerjangkaRekapItem] = []
     grand_total = Decimal("0.00")
     total_pinjaman_all = 0
     pos_ids = [p.id for p in pos_list]
 
-    if pos_ids and opd_nips:
+    if pos_ids and (is_all_opd or opd_nips):
+        filters = [
+            PotonganBerjangka.pos_id.in_(pos_ids),
+            PotonganBerjangka.start_period <= period_date,
+            PotonganBerjangka.end_period >= period_date,
+        ]
+        if not is_all_opd and opd_nips is not None:
+            filters.append(PotonganBerjangka.nip.in_(opd_nips))
+
         agg_stmt = (
             select(
                 PotonganBerjangka.pos_id,
@@ -1417,12 +1432,7 @@ def get_rekap_berjangka(
                 func.count(PotonganBerjangka.id).label("cnt_pinjaman"),
                 func.coalesce(func.sum(PotonganBerjangka.nominal_per_bulan), 0).label("total"),
             )
-            .where(
-                PotonganBerjangka.nip.in_(opd_nips),
-                PotonganBerjangka.pos_id.in_(pos_ids),
-                PotonganBerjangka.start_period <= period_date,
-                PotonganBerjangka.end_period >= period_date,
-            )
+            .where(*filters)
             .group_by(PotonganBerjangka.pos_id)
         )
         agg_map = {
@@ -1432,12 +1442,7 @@ def get_rekap_berjangka(
 
         total_pegawai = (
             db.scalar(
-                select(func.count(func.distinct(PotonganBerjangka.nip))).where(
-                    PotonganBerjangka.nip.in_(opd_nips),
-                    PotonganBerjangka.pos_id.in_(pos_ids),
-                    PotonganBerjangka.start_period <= period_date,
-                    PotonganBerjangka.end_period >= period_date,
-                )
+                select(func.count(func.distinct(PotonganBerjangka.nip))).where(*filters)
             )
             or 0
         )
@@ -1464,8 +1469,8 @@ def get_rekap_berjangka(
 
     return RekapBerjangkaResponse(
         period=period_str(period_date),
-        opd_id=opd.id,
-        opd_nama=opd.nmskpd.strip(),
+        opd_id=opd.id if opd else 0,
+        opd_nama=opd.nmskpd.strip() if opd else "Semua OPD",
         total_pos=len(items),
         total_pegawai=total_pegawai,
         total_pinjaman=total_pinjaman_all,
@@ -1482,10 +1487,18 @@ def get_rekap_berjangka_detail(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ) -> PosBerjangkaDetailResponse:
-    opd = _resolve_opd(db, current_user, opd_id)
     period_date = _validate_period(period)
     next_month = add_months(period_date, 1)
-    pos = _pos_or_404(db, pos_id, opd)
+    if current_user.role == "super_admin" and opd_id is None and current_user.opd_id is None:
+        pos = db.get(RefPosPotongan, pos_id)
+        if not pos:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pos potongan tidak ditemukan.")
+        opd = db.get(RefOpd, pos.opd_id)
+        if not opd:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OPD tidak ditemukan.")
+    else:
+        opd = _resolve_opd(db, current_user, opd_id)
+        pos = _pos_or_404(db, pos_id, opd)
 
     nip_rows = db.scalars(
         select(PayrollMonthly.nip)
@@ -1578,3 +1591,288 @@ def get_rekap_berjangka_detail(
         total_nominal=grand_total.quantize(CENT),
         items=detail_items,
     )
+
+
+def _sanitize_sheet_title(name: str, existing: set[str]) -> str:
+    """Sanitize pos name to a valid, unique Excel sheet title (<= 31 chars)."""
+    cleaned = re.sub(r'[\\/*?:\[\]]', " ", name or "Pos").strip() or "Pos"
+    base = cleaned[:31]
+    candidate = base
+    idx = 2
+    while candidate.lower() in existing:
+        suffix = f" ({idx})"
+        candidate = f"{base[: 31 - len(suffix)]}{suffix}"
+        idx += 1
+    existing.add(candidate.lower())
+    return candidate
+
+
+@router.get("/export-template")
+def export_potongan_template(
+    period: str = Query(..., description="Periode YYYY-MM"),
+    opd_id: int | None = Query(None, description="Khusus super admin"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> StreamingResponse:
+    opd = _resolve_opd(db, current_user, opd_id)
+    period_date = _validate_period(period)
+    next_month = add_months(period_date, 1)
+
+    pos_list = db.scalars(
+        select(RefPosPotongan)
+        .where(
+            RefPosPotongan.opd_id == opd.id,
+            RefPosPotongan.kategori == "bulanan",
+            RefPosPotongan.is_active.is_(True),
+        )
+        .order_by(RefPosPotongan.nama_pos)
+    ).all()
+    if not pos_list:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Tidak ada pos potongan bulanan aktif untuk OPD ini.",
+        )
+
+    payroll_rows = db.execute(
+        select(PayrollMonthly.nip, PayrollMonthly.nama)
+        .where(
+            PayrollMonthly.tglgaji >= period_date,
+            PayrollMonthly.tglgaji < next_month,
+            _opd_clause(opd),
+        )
+        .distinct()
+        .order_by(PayrollMonthly.nama)
+    ).all()
+
+    wb = openpyxl.Workbook()
+    default_ws = wb.active
+    used_titles: set[str] = set()
+    header_font = Font(bold=True)
+
+    for pos in pos_list:
+        title = _sanitize_sheet_title(pos.nama_pos, used_titles)
+        ws = wb.create_sheet(title=title)
+        ws.append(["nama", "nip", "nominal"])
+        for cell in ws[1]:
+            cell.font = header_font
+        for row in payroll_rows:
+            ws.append([row.nama or "", row.nip or "", None])
+        ws.column_dimensions["A"].width = 34
+        ws.column_dimensions["B"].width = 22
+        ws.column_dimensions["C"].width = 18
+
+    if default_ws is not None and len(wb.sheetnames) > 1:
+        wb.remove(default_ws)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"template_potongan_{period_str(period_date)}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import-excel-multi")
+def import_potongan_excel_multi(
+    request: Request,
+    file: UploadFile = File(..., description="File Excel multi-sheet (nama sheet = nama pos potongan)"),
+    period: str = Form(..., description="Periode YYYY-MM"),
+    opd_id: int | None = Form(None, description="Khusus super admin"),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+) -> dict[str, Any]:
+    opd = _resolve_opd(db, current_user, opd_id)
+    period_date = _validate_period(period)
+    next_month = add_months(period_date, 1)
+
+    filename = Path((file.filename or "potongan.xlsx").replace("\\", "/")).name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".xls", ".xlsx"}:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Format file harus .xls atau .xlsx.",
+        )
+
+    settings = get_settings()
+    content = file.file.read(settings.max_upload_bytes + 1)
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File upload kosong.",
+        )
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Ukuran file melebihi batas upload.",
+        )
+
+    engine = "xlrd" if suffix == ".xls" else "openpyxl"
+    try:
+        excel_file = pd.ExcelFile(io.BytesIO(content), engine=engine)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File Excel tidak dapat dibaca. Pastikan file tidak rusak.",
+        ) from exc
+
+    pos_list = db.scalars(
+        select(RefPosPotongan).where(
+            RefPosPotongan.opd_id == opd.id,
+            RefPosPotongan.kategori == "bulanan",
+            RefPosPotongan.is_active.is_(True),
+        )
+    ).all()
+
+    pos_by_name: dict[str, RefPosPotongan] = {}
+    used_titles: set[str] = set()
+    for pos in pos_list:
+        pos_by_name[pos.nama_pos.strip().lower()] = pos
+        sanitized = _sanitize_sheet_title(pos.nama_pos, used_titles)
+        pos_by_name[sanitized.lower()] = pos
+
+    payroll_rows = db.scalars(
+        select(PayrollMonthly).where(
+            PayrollMonthly.tglgaji >= period_date,
+            PayrollMonthly.tglgaji < next_month,
+            _opd_clause(opd),
+        )
+    ).all()
+    payroll_by_nip = {payroll.nip: payroll for payroll in payroll_rows}
+
+    imported_sheets: list[dict[str, Any]] = []
+    skipped_sheets: list[str] = []
+    all_errors: list[dict[str, Any]] = []
+    total_inserted = 0
+    total_updated = 0
+
+    for sheet_name in excel_file.sheet_names:
+        pos = pos_by_name.get(sheet_name.strip().lower())
+        if pos is None:
+            skipped_sheets.append(sheet_name)
+            continue
+
+        frame = pd.read_excel(excel_file, sheet_name=sheet_name, dtype=object)
+        frame.columns = [
+            str(column).replace("\ufeff", "").strip().lower()
+            for column in frame.columns
+        ]
+        missing = [column for column in ("nip", "nominal") if column not in frame.columns]
+        if missing:
+            all_errors.append({
+                "sheet": sheet_name,
+                "row": 1,
+                "column": ", ".join(missing),
+                "message": f"Sheet '{sheet_name}': kolom wajib tidak ditemukan: {', '.join(missing)}",
+            })
+            continue
+
+        frame.insert(0, "__row__", frame.index + 2)
+        frame = frame.dropna(how="all", subset=["nip", "nominal"]).reset_index(drop=True)
+        if frame.empty:
+            imported_sheets.append({"sheet": sheet_name, "pos_id": pos.id, "inserted": 0, "updated": 0})
+            continue
+
+        sheet_rows: list[dict[str, Any]] = []
+        seen: dict[str, int] = {}
+        sheet_has_error = False
+
+        for _, source in frame.iterrows():
+            row_number = int(source["__row__"])
+            row_errors: list[dict[str, Any]] = []
+            nip = _nip_from_cell(source["nip"], row=row_number, errors=row_errors)
+            nominal = _money_from_cell(source["nominal"], row=row_number, errors=row_errors)
+            if row_errors:
+                for err in row_errors:
+                    err["sheet"] = sheet_name
+                all_errors.extend(row_errors)
+                sheet_has_error = True
+                continue
+            if nip is None or nominal is None:
+                continue
+            if nip in seen:
+                all_errors.append({
+                    "sheet": sheet_name,
+                    "row": row_number,
+                    "column": "nip",
+                    "message": f"Sheet '{sheet_name}': NIP duplikat dengan baris {seen[nip]}.",
+                })
+                sheet_has_error = True
+                continue
+            if nip not in payroll_by_nip:
+                all_errors.append({
+                    "sheet": sheet_name,
+                    "row": row_number,
+                    "column": "nip",
+                    "message": f"Sheet '{sheet_name}': NIP {nip} tidak terdaftar pada payroll OPD periode {period_str(period_date)}.",
+                })
+                sheet_has_error = True
+                continue
+            seen[nip] = row_number
+            sheet_rows.append({"nip": nip, "nominal": nominal})
+
+        if sheet_has_error:
+            continue
+
+        s_inserted = 0
+        s_updated = 0
+        for row in sheet_rows:
+            payroll = payroll_by_nip[row["nip"]]
+            existing = db.scalar(
+                select(PayrollPotonganItem).where(
+                    PayrollPotonganItem.nip == row["nip"],
+                    PayrollPotonganItem.period == period_date,
+                    PayrollPotonganItem.pos_id == pos.id,
+                    PayrollPotonganItem.berjangka_id.is_(None),
+                )
+            )
+            if existing is not None:
+                existing.payroll_id = payroll.id
+                existing.nominal = row["nominal"]
+                existing.created_by = current_user.email
+                s_updated += 1
+            else:
+                db.add(
+                    PayrollPotonganItem(
+                        payroll_id=payroll.id,
+                        nip=row["nip"],
+                        period=period_date,
+                        pos_id=pos.id,
+                        berjangka_id=None,
+                        cicilan_ke=None,
+                        nominal=row["nominal"],
+                        created_by=current_user.email,
+                    )
+                )
+                s_inserted += 1
+
+        total_inserted += s_inserted
+        total_updated += s_updated
+        imported_sheets.append({
+            "sheet": sheet_name,
+            "pos_id": pos.id,
+            "inserted": s_inserted,
+            "updated": s_updated,
+        })
+
+    if all_errors and not imported_sheets:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": f"Import gagal: {len(all_errors)} kesalahan validasi.",
+                "errors": all_errors[:MAX_ERRORS],
+            },
+        )
+
+    db.commit()
+    return {
+        "status": "ok",
+        "period": period_str(period_date),
+        "imported_sheets": imported_sheets,
+        "skipped_sheets": skipped_sheets,
+        "total_inserted": total_inserted,
+        "total_updated": total_updated,
+        "errors": all_errors[:MAX_ERRORS],
+    }

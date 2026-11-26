@@ -972,3 +972,62 @@ def get_asn_payroll_by_period(
         ip_address=ip_address,
     )
     return response
+
+
+@router.get("/asn/{nip}/annual")
+def get_payroll_asn_annual(
+    nip: str,
+    year: int = Query(..., ge=2000, le=2100, description="Tahun anggaran (YYYY)"),
+    db: Session = Depends(get_db),
+    auth_ctx: AuthContext = Depends(get_auth_context),
+) -> dict[str, Any]:
+    """Akses data gaji ASN per tahun (12 bulan) untuk integrasi API eksternal."""
+    normalized_nip = nip.strip()
+    stmt = (
+        select(PayrollMonthly)
+        .where(
+            PayrollMonthly.nip == normalized_nip,
+            func.extract("year", PayrollMonthly.tglgaji) == year,
+        )
+        .order_by(PayrollMonthly.tglgaji.asc())
+    )
+    if auth_ctx.kind == "user" and auth_ctx.user and auth_ctx.user.role != "super_admin":
+        if not auth_ctx.user.opd_nama:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Akun belum terhubung ke OPD.",
+            )
+        stmt = stmt.where(
+            func.lower(func.trim(PayrollMonthly.nmskpd)) == auth_ctx.user.opd_nama.strip().lower()
+        )
+
+    rows = db.scalars(stmt).all()
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Data gaji ASN {normalized_nip} untuk tahun {year} tidak ditemukan.",
+        )
+
+    items = []
+    for row in rows:
+        summary = compute_payroll_summary(db, row)
+        items.append(
+            {
+                "periode": row.tglgaji.strftime("%Y-%m"),
+                "nip": row.nip,
+                "nama": row.nama,
+                "opd": row.nmskpd.strip() if row.nmskpd else "",
+                "gaji_pokok": str(row.gapok or Decimal("0.00")),
+                "gaji_kotor": str(summary.gaji_kotor),
+                "total_potongan": str(summary.total_potongan),
+                "gaji_bersih": str(summary.gaji_bersih),
+            }
+        )
+
+    return {
+        "nip": normalized_nip,
+        "nama": rows[0].nama,
+        "year": year,
+        "total_bulan": len(items),
+        "items": items,
+    }

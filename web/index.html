@@ -1009,6 +1009,15 @@
                       <p class="panel-sub">Daftar akumulasi potongan bulanan OPD per pos potongan periode <span id="rekap-bulanan-period-label">Oktober 2026</span></p>
                     </div>
                     <div class="panel-tools">
+                      <button type="button" id="btn-export-template-potongan" title="Unduh Template Excel Multi-Sheet">
+                        <svg class="icon"><use href="#icon-download"></use></svg>
+                        Export Template
+                      </button>
+                      <button type="button" class="default" id="btn-import-multi-potongan" title="Import Excel Multi-Sheet">
+                        <svg class="icon"><use href="#icon-upload"></use></svg>
+                        Import Excel
+                      </button>
+                      <input type="file" id="input-import-multi-potongan" accept=".xls,.xlsx" hidden>
                       <button type="button" id="btn-refresh-rekap-bulanan" title="Segarkan Rekap Bulanan">
                         <svg class="icon"><use href="#icon-refresh"></use></svg>
                         Segarkan
@@ -1819,16 +1828,23 @@
                 </div>
                 <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px;">
                   <label class="field">
+                    <span style="font-weight: 600;">Jenis Endpoint</span>
+                    <select id="api-guide-mode">
+                      <option value="monthly">Data Gaji Per ASN Per Bulan (/api/v1/payroll/{nip}?period=YYYY-MM)</option>
+                      <option value="annual">Data Gaji Per ASN Per Tahun (/api/v1/payroll/asn/{nip}/annual?year=YYYY)</option>
+                    </select>
+                  </label>
+                  <label class="field">
                     <span style="font-weight: 600;">NIP ASN</span>
                     <input type="text" id="api-guide-nip" value="197511152010041003" placeholder="Contoh: 197511152010041003">
                   </label>
-                  <label class="field">
-                    <span style="font-weight: 600;">Periode (YYYY-MM)</span>
-                    <input type="text" id="api-guide-period" value="2026-10" placeholder="Contoh: 2026-10">
+                  <label class="field" id="api-guide-period-wrap">
+                    <span style="font-weight: 600;" id="api-guide-period-label">Periode (YYYY-MM)</span>
+                    <input type="text" id="api-guide-period" value="2026-10" placeholder="Contoh: 2026-10 atau 2026">
                   </label>
                   <label class="field">
-                    <span style="font-weight: 600;">X-API-Key (sama dengan INTERNAL_API_KEY di .env)</span>
-                    <input type="text" id="api-guide-key" value="kunci-rahasia-123" placeholder="Masukkan kunci rahasia">
+                    <span style="font-weight: 600;">X-API-Key</span>
+                    <input type="text" id="api-guide-key" value="kunci-rahasia-123" placeholder="Masukkan API Key aplikasi">
                   </label>
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
                     <button type="button" class="default" id="btn-api-guide-copy">
@@ -1855,6 +1871,56 @@
                 <div id="api-guide-test-result-wrap" hidden style="margin-top: 14px;">
                   <strong style="display: block; font-size: 12px; margin-bottom: 6px; color: #0f172a;">Hasil Uji Coba API:</strong>
                   <pre id="api-guide-test-result" style="margin: 0; padding: 12px; background: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11.5px; line-height: 1.45; max-height: 340px; overflow: auto; font-family: Consolas, monospace;"></pre>
+                </div>
+              </div>
+            </section>
+
+            <!-- Manajemen API Key -->
+            <section class="panel" style="margin-bottom: 24px;">
+              <div class="panel-head">
+                <div>
+                  <h2>4. Manajemen API Key Aplikasi</h2>
+                  <p class="panel-sub">Buat API Key berbeda untuk setiap aplikasi yang terhubung beserta batas masa berlakunya (expired)</p>
+                </div>
+                <div class="panel-tools">
+                  <button type="button" id="btn-refresh-api-keys" title="Segarkan Daftar API Key">
+                    <svg class="icon"><use href="#icon-refresh"></use></svg> Segarkan
+                  </button>
+                </div>
+              </div>
+              <div style="padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+                  <label class="field" style="flex: 1; min-width: 200px;">
+                    <span style="font-weight: 600;">Nama Aplikasi</span>
+                    <input type="text" id="api-key-app-name" placeholder="Contoh: SIMPEG / E-Kinerja">
+                  </label>
+                  <label class="field" style="min-width: 200px;">
+                    <span style="font-weight: 600;">Expired Pada (Opsional)</span>
+                    <input type="datetime-local" id="api-key-expires-at">
+                  </label>
+                  <button type="button" class="default" id="btn-create-api-key">Buat API Key</button>
+                </div>
+                <div id="api-key-created-banner" hidden style="padding: 12px; background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 6px;">
+                  <strong style="display: block; color: #065f46; margin-bottom: 4px;">API Key Baru Berhasil Dibuat (Salin sekarang, hanya ditampilkan sekali):</strong>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <code id="api-key-created-value" style="font-size: 13px; background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #a7f3d0; flex: 1;"></code>
+                    <button type="button" id="btn-copy-created-api-key">Salin</button>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table class="listview" id="table-api-keys">
+                    <thead>
+                      <tr>
+                        <th>Nama Aplikasi</th>
+                        <th>Prefix Key</th>
+                        <th>Status</th>
+                        <th>Expired</th>
+                        <th>Terakhir Dipakai</th>
+                        <th style="text-align: center;">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="api-keys-table-body"></tbody>
+                  </table>
                 </div>
               </div>
             </section>

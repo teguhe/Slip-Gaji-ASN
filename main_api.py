@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.api.api_keys import router as api_keys_router
 from app.api.auth import router as auth_router
 from app.api.database import router as database_router
 from app.api.dashboard import router as dashboard_router
@@ -38,6 +39,7 @@ app.include_router(payroll_router)
 app.include_router(dashboard_router)
 app.include_router(potongan_router)
 app.include_router(auth_router)
+app.include_router(api_keys_router)
 app.include_router(master_router)
 app.include_router(monitoring_router)
 app.include_router(database_router)

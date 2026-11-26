@@ -1110,9 +1110,6 @@
               <button type="button" class="pos-rekap-btn primary" data-open-pos-detail="${escapeHtml(pos.id)}" data-pos-nama="${escapeHtml(pos.nama_pos)}" title="Lihat rincian pegawai terpotong">
                 Rincian
               </button>
-              <button type="button" class="pos-rekap-btn" data-import-pos="${escapeHtml(pos.id)}" title="Import Excel khusus pos ini">
-                Import
-              </button>
             </div>
           </td>
         </tr>
@@ -1144,9 +1141,6 @@
           <div class="pos-rekap-actions">
             <button type="button" class="pos-rekap-btn primary" data-open-pos-detail="${escapeHtml(item.pos_id)}" data-pos-nama="${escapeHtml(item.nama_pos)}" title="Lihat rincian pegawai terpotong">
               Rincian (${item.jumlah_pegawai})
-            </button>
-            <button type="button" class="pos-rekap-btn" data-import-pos="${escapeHtml(item.pos_id)}" title="Import Excel khusus pos ini">
-              Import
             </button>
           </div>
         </td>
@@ -5991,9 +5985,16 @@
   function getApiGuideCommand() {
     const nip = ($('#api-guide-nip')?.value || '197511152010041003').trim();
     const period = ($('#api-guide-period')?.value || '2026-10').trim();
+    const mode = $('#api-guide-mode')?.value || 'monthly';
+    const nip = ($('#api-guide-nip')?.value || '197511152010041003').trim();
+    const periodVal = ($('#api-guide-period')?.value || (mode === 'annual' ? '2026' : '2026-10')).trim();
     const key = ($('#api-guide-key')?.value || 'kunci-rahasia-123').trim();
     const baseUrl = window.location.origin || 'http://localhost:8000';
-    return `curl -sS -X GET "${baseUrl}/api/v1/payroll/${nip}?period=${period}" \\\n  -H "X-API-Key: ${key}" \\\n  -H "Accept: application/json" | python3 -m json.tool`;
+    if (mode === 'annual') {
+      const year = periodVal.slice(0, 4) || '2026';
+      return `curl -sS -X GET "${baseUrl}/api/v1/payroll/asn/${nip}/annual?year=${year}" \\\n  -H "X-API-Key: ${key}" \\\n  -H "Accept: application/json" | python3 -m json.tool`;
+    }
+    return `curl -sS -X GET "${baseUrl}/api/v1/payroll/${nip}?period=${periodVal}" \\\n  -H "X-API-Key: ${key}" \\\n  -H "Accept: application/json" | python3 -m json.tool`;
   }
 
   function updateApiGuidePreview() {
@@ -6029,8 +6030,12 @@
     if (btn) btn.disabled = true;
     setStatus('Menguji endpoint API dengan X-API-Key…');
     try {
+      const mode = $('#api-guide-mode')?.value || 'monthly';
       const baseUrl = window.location.origin || 'http://localhost:8000';
-      const resp = await fetch(`${baseUrl}/api/v1/payroll/${encodeURIComponent(nip)}?period=${encodeURIComponent(period)}`, {
+      const url = mode === 'annual'
+        ? `${baseUrl}/api/v1/payroll/asn/${encodeURIComponent(nip)}/annual?year=${encodeURIComponent(period.slice(0, 4))}`
+        : `${baseUrl}/api/v1/payroll/${encodeURIComponent(nip)}?period=${encodeURIComponent(period)}`;
+      const resp = await fetch(url, {
         method: 'GET',
         headers: {
           'X-API-Key': key,
@@ -6764,6 +6769,69 @@
         await loadPotonganReferenceData();
         btnRefreshRekapBulanan.disabled = false;
         toast('Rekap Disegarkan', 'Data rekap potongan bulanan berhasil diperbarui.', 'info');
+      });
+    }
+
+    const btnExportTemplatePotongan = $('#btn-export-template-potongan');
+    if (btnExportTemplatePotongan) {
+      btnExportTemplatePotongan.addEventListener('click', async () => {
+        btnExportTemplatePotongan.disabled = true;
+        try {
+          const headers = {};
+          const token = await getIdToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+          const res = await fetch(`/api/v1/potongan/export-template?period=${encodeURIComponent(state.period)}`, { headers });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Gagal mengunduh template.');
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `template_potongan_${state.period}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          toast('Template Diunduh', `Template potongan periode ${state.period} berhasil diunduh.`, 'success');
+        } catch (err) {
+          toast('Gagal Export Template', err.message || 'Terjadi kesalahan.', 'error');
+        } finally {
+          btnExportTemplatePotongan.disabled = false;
+        }
+      });
+    }
+
+    const btnImportMultiPotongan = $('#btn-import-multi-potongan');
+    const inputImportMultiPotongan = $('#input-import-multi-potongan');
+    if (btnImportMultiPotongan && inputImportMultiPotongan) {
+      btnImportMultiPotongan.addEventListener('click', () => {
+        inputImportMultiPotongan.value = '';
+        inputImportMultiPotongan.click();
+      });
+      inputImportMultiPotongan.addEventListener('change', async () => {
+        const file = inputImportMultiPotongan.files?.[0];
+        if (!file) return;
+        btnImportMultiPotongan.disabled = true;
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('period', state.period);
+          const res = await apiRequest('/api/v1/potongan/import-excel-multi', {
+            method: 'POST',
+            body: formData,
+          });
+          const sheetsCount = (res.imported_sheets || []).length;
+          const totalRows = (res.total_inserted || 0) + (res.total_updated || 0);
+          toast('Import Berhasil', `${sheetsCount} sheet pos potongan diproses (${totalRows} data ASN).`, 'success');
+          await loadPotonganReferenceData();
+        } catch (err) {
+          toast('Import Gagal', err.message || 'Periksa format file Excel.', 'error');
+        } finally {
+          btnImportMultiPotongan.disabled = false;
+          inputImportMultiPotongan.value = '';
+        }
       });
     }
 
@@ -7604,10 +7672,151 @@
       const el = $(sel);
       if (el) el.addEventListener('input', updateApiGuidePreview);
     });
+    const apiGuideModeEl = $('#api-guide-mode');
+    if (apiGuideModeEl) {
+      apiGuideModeEl.addEventListener('change', () => {
+        const label = $('#api-guide-period-label');
+        const input = $('#api-guide-period');
+        if (apiGuideModeEl.value === 'annual') {
+          if (label) label.textContent = 'Tahun (YYYY)';
+          if (input && input.value.includes('-')) input.value = input.value.slice(0, 4);
+        } else {
+          if (label) label.textContent = 'Periode (YYYY-MM)';
+          if (input && input.value.length === 4) input.value = `${input.value}-10`;
+        }
+        updateApiGuidePreview();
+      });
+    }
     const copyApiGuideBtn = $('#btn-api-guide-copy');
     if (copyApiGuideBtn) copyApiGuideBtn.addEventListener('click', copyApiGuideCommand);
     const testApiGuideBtn = $('#btn-api-guide-test');
     if (testApiGuideBtn) testApiGuideBtn.addEventListener('click', testApiGuideEndpoint);
+
+    // Manajemen API Key
+    async function loadApiKeys() {
+      const tbody = $('#api-keys-table-body');
+      if (!tbody) return;
+      try {
+        const items = await apiRequest('/api/v1/api-keys');
+        if (!Array.isArray(items) || items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b;">Belum ada API Key aplikasi.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map((item) => {
+          const isExpired = item.expires_at && new Date(item.expires_at) < new Date();
+          const statusBadge = !item.is_active
+            ? '<span class="status-pill error">Nonaktif</span>'
+            : (isExpired ? '<span class="status-pill warning">Expired</span>' : '<span class="status-pill">Aktif</span>');
+          const expText = item.expires_at ? new Date(item.expires_at).toLocaleString('id-ID') : 'Tidak ada';
+          const usedText = item.last_used_at ? new Date(item.last_used_at).toLocaleString('id-ID') : 'Belum pernah';
+          return `
+            <tr>
+              <td><strong>${escapeHtml(item.app_name)}</strong></td>
+              <td class="mono">${escapeHtml(item.key_prefix)}</td>
+              <td>${statusBadge}</td>
+              <td>${escapeHtml(expText)}</td>
+              <td>${escapeHtml(usedText)}</td>
+              <td style="text-align:center;">
+                <button type="button" class="pos-rekap-btn" data-toggle-apikey="${item.id}" data-active="${item.is_active ? '1' : '0'}">${item.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                <button type="button" class="pos-rekap-btn" data-edit-exp-apikey="${item.id}">Atur Expired</button>
+                <button type="button" class="pos-rekap-btn" data-del-apikey="${item.id}" style="color:#b91c1c;">Hapus</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#b91c1c;">${escapeHtml(err.message || 'Gagal memuat API Key.')}</td></tr>`;
+      }
+    }
+
+    const btnRefreshApiKeys = $('#btn-refresh-api-keys');
+    if (btnRefreshApiKeys) btnRefreshApiKeys.addEventListener('click', loadApiKeys);
+
+    const btnCreateApiKey = $('#btn-create-api-key');
+    if (btnCreateApiKey) {
+      btnCreateApiKey.addEventListener('click', async () => {
+        const appName = ($('#api-key-app-name')?.value || '').trim();
+        const expRaw = ($('#api-key-expires-at')?.value || '').trim();
+        if (!appName) {
+          toast('Nama Aplikasi Wajib', 'Masukkan nama aplikasi yang akan menggunakan API Key.', 'warning');
+          return;
+        }
+        btnCreateApiKey.disabled = true;
+        try {
+          const payload = { app_name: appName };
+          if (expRaw) payload.expires_at = new Date(expRaw).toISOString();
+          const res = await apiRequest('/api/v1/api-keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const banner = $('#api-key-created-banner');
+          const valEl = $('#api-key-created-value');
+          if (banner && valEl && res.api_key) {
+            valEl.textContent = res.api_key;
+            banner.hidden = false;
+          }
+          if ($('#api-key-app-name')) $('#api-key-app-name').value = '';
+          if ($('#api-key-expires-at')) $('#api-key-expires-at').value = '';
+          toast('API Key Dibuat', `API Key untuk ${appName} berhasil dibuat.`, 'success');
+          await loadApiKeys();
+        } catch (err) {
+          toast('Gagal Membuat API Key', err.message || 'Terjadi kesalahan.', 'error');
+        } finally {
+          btnCreateApiKey.disabled = false;
+        }
+      });
+    }
+
+    const btnCopyCreatedKey = $('#btn-copy-created-api-key');
+    if (btnCopyCreatedKey) {
+      btnCopyCreatedKey.addEventListener('click', async () => {
+        const val = ($('#api-key-created-value')?.textContent || '').trim();
+        if (!val) return;
+        await navigator.clipboard.writeText(val).catch(() => {});
+        toast('Disalin', 'API Key disalin ke clipboard.', 'success');
+      });
+    }
+
+    const tableApiKeys = $('#table-api-keys');
+    if (tableApiKeys) {
+      tableApiKeys.addEventListener('click', async (e) => {
+        const toggleBtn = e.target.closest('[data-toggle-apikey]');
+        if (toggleBtn) {
+          const id = toggleBtn.dataset.toggleApikey;
+          const isActive = toggleBtn.dataset.active === '1';
+          await apiRequest(`/api/v1/api-keys/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: !isActive }),
+          });
+          await loadApiKeys();
+          return;
+        }
+        const expBtn = e.target.closest('[data-edit-exp-apikey]');
+        if (expBtn) {
+          const id = expBtn.dataset.editExpApikey;
+          const val = window.prompt('Masukkan tanggal expired (YYYY-MM-DD HH:MM) atau kosongkan untuk tanpa expired:');
+          if (val === null) return;
+          const trimmed = val.trim();
+          const body = trimmed ? { expires_at: new Date(trimmed.replace(' ', 'T')).toISOString() } : { clear_expiration: true };
+          await apiRequest(`/api/v1/api-keys/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          await loadApiKeys();
+          return;
+        }
+        const delBtn = e.target.closest('[data-del-apikey]');
+        if (delBtn) {
+          const id = delBtn.dataset.delApikey;
+          if (!window.confirm('Hapus API Key ini secara permanen?')) return;
+          await apiRequest(`/api/v1/api-keys/${id}`, { method: 'DELETE' });
+          await loadApiKeys();
+        }
+      });
+    }
 
     // Taskbar dan window controls
     const taskbarApp = $('#taskbar-app');

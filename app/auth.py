@@ -8,7 +8,9 @@ Aturan:
 
 from __future__ import annotations
 
+import hashlib
 import hmac
+from datetime import datetime, timezone
 import logging
 import os
 import threading
@@ -276,10 +278,22 @@ def get_auth_context(
     settings = get_settings()
 
     if api_key:
+        raw_key = api_key.strip()
         if settings.internal_api_key and hmac.compare_digest(
-            api_key.strip().encode("utf-8"),
+            raw_key.encode("utf-8"),
             settings.internal_api_key.encode("utf-8"),
         ):
+            return AuthContext(kind="service", auth_method="api_key")
+        from app.models import ApiKey
+        key_hash = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+        db_key = db.scalar(
+            select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active.is_(True))
+        )
+        if db_key is not None:
+            if db_key.expires_at is not None and db_key.expires_at < datetime.now(timezone.utc):
+                raise _unauthorized("API Key sudah kedaluwarsa.")
+            db_key.last_used_at = datetime.now(timezone.utc)
+            db.commit()
             return AuthContext(kind="service", auth_method="api_key")
         raise _unauthorized("Header X-API-Key tidak valid.")
 
