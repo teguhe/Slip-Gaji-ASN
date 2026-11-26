@@ -3585,6 +3585,8 @@
         history.replaceState(null, '', '/');
       }
     } catch (_) {}
+
+    setView('dashboard', true);
   }
 
   function logout() {
