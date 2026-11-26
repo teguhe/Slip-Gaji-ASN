@@ -1010,29 +1010,60 @@ def get_payroll_asn_annual(
 
     items = []
     for row in rows:
-        internal_pot = (
-            db.scalar(
-                select(func.coalesce(func.sum(PayrollPotonganItem.nominal), 0)).where(
-                    PayrollPotonganItem.payroll_id == row.id
-                )
-            )
-            or Decimal("0.00")
-        )
-        gaji_kotor = Decimal(str(row.kotor or 0)).quantize(Decimal("0.01"))
-        pot_simgaji = Decimal(str(row.potongan or 0)).quantize(Decimal("0.01"))
-        pot_internal = Decimal(str(internal_pot)).quantize(Decimal("0.01"))
-        total_pot = (pot_simgaji + pot_internal).quantize(Decimal("0.01"))
-        gaji_bersih = (gaji_kotor - total_pot).quantize(Decimal("0.01"))
+        item_rows = db.execute(
+            select(PayrollPotonganItem, RefPosPotongan)
+            .join(RefPosPotongan, RefPosPotongan.id == PayrollPotonganItem.pos_id)
+            .where(PayrollPotonganItem.payroll_id == row.id)
+            .order_by(RefPosPotongan.id)
+        ).all()
+
+        rincian_internal = [
+            {
+                "id": str(item.id),
+                "pos_id": pos.id,
+                "pos_nama": pos.nama_pos,
+                "nominal": str(Decimal(str(item.nominal or 0)).quantize(Decimal("0.01"))),
+                "keterangan": item.keterangan,
+            }
+            for item, pos in item_rows
+        ]
+        penghasilan_kotor = sum(
+            (Decimal(str(getattr(row, col) or 0)) for col in INCOME_COLUMNS),
+            Decimal("0.00"),
+        ).quantize(Decimal("0.01"))
+        potongan_simgaji = sum(
+            (Decimal(str(getattr(row, col) or 0)) for col in DEDUCTION_COLUMNS),
+            Decimal("0.00"),
+        ).quantize(Decimal("0.01"))
+        potongan_internal = sum(
+            (Decimal(str(item.nominal or 0)) for item, _ in item_rows),
+            Decimal("0.00"),
+        ).quantize(Decimal("0.01"))
+        total_potongan = (potongan_simgaji + potongan_internal).quantize(Decimal("0.01"))
+        take_home_pay = (penghasilan_kotor - total_potongan).quantize(Decimal("0.01"))
+
         items.append(
             {
-                "periode": row.tglgaji.strftime("%Y-%m"),
                 "nip": row.nip,
                 "nama": row.nama,
                 "opd": row.nmskpd.strip() if row.nmskpd else "",
-                "gaji_pokok": str(Decimal(str(row.gapok or 0)).quantize(Decimal("0.01"))),
-                "gaji_kotor": str(gaji_kotor),
-                "total_potongan": str(total_pot),
-                "gaji_bersih": str(gaji_bersih),
+                "periode": row.tglgaji.strftime("%Y-%m"),
+                "kdpangkat": format_kdpangkat(row.kdpangkat),
+                "norek": row.norek,
+                "penghasilan_kotor": str(penghasilan_kotor),
+                "potongan_simgaji": str(potongan_simgaji),
+                "potongan_internal": str(potongan_internal),
+                "total_potongan": str(total_potongan),
+                "take_home_pay": str(take_home_pay),
+                "rincian_penghasilan": {
+                    col: str(Decimal(str(getattr(row, col) or 0)).quantize(Decimal("0.01")))
+                    for col in INCOME_COLUMNS
+                },
+                "rincian_potongan_simgaji": {
+                    col: str(Decimal(str(getattr(row, col) or 0)).quantize(Decimal("0.01")))
+                    for col in DEDUCTION_COLUMNS
+                },
+                "rincian_potongan_internal": rincian_internal,
             }
         )
 
