@@ -68,7 +68,7 @@ def create_api_key(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(require_super_admin),
 ) -> dict[str, Any]:
-    raw_key = f"sg_live_{secrets.token_hex(24)}"
+    raw_key = f"sg_tgh_{secrets.token_hex(24)}"
     key_hash = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
     key_prefix = raw_key[:16] + "..."
 
