@@ -1023,7 +1023,6 @@ def get_payroll_asn_annual(
                 "pos_id": pos.id,
                 "pos_nama": pos.nama_pos,
                 "nominal": str(Decimal(str(item.nominal or 0)).quantize(Decimal("0.01"))),
-                "keterangan": item.keterangan,
             }
             for item, pos in item_rows
         ]
