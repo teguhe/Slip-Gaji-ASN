@@ -7814,6 +7814,10 @@
           const id = delBtn.dataset.delApikey;
           if (!window.confirm('Hapus API Key ini secara permanen?')) return;
           await apiRequest(`/api/v1/api-keys/${id}`, { method: 'DELETE' });
+          const banner = $('#api-key-created-banner');
+          const valEl = $('#api-key-created-value');
+          if (banner) banner.hidden = true;
+          if (valEl) valEl.textContent = '';
           await loadApiKeys();
         }
       });
